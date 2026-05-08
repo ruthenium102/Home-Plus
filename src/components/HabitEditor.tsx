@@ -84,10 +84,10 @@ export function HabitEditor({ open, editing, onClose }: Props) {
       onClick={onClose}
     >
       <div
-        className="card w-full max-w-md max-h-[90vh] overflow-y-auto"
+        className="card w-full max-w-md sm:max-w-lg max-h-[88vh] flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between p-4 border-b border-border">
+        <div className="flex items-center justify-between p-4 border-b border-border shrink-0">
           <h2 className="font-display text-xl text-text">
             {editing ? 'Edit habit' : 'New habit'}
           </h2>
@@ -99,7 +99,7 @@ export function HabitEditor({ open, editing, onClose }: Props) {
           </button>
         </div>
 
-        <div className="p-4 space-y-4">
+        <div className="p-4 space-y-4 overflow-y-auto flex-1">
           <input
             type="text"
             value={title}
@@ -223,7 +223,7 @@ export function HabitEditor({ open, editing, onClose }: Props) {
           )}
         </div>
 
-        <div className="flex items-center justify-between p-4 border-t border-border">
+        <div className="flex items-center justify-between p-4 border-t border-border shrink-0 bg-surface">
           {editing ? (
             <button
               onClick={handleDelete}

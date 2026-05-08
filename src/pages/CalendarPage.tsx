@@ -13,11 +13,12 @@ import {
   startOfMonth,
   startOfWeek
 } from 'date-fns';
-import { ChevronLeft, ChevronRight, Plus } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, Sparkles } from 'lucide-react';
 import { useFamily } from '@/context/FamilyContext';
 import { expandEvents, type ExpandedEvent } from '@/lib/recurrence';
 import { EventChip } from '@/components/EventChip';
 import { EventEditor } from '@/components/EventEditor';
+import { ImportEventsModal } from '@/components/ImportEventsModal';
 import { Avatar } from '@/components/Avatar';
 import { useTheme } from '@/context/ThemeContext';
 import { getColorTokens } from '@/lib/colors';
@@ -33,6 +34,7 @@ export function CalendarPage() {
   const [editorOpen, setEditorOpen] = useState(false);
   const [editing, setEditing] = useState<CalendarEvent | null>(null);
   const [createInitial, setCreateInitial] = useState<Date | undefined>();
+  const [importOpen, setImportOpen] = useState(false);
 
   const range = useMemo(() => {
     if (view === 'day') {
@@ -138,6 +140,14 @@ export function CalendarPage() {
         </div>
 
         <button
+          onClick={() => setImportOpen(true)}
+          className="flex items-center gap-1.5 px-3 py-2 border border-border text-text-muted text-sm rounded-md hover:bg-surface-2"
+          title="Import events from holidays, paste, or iCal feed"
+        >
+          <Sparkles size={14} /> Import
+        </button>
+
+        <button
           onClick={() => handleNew(cursor)}
           className="flex items-center gap-1.5 px-3 py-2 bg-accent text-white text-sm font-medium rounded-md hover:opacity-90"
         >
@@ -205,6 +215,10 @@ export function CalendarPage() {
         onClose={() => setEditorOpen(false)}
         editing={editing}
         initialStart={createInitial}
+      />
+      <ImportEventsModal
+        open={importOpen}
+        onClose={() => setImportOpen(false)}
       />
     </div>
   );

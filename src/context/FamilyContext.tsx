@@ -665,13 +665,11 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
       const nextCheckIns = [...checkIns, newCheckIn];
       setCheckIns(nextCheckIns);
 
-      // Streak rewards — only for kids on habits with streak_rewards enabled
+      // Streak rewards — for kids on habits with streak_rewards enabled.
+      // Awarded whenever a check-in causes the streak to land on a milestone,
+      // including on backfilled days (per "kid-friendly but gameable" mode).
       const member = members.find((m) => m.id === memberId);
-      if (
-        member?.role === 'child' &&
-        habit.streak_rewards &&
-        forDate === new Date().toISOString().slice(0, 10)
-      ) {
+      if (member?.role === 'child' && habit.streak_rewards) {
         const streak = computeStreak(nextCheckIns, habitId, memberId);
         const reward = STREAK_MILESTONES[streak];
         if (reward) {

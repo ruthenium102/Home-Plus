@@ -130,11 +130,11 @@ export function EventEditor({ open, onClose, editing, initialStart }: Props) {
       onClick={onClose}
     >
       <div
-        className="card w-full max-w-lg max-h-[90vh] overflow-y-auto"
+        className="card w-full max-w-2xl max-h-[88vh] flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-border">
+        <div className="flex items-center justify-between p-4 border-b border-border shrink-0">
           <h2 className="font-display text-xl text-text">
             {editing ? 'Edit event' : 'New event'}
           </h2>
@@ -146,7 +146,7 @@ export function EventEditor({ open, onClose, editing, initialStart }: Props) {
           </button>
         </div>
 
-        <div className="p-4 space-y-4">
+        <div className="p-4 space-y-4 overflow-y-auto flex-1">
           {/* Title */}
           <input
             type="text"
@@ -321,7 +321,7 @@ export function EventEditor({ open, onClose, editing, initialStart }: Props) {
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between p-4 border-t border-border">
+        <div className="flex items-center justify-between p-4 border-t border-border shrink-0 bg-surface">
           {editing ? (
             <button
               onClick={handleDelete}

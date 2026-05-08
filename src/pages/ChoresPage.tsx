@@ -15,9 +15,12 @@ import {
 import { startOfWeek } from 'date-fns';
 import { useFamily } from '@/context/FamilyContext';
 import { useTheme } from '@/context/ThemeContext';
+import { useToast } from '@/context/ToastContext';
+import { useSwipeMode } from '@/hooks/useSwipeMode';
 import { Avatar } from '@/components/Avatar';
 import { ChoreEditor } from '@/components/ChoreEditor';
 import { RedemptionModal } from '@/components/RedemptionModal';
+import { SwipeableRow } from '@/components/SwipeableRow';
 import { getColorTokens } from '@/lib/colors';
 import {
   formatBalance,
@@ -382,7 +385,9 @@ function ParentOverview() {
 }
 
 function ParentManage() {
-  const { chores, members } = useFamily();
+  const { chores, members, deleteChore, addChore } = useFamily();
+  const { show } = useToast();
+  const swipeMode = useSwipeMode();
   const [editorOpen, setEditorOpen] = useState(false);
   const [editing, setEditing] = useState<Chore | null>(null);
 
@@ -394,6 +399,28 @@ function ParentManage() {
   const handleEdit = (c: Chore) => {
     setEditing(c);
     setEditorOpen(true);
+  };
+
+  const handleDeleteChore = (c: Chore) => {
+    const snapshot = c;
+    deleteChore(c.id);
+    show({
+      message: `"${snapshot.title}" deleted`,
+      onUndo: () => {
+        addChore({
+          title: snapshot.title,
+          description: snapshot.description,
+          assigned_to: snapshot.assigned_to,
+          frequency: snapshot.frequency,
+          weekdays: snapshot.weekdays,
+          payout: snapshot.payout,
+          active_from: snapshot.active_from,
+          requires_photo: snapshot.requires_photo,
+          requires_approval: snapshot.requires_approval,
+          archived: snapshot.archived
+        });
+      }
+    });
   };
 
   return (
@@ -412,26 +439,32 @@ function ParentManage() {
         {chores
           .filter((c) => !c.archived)
           .map((c) => (
-            <button
+            <SwipeableRow
               key={c.id}
-              onClick={() => handleEdit(c)}
-              className="w-full flex items-center gap-3 p-3 hover:bg-surface-2 text-left transition-colors first:rounded-t-lg last:rounded-b-lg"
+              mode={swipeMode}
+              onDelete={() => handleDeleteChore(c)}
             >
-              <div className="flex-1 min-w-0">
-                <div className="text-sm font-medium text-text">{c.title}</div>
-                <div className="text-xs text-text-faint">
-                  {formatFrequency(c)} · {formatPayout(c.payout)}
+              <button
+                onClick={() => handleEdit(c)}
+                data-no-swipe
+                className="w-full flex items-center gap-3 p-3 hover:bg-surface-2 text-left transition-colors first:rounded-t-lg last:rounded-b-lg"
+              >
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-medium text-text">{c.title}</div>
+                  <div className="text-xs text-text-faint">
+                    {formatFrequency(c)} · {formatPayout(c.payout)}
+                  </div>
                 </div>
-              </div>
-              <div className="flex -space-x-1.5">
-                {c.assigned_to.map((id) => {
-                  const m = members.find((x) => x.id === id);
-                  if (!m) return null;
-                  return <Avatar key={id} member={m} size={26} />;
-                })}
-              </div>
-              <Pencil size={14} className="text-text-faint shrink-0" />
-            </button>
+                <div className="flex -space-x-1.5">
+                  {c.assigned_to.map((id) => {
+                    const m = members.find((x) => x.id === id);
+                    if (!m) return null;
+                    return <Avatar key={id} member={m} size={26} />;
+                  })}
+                </div>
+                <Pencil size={14} className="text-text-faint shrink-0" />
+              </button>
+            </SwipeableRow>
           ))}
         {chores.filter((c) => !c.archived).length === 0 && (
           <div className="p-6 text-center text-text-faint text-sm">

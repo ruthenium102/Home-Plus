@@ -112,10 +112,10 @@ export function ChoreEditor({ open, onClose, editing }: Props) {
       onClick={onClose}
     >
       <div
-        className="card w-full max-w-lg max-h-[90vh] overflow-y-auto"
+        className="card w-full max-w-2xl max-h-[88vh] flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between p-4 border-b border-border">
+        <div className="flex items-center justify-between p-4 border-b border-border shrink-0">
           <h2 className="font-display text-xl text-text">
             {editing ? 'Edit chore' : 'New chore'}
           </h2>
@@ -127,7 +127,7 @@ export function ChoreEditor({ open, onClose, editing }: Props) {
           </button>
         </div>
 
-        <div className="p-4 space-y-4">
+        <div className="p-4 space-y-3 overflow-y-auto flex-1">
           <input
             type="text"
             value={title}
@@ -224,59 +224,63 @@ export function ChoreEditor({ open, onClose, editing }: Props) {
             )}
           </div>
 
-          {/* Payout */}
-          <div>
-            <div className="text-sm text-text-muted mb-2">Reward per completion</div>
-            <div className="space-y-2">
-              {rewardCategories.map((cat) => (
-                <div key={cat.key} className="flex items-center gap-3">
-                  <label className="flex-1 text-sm text-text">
-                    {cat.label} ({cat.unit})
-                  </label>
-                  <input
-                    type="number"
-                    min={0}
-                    value={payout[cat.key] ?? ''}
-                    onChange={(e) => updatePayout(cat.key, e.target.value)}
-                    placeholder="0"
-                    className="w-24 px-3 py-2 bg-surface-2 border border-border rounded-md text-text text-sm text-right tabular-nums focus:outline-none focus:border-accent"
-                  />
-                </div>
-              ))}
-            </div>
-            {(payout.savings_cents ?? 0) > 0 && (
-              <div className="text-[11px] text-text-faint mt-1.5">
-                Note: savings is in cents — 100 = $1.00
+          {/* Payout + flags side-by-side on tablet */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <div className="text-sm text-text-muted mb-2">Reward per completion</div>
+              <div className="space-y-1.5">
+                {rewardCategories.map((cat) => (
+                  <div key={cat.key} className="flex items-center gap-3">
+                    <label className="flex-1 text-sm text-text">
+                      {cat.label} ({cat.unit})
+                    </label>
+                    <input
+                      type="number"
+                      min={0}
+                      value={payout[cat.key] ?? ''}
+                      onChange={(e) => updatePayout(cat.key, e.target.value)}
+                      placeholder="0"
+                      className="w-20 px-2 py-1.5 bg-surface-2 border border-border rounded-md text-text text-sm text-right tabular-nums focus:outline-none focus:border-accent"
+                    />
+                  </div>
+                ))}
               </div>
-            )}
-          </div>
+              {(payout.savings_cents ?? 0) > 0 && (
+                <div className="text-[11px] text-text-faint mt-1.5">
+                  Savings is in cents — 100 = $1.00
+                </div>
+              )}
+            </div>
 
-          {/* Approval flags */}
-          <div className="space-y-2 pt-2 border-t border-border">
-            <label className="flex items-center gap-3 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={requiresPhoto}
-                onChange={(e) => setRequiresPhoto(e.target.checked)}
-                className="accent-accent w-4 h-4"
-              />
-              <Camera size={15} className="text-text-muted" />
-              <span className="text-sm text-text flex-1">Requires photo proof</span>
-            </label>
-            <label className="flex items-center gap-3 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={requiresApproval}
-                onChange={(e) => setRequiresApproval(e.target.checked)}
-                className="accent-accent w-4 h-4"
-              />
-              <ShieldCheck size={15} className="text-text-muted" />
-              <span className="text-sm text-text flex-1">Parent must approve</span>
-            </label>
+            <div>
+              <div className="text-sm text-text-muted mb-2">Approval</div>
+              <div className="space-y-1.5">
+                <label className="flex items-center gap-2 cursor-pointer p-2 rounded-md hover:bg-surface-2/50">
+                  <input
+                    type="checkbox"
+                    checked={requiresPhoto}
+                    onChange={(e) => setRequiresPhoto(e.target.checked)}
+                    className="accent-accent w-4 h-4"
+                  />
+                  <Camera size={14} className="text-text-muted" />
+                  <span className="text-sm text-text flex-1">Photo proof</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer p-2 rounded-md hover:bg-surface-2/50">
+                  <input
+                    type="checkbox"
+                    checked={requiresApproval}
+                    onChange={(e) => setRequiresApproval(e.target.checked)}
+                    className="accent-accent w-4 h-4"
+                  />
+                  <ShieldCheck size={14} className="text-text-muted" />
+                  <span className="text-sm text-text flex-1">Parent approves</span>
+                </label>
+              </div>
+            </div>
           </div>
         </div>
 
-        <div className="flex items-center justify-between p-4 border-t border-border">
+        <div className="flex items-center justify-between p-4 border-t border-border shrink-0 bg-surface">
           {editing ? (
             <button
               onClick={handleDelete}

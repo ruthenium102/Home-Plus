@@ -1,16 +1,33 @@
-import { useState } from 'react';
+import { lazy, Suspense, useState } from 'react';
 import { ThemeProvider } from '@/context/ThemeContext';
 import { FamilyProvider, useFamily } from '@/context/FamilyContext';
+import { ToastProvider } from '@/context/ToastContext';
 import { TopBar } from '@/components/TopBar';
 import { TabBar, type TabKey } from '@/components/TabBar';
 import { UserSwitcher } from '@/components/UserSwitcher';
 import { HomePage } from '@/pages/HomePage';
-import { CalendarPage } from '@/pages/CalendarPage';
-import { SettingsPage } from '@/pages/SettingsPage';
-import { ChoresPage } from '@/pages/ChoresPage';
-import { ListsPage } from '@/pages/ListsPage';
-import { HabitsPage } from '@/pages/HabitsPage';
-import { KitchenPage } from '@/pages/Placeholders';
+import { TabFallback } from '@/components/TabFallback';
+
+// Lazy-load tab pages so the lock screen + home tab load fast.
+// Each chunk is fetched on first visit to that tab.
+const CalendarPage = lazy(() =>
+  import('@/pages/CalendarPage').then((m) => ({ default: m.CalendarPage }))
+);
+const ChoresPage = lazy(() =>
+  import('@/pages/ChoresPage').then((m) => ({ default: m.ChoresPage }))
+);
+const ListsPage = lazy(() =>
+  import('@/pages/ListsPage').then((m) => ({ default: m.ListsPage }))
+);
+const HabitsPage = lazy(() =>
+  import('@/pages/HabitsPage').then((m) => ({ default: m.HabitsPage }))
+);
+const KitchenPage = lazy(() =>
+  import('@/pages/Placeholders').then((m) => ({ default: m.KitchenPage }))
+);
+const SettingsPage = lazy(() =>
+  import('@/pages/SettingsPage').then((m) => ({ default: m.SettingsPage }))
+);
 
 function AppShell() {
   const { activeMember } = useFamily();
@@ -29,12 +46,16 @@ function AppShell() {
 
         <main>
           {tab === 'home' && <HomePage onNavigate={setTab} />}
-          {tab === 'calendar' && <CalendarPage />}
-          {tab === 'chores' && <ChoresPage />}
-          {tab === 'lists' && <ListsPage />}
-          {tab === 'habits' && <HabitsPage />}
-          {tab === 'kitchen' && <KitchenPage />}
-          {tab === 'settings' && <SettingsPage />}
+          {tab !== 'home' && (
+            <Suspense fallback={<TabFallback />}>
+              {tab === 'calendar' && <CalendarPage />}
+              {tab === 'chores' && <ChoresPage />}
+              {tab === 'lists' && <ListsPage />}
+              {tab === 'habits' && <HabitsPage />}
+              {tab === 'kitchen' && <KitchenPage />}
+              {tab === 'settings' && <SettingsPage />}
+            </Suspense>
+          )}
         </main>
       </div>
 
@@ -53,9 +74,11 @@ function AppShell() {
 export default function App() {
   return (
     <ThemeProvider>
-      <FamilyProvider>
-        <AppShell />
-      </FamilyProvider>
+      <ToastProvider>
+        <FamilyProvider>
+          <AppShell />
+        </FamilyProvider>
+      </ToastProvider>
     </ThemeProvider>
   );
 }

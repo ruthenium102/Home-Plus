@@ -11,9 +11,12 @@ import {
 } from 'lucide-react';
 import { useFamily } from '@/context/FamilyContext';
 import { useTheme } from '@/context/ThemeContext';
+import { useToast } from '@/context/ToastContext';
+import { useSwipeMode } from '@/hooks/useSwipeMode';
 import { ListEditor, getListIcon } from '@/components/ListEditor';
 import { ListItemEditor } from '@/components/ListItemEditor';
 import { Avatar } from '@/components/Avatar';
+import { SwipeableRow } from '@/components/SwipeableRow';
 import { getColorTokens } from '@/lib/colors';
 import {
   visibleLists,
@@ -235,71 +238,100 @@ function ListItemRow({
   members: ReturnType<typeof useFamily>['members'];
   onEdit: () => void;
 }) {
-  const { toggleListItem } = useFamily();
+  const { toggleListItem, deleteListItem, addListItem } = useFamily();
+  const { show } = useToast();
+  const swipeMode = useSwipeMode();
   const assignee = findAssignee(members, item);
   const dueLabel = item.next_due || item.due_date;
   const overdue = isOverdue(item);
   const dueSoon = isDueSoon(item, 7);
 
+  const handleDelete = () => {
+    // Snapshot for undo
+    const snapshot = { ...item };
+    deleteListItem(item.id);
+    show({
+      message: `"${item.title}" deleted`,
+      onUndo: () => {
+        addListItem({
+          list_id: snapshot.list_id,
+          title: snapshot.title,
+          notes: snapshot.notes,
+          done: snapshot.done,
+          done_at: snapshot.done_at,
+          repeat: snapshot.repeat,
+          next_due: snapshot.next_due,
+          due_date: snapshot.due_date,
+          assigned_to: snapshot.assigned_to,
+          position: snapshot.position
+        });
+      }
+    });
+  };
+
   return (
-    <div className="flex items-start gap-3 p-3 hover:bg-surface-2/50 transition-colors group">
-      <button
-        onClick={() => toggleListItem(item.id)}
-        className="shrink-0 mt-0.5"
-      >
-        {item.done ? (
-          <CheckCircle2 size={20} className="text-accent" />
-        ) : (
-          <Circle size={20} className="text-text-faint hover:text-text" />
-        )}
-      </button>
-      <button
-        onClick={onEdit}
-        className="flex-1 min-w-0 text-left"
-      >
-        <div
-          className={
-            'text-sm ' +
-            (item.done
-              ? 'text-text-muted line-through'
-              : 'text-text font-medium')
-          }
+    <SwipeableRow onDelete={handleDelete} mode={swipeMode}>
+      <div className="flex items-start gap-3 p-3 hover:bg-surface-2/50 transition-colors group">
+        <button
+          data-no-swipe
+          onClick={() => toggleListItem(item.id)}
+          className="shrink-0 mt-0.5"
         >
-          {item.title}
-        </div>
-        {item.notes && !item.done && (
-          <div className="text-xs text-text-faint mt-0.5">{item.notes}</div>
+          {item.done ? (
+            <CheckCircle2 size={20} className="text-accent" />
+          ) : (
+            <Circle size={20} className="text-text-faint hover:text-text" />
+          )}
+        </button>
+        <button
+          data-no-swipe
+          onClick={onEdit}
+          className="flex-1 min-w-0 text-left"
+        >
+          <div
+            className={
+              'text-sm ' +
+              (item.done
+                ? 'text-text-muted line-through'
+                : 'text-text font-medium')
+            }
+          >
+            {item.title}
+          </div>
+          {item.notes && !item.done && (
+            <div className="text-xs text-text-faint mt-0.5">{item.notes}</div>
+          )}
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-1 text-[11px] text-text-faint">
+            {item.repeat !== 'never' && (
+              <span className="flex items-center gap-1">
+                <Repeat size={10} /> {formatRepeat(item.repeat)}
+              </span>
+            )}
+            {dueLabel && (
+              <span
+                className={
+                  'flex items-center gap-1 ' +
+                  (overdue && !item.done
+                    ? 'text-accent font-medium'
+                    : dueSoon && !item.done
+                      ? 'text-text-muted'
+                      : '')
+                }
+              >
+                <CalendarIcon size={10} /> {formatDue(dueLabel)}
+              </span>
+            )}
+            {item.done && item.repeat !== 'never' && item.next_due && (
+              <span className="text-text-faint">
+                Next: {formatDue(item.next_due)}
+              </span>
+            )}
+          </div>
+        </button>
+        {list.owner_id === null && assignee && (
+          <Avatar member={assignee} size={26} />
         )}
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-1 text-[11px] text-text-faint">
-          {item.repeat !== 'never' && (
-            <span className="flex items-center gap-1">
-              <Repeat size={10} /> {formatRepeat(item.repeat)}
-            </span>
-          )}
-          {dueLabel && (
-            <span
-              className={
-                'flex items-center gap-1 ' +
-                (overdue && !item.done
-                  ? 'text-accent font-medium'
-                  : dueSoon && !item.done
-                    ? 'text-text-muted'
-                    : '')
-              }
-            >
-              <CalendarIcon size={10} /> {formatDue(dueLabel)}
-            </span>
-          )}
-          {item.done && item.repeat !== 'never' && item.next_due && (
-            <span className="text-text-faint">
-              Next: {formatDue(item.next_due)}
-            </span>
-          )}
-        </div>
-      </button>
-      {list.owner_id === null && assignee && (
-        <Avatar member={assignee} size={26} />
-      )}
-    </div>
+      </div>
+    </SwipeableRow>
   );
 }

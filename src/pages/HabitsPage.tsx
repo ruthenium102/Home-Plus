@@ -9,8 +9,11 @@ import {
 } from 'lucide-react';
 import { useFamily } from '@/context/FamilyContext';
 import { useTheme } from '@/context/ThemeContext';
+import { useToast } from '@/context/ToastContext';
+import { useSwipeMode } from '@/hooks/useSwipeMode';
 import { Avatar } from '@/components/Avatar';
 import { HabitEditor } from '@/components/HabitEditor';
+import { SwipeableRow } from '@/components/SwipeableRow';
 import { getColorTokens } from '@/lib/colors';
 import {
   computeHabitStreak,
@@ -22,12 +25,34 @@ import {
 import type { Habit } from '@/types';
 
 export function HabitsPage() {
-  const { habits, checkIns, members, activeMember, toggleCheckIn } = useFamily();
+  const { habits, checkIns, members, activeMember, toggleCheckIn, deleteHabit, addHabit } =
+    useFamily();
   const { resolved } = useTheme();
+  const { show } = useToast();
+  const swipeMode = useSwipeMode();
   const isDark = resolved === 'dark';
 
   const [editorOpen, setEditorOpen] = useState(false);
   const [editing, setEditing] = useState<Habit | null>(null);
+
+  const handleDeleteHabit = (h: Habit) => {
+    const snapshot = h;
+    deleteHabit(h.id);
+    show({
+      message: `"${snapshot.title}" deleted`,
+      onUndo: () => {
+        addHabit({
+          title: snapshot.title,
+          description: snapshot.description,
+          member_id: snapshot.member_id,
+          cadence: snapshot.cadence,
+          visibility: snapshot.visibility,
+          streak_rewards: snapshot.streak_rewards,
+          archived: snapshot.archived
+        });
+      }
+    });
+  };
 
   const habitsToShow = useMemo(
     () => (activeMember ? visibleHabits(habits, activeMember.id) : []),
@@ -106,24 +131,39 @@ export function HabitsPage() {
                 </div>
               </div>
               <div className="space-y-2">
-                {list.map((habit) => (
-                  <HabitRow
-                    key={habit.id}
-                    habit={habit}
-                    color={tokens}
-                    canEdit={isActive}
-                    canCheck={isActive}
-                    todayISO={todayISO}
-                    isCheckedToday={isCheckedIn(checkIns, habit.id, member.id, today)}
-                    streak={computeHabitStreak(checkIns, habit.id, member.id)}
-                    last7={lastNDays(checkIns, habit.id, member.id, 7)}
-                    onToggle={() => toggleCheckIn(habit.id, member.id, todayISO)}
-                    onEdit={() => {
-                      setEditing(habit);
-                      setEditorOpen(true);
-                    }}
-                  />
-                ))}
+                {list.map((habit) => {
+                  const row = (
+                    <HabitRow
+                      key={habit.id}
+                      habit={habit}
+                      color={tokens}
+                      canEdit={isActive}
+                      canCheck={isActive}
+                      todayISO={todayISO}
+                      isCheckedToday={isCheckedIn(checkIns, habit.id, member.id, today)}
+                      streak={computeHabitStreak(checkIns, habit.id, member.id)}
+                      last7={lastNDays(checkIns, habit.id, member.id, 7)}
+                      onToggle={() => toggleCheckIn(habit.id, member.id, todayISO)}
+                      onToggleDate={(iso) => toggleCheckIn(habit.id, member.id, iso)}
+                      onEdit={() => {
+                        setEditing(habit);
+                        setEditorOpen(true);
+                      }}
+                    />
+                  );
+                  // Only allow swipe-to-delete on your own habits
+                  return isActive ? (
+                    <SwipeableRow
+                      key={habit.id}
+                      mode={swipeMode}
+                      onDelete={() => handleDeleteHabit(habit)}
+                    >
+                      {row}
+                    </SwipeableRow>
+                  ) : (
+                    row
+                  );
+                })}
               </div>
             </section>
           );
@@ -152,6 +192,7 @@ interface HabitRowProps {
   streak: number;
   last7: { date: string; checked: boolean }[];
   onToggle: () => void;
+  onToggleDate: (iso: string) => void;
   onEdit: () => void;
 }
 
@@ -160,10 +201,12 @@ function HabitRow({
   color,
   canEdit,
   canCheck,
+  todayISO,
   isCheckedToday,
   streak,
   last7,
   onToggle,
+  onToggleDate,
   onEdit
 }: HabitRowProps) {
   const milestone = nextStreakMilestone(streak);
@@ -232,19 +275,49 @@ function HabitRow({
         </div>
       </div>
 
-      {/* 7-day heatmap */}
-      <div className="hidden sm:flex items-center gap-0.5 shrink-0">
-        {last7.map((d) => (
-          <div
-            key={d.date}
-            className="w-3.5 h-3.5 rounded-sm"
-            style={{
-              background: d.checked ? color.base : color.soft,
-              opacity: d.checked ? 1 : 0.4
-            }}
-            title={d.date + (d.checked ? ' · done' : '')}
-          />
-        ))}
+      {/* 7-day heatmap — tappable to backfill */}
+      <div className="flex items-end gap-1 shrink-0">
+        {last7.map((d, idx) => {
+          const isToday = d.date === todayISO;
+          const date = new Date(d.date);
+          const dayLabel = date.toLocaleDateString(undefined, { weekday: 'narrow' });
+          return (
+            <button
+              key={d.date}
+              onClick={canCheck ? () => onToggleDate(d.date) : undefined}
+              disabled={!canCheck}
+              className={
+                'flex flex-col items-center gap-0.5 group ' +
+                (canCheck ? 'cursor-pointer' : 'cursor-default')
+              }
+              title={
+                d.date +
+                (d.checked ? ' · done' : '') +
+                (canCheck ? (d.checked ? ' (tap to undo)' : ' (tap to mark done)') : '')
+              }
+            >
+              <div
+                className={
+                  'w-5 h-5 rounded-sm transition-transform ' +
+                  (canCheck ? 'group-hover:scale-110' : '') +
+                  (isToday ? ' ring-1 ring-text/30' : '')
+                }
+                style={{
+                  background: d.checked ? color.base : color.soft,
+                  opacity: d.checked ? 1 : 0.5
+                }}
+              />
+              <span
+                className={
+                  'text-[9px] tabular-nums ' +
+                  (isToday ? 'text-text-muted font-medium' : 'text-text-faint')
+                }
+              >
+                {idx === last7.length - 1 ? 'Today' : dayLabel}
+              </span>
+            </button>
+          );
+        })}
       </div>
 
       {canEdit && (

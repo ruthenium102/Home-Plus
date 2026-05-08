@@ -21,7 +21,7 @@ import type {
  * when the seed schema or default family changes (e.g. Henderson → Ellis).
  */
 const PREFIX = 'hp:';
-const SEED_VERSION = 3; // 1=Henderson, 2=Ellis+chores, 3=Phase3 (lists+habits+location)
+const SEED_VERSION = 4; // 1=Henderson, 2=Ellis+chores, 3=Phase3, 4=swipe+backfill+import
 
 // On first load, if the user has stale demo data from a previous version,
 // wipe the demo:* keys so they get the fresh seed.

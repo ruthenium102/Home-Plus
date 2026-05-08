@@ -6,7 +6,10 @@ import { expandEvents } from '@/lib/recurrence';
 import { MemberStrip } from '@/components/MemberStrip';
 import { EventChip } from '@/components/EventChip';
 import { Avatar } from '@/components/Avatar';
+import { SwipeableRow } from '@/components/SwipeableRow';
 import { useTheme } from '@/context/ThemeContext';
+import { useToast } from '@/context/ToastContext';
+import { useSwipeMode } from '@/hooks/useSwipeMode';
 import { getColorTokens } from '@/lib/colors';
 import { isParent, formatBalance } from '@/lib/chores';
 import { isDueSoon, isOverdue, formatDue, visibleLists } from '@/lib/lists';
@@ -28,9 +31,39 @@ export function HomePage({ onNavigate }: Props) {
     listItems,
     habits,
     checkIns,
-    activeMember
+    activeMember,
+    deleteEvent,
+    addEvent
   } = useFamily();
   const { resolved } = useTheme();
+  const { show } = useToast();
+  const swipeMode = useSwipeMode();
+
+  // Soft-delete an event with undo support.
+  // For recurring events this removes the entire series — for one-offs, just that one.
+  const handleDeleteEvent = (eventId: string, title: string) => {
+    const original = events.find((e) => e.id === eventId);
+    if (!original) return;
+    deleteEvent(eventId);
+    show({
+      message: `"${title}" deleted`,
+      onUndo: () => {
+        addEvent({
+          title: original.title,
+          description: original.description,
+          start_at: original.start_at,
+          end_at: original.end_at,
+          all_day: original.all_day,
+          location: original.location,
+          category: original.category,
+          member_ids: original.member_ids,
+          recurrence: original.recurrence,
+          reminder_offsets: original.reminder_offsets,
+          created_by: original.created_by
+        });
+      }
+    });
+  };
 
   const today = new Date();
   const todays = useMemo(() => {
@@ -103,11 +136,16 @@ export function HomePage({ onNavigate }: Props) {
           ) : (
             <div className="space-y-1">
               {todays.map((e) => (
-                <EventChip
+                <SwipeableRow
                   key={e.occurrence_key}
-                  event={e}
-                  onClick={() => onNavigate('calendar')}
-                />
+                  mode={swipeMode}
+                  onDelete={() => handleDeleteEvent(e.id, e.title)}
+                >
+                  <EventChip
+                    event={e}
+                    onClick={() => onNavigate('calendar')}
+                  />
+                </SwipeableRow>
               ))}
             </div>
           )}
