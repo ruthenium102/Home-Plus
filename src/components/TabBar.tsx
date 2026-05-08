@@ -1,0 +1,66 @@
+import {
+  Home,
+  Calendar,
+  ListChecks,
+  Sparkles,
+  Trophy,
+  ChefHat,
+  Settings as SettingsIcon,
+  type LucideIcon
+} from 'lucide-react';
+
+export type TabKey =
+  | 'home'
+  | 'calendar'
+  | 'chores'
+  | 'lists'
+  | 'habits'
+  | 'kitchen'
+  | 'settings';
+
+interface Tab {
+  key: TabKey;
+  label: string;
+  icon: LucideIcon;
+}
+
+const TABS: Tab[] = [
+  { key: 'home', label: 'Home', icon: Home },
+  { key: 'calendar', label: 'Calendar', icon: Calendar },
+  { key: 'chores', label: 'Chores', icon: Trophy },
+  { key: 'lists', label: 'Lists', icon: ListChecks },
+  { key: 'habits', label: 'Habits', icon: Sparkles },
+  { key: 'kitchen', label: 'Kitchen+', icon: ChefHat },
+  { key: 'settings', label: 'Settings', icon: SettingsIcon }
+];
+
+interface Props {
+  active: TabKey;
+  onChange: (k: TabKey) => void;
+}
+
+export function TabBar({ active, onChange }: Props) {
+  return (
+    <nav className="card p-1.5 flex gap-1 overflow-x-auto scroll-x-clean">
+      {TABS.map((t) => {
+        const Icon = t.icon;
+        const isActive = active === t.key;
+        return (
+          <button
+            key={t.key}
+            onClick={() => onChange(t.key)}
+            className={
+              'flex-1 min-w-[78px] flex flex-col items-center gap-1 px-3 py-2.5 rounded-md transition-all active:scale-95 ' +
+              (isActive
+                ? 'bg-accent text-white shadow-sm'
+                : 'text-text-muted hover:bg-surface-2 hover:text-text')
+            }
+          >
+            <Icon size={20} strokeWidth={isActive ? 2.2 : 1.6} />
+            <span className="text-[11px] font-medium">{t.label}</span>
+          </button>
+        );
+      })}
+    </nav>
+  );
+}

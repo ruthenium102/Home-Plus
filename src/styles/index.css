@@ -1,0 +1,86 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ---- Theme tokens ----
+   Warm palette. Light mode = parchment/cream surfaces. Dark mode = deep cocoa.
+   Each color exposed as space-separated RGB so Tailwind's <alpha-value> works.
+*/
+
+:root {
+  /* Light theme (default) */
+  --bg: 248 244 237;          /* warm cream page bg */
+  --surface: 255 252 247;     /* cards */
+  --surface-2: 242 237 228;   /* recessed surface, e.g. nav rail bg */
+  --border: 230 222 209;
+  --border-strong: 210 200 184;
+  --text: 32 28 24;           /* near-black warm */
+  --text-muted: 110 100 88;
+  --text-faint: 150 140 126;
+  --accent: 196 77 46;        /* terracotta */
+  --accent-soft: 250 232 222;
+
+  --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.04);
+  --shadow: 0 4px 14px -4px rgb(0 0 0 / 0.08), 0 2px 4px -2px rgb(0 0 0 / 0.04);
+}
+
+.dark {
+  --bg: 26 24 21;             /* deep cocoa */
+  --surface: 42 38 34;
+  --surface-2: 32 29 26;
+  --border: 58 52 45;
+  --border-strong: 74 68 56;
+  --text: 245 241 234;
+  --text-muted: 138 131 119;
+  --text-faint: 100 94 84;
+  --accent: 224 116 80;       /* lifted terracotta for dark */
+  --accent-soft: 58 38 30;
+}
+
+html, body {
+  background: rgb(var(--bg));
+  color: rgb(var(--text));
+  font-family: 'Inter', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-feature-settings: 'cv11', 'ss01', 'ss03';
+}
+
+/* Touch-friendly defaults */
+button, [role="button"] {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  user-select: none;
+}
+
+/* Hide scrollbars on horizontal scrollers but keep functionality */
+.scroll-x-clean {
+  scrollbar-width: none;
+}
+.scroll-x-clean::-webkit-scrollbar {
+  display: none;
+}
+
+/* Subtle inset for cards */
+.card {
+  background: rgb(var(--surface));
+  border: 1px solid rgb(var(--border));
+  border-radius: 16px;
+}
+
+/* PIN dot animation */
+@keyframes pin-pop {
+  0% { transform: scale(0.7); opacity: 0; }
+  60% { transform: scale(1.15); opacity: 1; }
+  100% { transform: scale(1); }
+}
+.pin-dot-fill {
+  animation: pin-pop 180ms ease-out;
+}
+
+/* Suppress focus ring on touch but keep for keyboard */
+:focus:not(:focus-visible) { outline: none; }
+:focus-visible {
+  outline: 2px solid rgb(var(--accent));
+  outline-offset: 2px;
+}

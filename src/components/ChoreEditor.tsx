@@ -1,0 +1,309 @@
+import { useEffect, useState } from 'react';
+import { X, Trash2, Camera, ShieldCheck } from 'lucide-react';
+import { useFamily } from '@/context/FamilyContext';
+import { Avatar } from './Avatar';
+import type { Chore, ChoreFrequency, RewardCategoryKey } from '@/types';
+
+interface Props {
+  open: boolean;
+  onClose: () => void;
+  editing?: Chore | null;
+}
+
+const FREQ_OPTIONS: { v: ChoreFrequency; label: string }[] = [
+  { v: 'daily', label: 'Every day' },
+  { v: 'weekdays', label: 'Weekdays' },
+  { v: 'weekend', label: 'Weekends' },
+  { v: 'weekly', label: 'Pick days' },
+  { v: 'monthly', label: 'Monthly' },
+  { v: 'one_off', label: 'One-off' }
+];
+
+const WEEKDAY_LABELS = ['S', 'M', 'T', 'W', 'T', 'F', 'S']; // Sun-first
+
+export function ChoreEditor({ open, onClose, editing }: Props) {
+  const { members, rewardCategories, addChore, updateChore, deleteChore } = useFamily();
+  const kids = members.filter((m) => m.role === 'child');
+
+  const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
+  const [assigned, setAssigned] = useState<string[]>([]);
+  const [freq, setFreq] = useState<ChoreFrequency>('daily');
+  const [weekdays, setWeekdays] = useState<number[]>([]);
+  const [payout, setPayout] = useState<Partial<Record<RewardCategoryKey, number>>>({
+    stars: 5
+  });
+  const [requiresPhoto, setRequiresPhoto] = useState(false);
+  const [requiresApproval, setRequiresApproval] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    if (editing) {
+      setTitle(editing.title);
+      setDescription(editing.description || '');
+      setAssigned(editing.assigned_to);
+      setFreq(editing.frequency);
+      setWeekdays(editing.weekdays);
+      setPayout(editing.payout);
+      setRequiresPhoto(editing.requires_photo);
+      setRequiresApproval(editing.requires_approval);
+    } else {
+      setTitle('');
+      setDescription('');
+      setAssigned([]);
+      setFreq('daily');
+      setWeekdays([]);
+      setPayout({ stars: 5 });
+      setRequiresPhoto(false);
+      setRequiresApproval(false);
+    }
+  }, [open, editing]);
+
+  if (!open) return null;
+
+  const handleSave = () => {
+    if (!title.trim()) return;
+    const today = new Date().toISOString().slice(0, 10);
+    const payload = {
+      title: title.trim(),
+      description: description.trim() || null,
+      assigned_to: assigned,
+      frequency: freq,
+      weekdays: freq === 'weekly' ? weekdays : [],
+      payout,
+      active_from: editing?.active_from || today,
+      requires_photo: requiresPhoto,
+      requires_approval: requiresApproval,
+      archived: false
+    };
+
+    if (editing) {
+      updateChore(editing.id, payload);
+    } else {
+      addChore(payload);
+    }
+    onClose();
+  };
+
+  const handleDelete = () => {
+    if (!editing) return;
+    if (confirm(`Delete "${editing.title}"?`)) {
+      deleteChore(editing.id);
+      onClose();
+    }
+  };
+
+  const updatePayout = (cat: RewardCategoryKey, val: string) => {
+    const n = parseInt(val, 10);
+    setPayout((prev) => {
+      const next = { ...prev };
+      if (isNaN(n) || n <= 0) {
+        delete next[cat];
+      } else {
+        next[cat] = n;
+      }
+      return next;
+    });
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4"
+      onClick={onClose}
+    >
+      <div
+        className="card w-full max-w-lg max-h-[90vh] overflow-y-auto"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between p-4 border-b border-border">
+          <h2 className="font-display text-xl text-text">
+            {editing ? 'Edit chore' : 'New chore'}
+          </h2>
+          <button
+            onClick={onClose}
+            className="w-9 h-9 rounded-md hover:bg-surface-2 flex items-center justify-center text-text-muted"
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        <div className="p-4 space-y-4">
+          <input
+            type="text"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="Chore title"
+            autoFocus
+            className="w-full px-3 py-3 bg-surface-2 border border-border rounded-md text-text text-lg font-medium placeholder:text-text-faint focus:outline-none focus:border-accent"
+          />
+
+          <textarea
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder="Description (optional)"
+            rows={2}
+            className="w-full px-3 py-2.5 bg-surface-2 border border-border rounded-md text-text text-sm placeholder:text-text-faint focus:outline-none focus:border-accent resize-none"
+          />
+
+          {/* Assigned to */}
+          <div>
+            <div className="text-sm text-text-muted mb-2">Assigned to</div>
+            <div className="flex flex-wrap gap-2">
+              {kids.map((m) => {
+                const selected = assigned.includes(m.id);
+                return (
+                  <button
+                    key={m.id}
+                    onClick={() =>
+                      setAssigned((prev) =>
+                        prev.includes(m.id)
+                          ? prev.filter((x) => x !== m.id)
+                          : [...prev, m.id]
+                      )
+                    }
+                    className={
+                      'flex items-center gap-2 pl-1 pr-3 py-1 rounded-full border transition-all ' +
+                      (selected
+                        ? 'bg-surface-2 border-accent'
+                        : 'border-border hover:border-border-strong opacity-70')
+                    }
+                  >
+                    <Avatar member={m} size={26} />
+                    <span className="text-sm text-text">{m.name}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Frequency */}
+          <div>
+            <div className="text-sm text-text-muted mb-2">How often</div>
+            <div className="flex flex-wrap gap-1.5 mb-2">
+              {FREQ_OPTIONS.map((opt) => (
+                <button
+                  key={opt.v}
+                  onClick={() => setFreq(opt.v)}
+                  className={
+                    'px-3 py-1.5 rounded-full text-xs border transition-colors ' +
+                    (freq === opt.v
+                      ? 'bg-accent text-white border-accent'
+                      : 'border-border text-text-muted hover:border-border-strong')
+                  }
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+            {freq === 'weekly' && (
+              <div className="flex gap-1.5">
+                {WEEKDAY_LABELS.map((label, i) => {
+                  const selected = weekdays.includes(i);
+                  return (
+                    <button
+                      key={i}
+                      onClick={() =>
+                        setWeekdays((prev) =>
+                          prev.includes(i)
+                            ? prev.filter((x) => x !== i)
+                            : [...prev, i].sort()
+                        )
+                      }
+                      className={
+                        'w-9 h-9 rounded-full text-xs font-medium transition-colors ' +
+                        (selected
+                          ? 'bg-accent text-white'
+                          : 'bg-surface-2 border border-border text-text-muted hover:border-border-strong')
+                      }
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Payout */}
+          <div>
+            <div className="text-sm text-text-muted mb-2">Reward per completion</div>
+            <div className="space-y-2">
+              {rewardCategories.map((cat) => (
+                <div key={cat.key} className="flex items-center gap-3">
+                  <label className="flex-1 text-sm text-text">
+                    {cat.label} ({cat.unit})
+                  </label>
+                  <input
+                    type="number"
+                    min={0}
+                    value={payout[cat.key] ?? ''}
+                    onChange={(e) => updatePayout(cat.key, e.target.value)}
+                    placeholder="0"
+                    className="w-24 px-3 py-2 bg-surface-2 border border-border rounded-md text-text text-sm text-right tabular-nums focus:outline-none focus:border-accent"
+                  />
+                </div>
+              ))}
+            </div>
+            {(payout.savings_cents ?? 0) > 0 && (
+              <div className="text-[11px] text-text-faint mt-1.5">
+                Note: savings is in cents — 100 = $1.00
+              </div>
+            )}
+          </div>
+
+          {/* Approval flags */}
+          <div className="space-y-2 pt-2 border-t border-border">
+            <label className="flex items-center gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={requiresPhoto}
+                onChange={(e) => setRequiresPhoto(e.target.checked)}
+                className="accent-accent w-4 h-4"
+              />
+              <Camera size={15} className="text-text-muted" />
+              <span className="text-sm text-text flex-1">Requires photo proof</span>
+            </label>
+            <label className="flex items-center gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={requiresApproval}
+                onChange={(e) => setRequiresApproval(e.target.checked)}
+                className="accent-accent w-4 h-4"
+              />
+              <ShieldCheck size={15} className="text-text-muted" />
+              <span className="text-sm text-text flex-1">Parent must approve</span>
+            </label>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between p-4 border-t border-border">
+          {editing ? (
+            <button
+              onClick={handleDelete}
+              className="flex items-center gap-1.5 text-text-muted hover:text-accent text-sm transition-colors"
+            >
+              <Trash2 size={15} /> Delete
+            </button>
+          ) : (
+            <span />
+          )}
+          <div className="flex gap-2">
+            <button
+              onClick={onClose}
+              className="px-4 py-2 text-sm text-text-muted hover:text-text"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleSave}
+              disabled={!title.trim() || assigned.length === 0}
+              className="px-5 py-2 bg-accent text-white text-sm font-medium rounded-md hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              Save
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
