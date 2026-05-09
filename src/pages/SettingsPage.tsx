@@ -7,6 +7,7 @@ import { useAuth } from '@/context/AuthContext';
 import { Avatar } from '@/components/Avatar';
 import { SetPinModal } from '@/components/SetPinModal';
 import { InviteModal } from '@/components/InviteModal';
+import { AddMemberModal } from '@/components/AddMemberModal';
 import { COLOR_OPTIONS, MEMBER_COLORS } from '@/lib/colors';
 import { isSupabaseConfigured } from '@/lib/supabase';
 import type { ThemeMode, MemberColor, FamilyMember } from '@/types';
@@ -28,6 +29,7 @@ export function SettingsPage() {
   const { authSignOut } = useAuth();
   const [pinTarget, setPinTarget] = useState<FamilyMember | null>(null);
   const [inviteOpen, setInviteOpen] = useState(false);
+  const [addMemberOpen, setAddMemberOpen] = useState(false);
   const isParent = activeMember?.role === 'parent';
   const [cityQuery, setCityQuery] = useState('');
   const [cityResults, setCityResults] = useState<GeoResult[]>([]);
@@ -118,13 +120,23 @@ export function SettingsPage() {
       <section className="card p-5">
         <div className="flex items-center justify-between mb-4">
           <h2 className="font-display text-lg text-text">Family members</h2>
-          {isParent && isSupabaseConfigured && (
-            <button
-              onClick={() => setInviteOpen(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-accent border border-accent/30 rounded-md hover:bg-accent/10 transition-colors font-medium"
-            >
-              <UserPlus size={13} /> Invite
-            </button>
+          {isParent && (
+            <div className="flex gap-2">
+              <button
+                onClick={() => setAddMemberOpen(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-accent border border-accent/30 rounded-md hover:bg-accent/10 transition-colors font-medium"
+              >
+                <UserPlus size={13} /> Add member
+              </button>
+              {isSupabaseConfigured && (
+                <button
+                  onClick={() => setInviteOpen(true)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-text-muted border border-border rounded-md hover:bg-surface-2 transition-colors font-medium"
+                >
+                  Invite by email
+                </button>
+              )}
+            </div>
           )}
         </div>
         <div className="space-y-2">
@@ -260,6 +272,7 @@ export function SettingsPage() {
         onClose={() => setPinTarget(null)}
       />
 
+      <AddMemberModal open={addMemberOpen} onClose={() => setAddMemberOpen(false)} />
       <InviteModal open={inviteOpen} onClose={() => setInviteOpen(false)} />
 
       {/* Version footer */}

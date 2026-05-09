@@ -74,6 +74,7 @@ interface FamilyContextValue {
   deleteEvent: (id: string) => void;
 
   // Members
+  addMember: (m: Omit<FamilyMember, 'id' | 'created_at' | 'family_id'>) => void;
   updateMember: (id: string, patch: Partial<FamilyMember>) => void;
   setMemberPin: (id: string, pin: string | null) => void;
   setMemberLocation: (id: string, location: string | null, until: string | null) => void;
@@ -366,6 +367,15 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
   );
 
   // ---- Members -------------------------------------------------------------
+
+  const addMember = useCallback(
+    (m: Omit<FamilyMember, 'id' | 'created_at' | 'family_id'>) =>
+      setMembers((prev) => [
+        ...prev,
+        { ...m, id: uid('m'), family_id: family.id, created_at: new Date().toISOString() }
+      ]),
+    [family.id]
+  );
 
   const updateMember = useCallback(
     (id: string, patch: Partial<FamilyMember>) =>
@@ -865,6 +875,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
     signInAs,
     signOut,
     addEvent,
+    addMember,
     updateEvent,
     deleteEvent,
     updateMember,
