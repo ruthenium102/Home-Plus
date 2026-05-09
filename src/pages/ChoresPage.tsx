@@ -32,6 +32,7 @@ import {
   weeklyEarnings,
   type ChoreItem
 } from '@/lib/chores';
+import { currentRotationAssignee } from '@/lib/rotation';
 import type { Chore, FamilyMember, RewardCategoryKey } from '@/types';
 
 export function ChoresPage() {
@@ -45,16 +46,22 @@ export function ChoresPage() {
 // ============================================================================
 
 function KidView({ member }: { member: FamilyMember }) {
-  const { chores, completions, completeChore, goals, rewardCategories } = useFamily();
+  const { chores, completions, completeChore, goals, rewardCategories, members } = useFamily();
   const { resolved } = useTheme();
   const [redeemOpen, setRedeemOpen] = useState(false);
   const tokens = getColorTokens(member.color, resolved === 'dark');
 
   const today = useMemo(() => new Date(), []);
-  const choreItems = useMemo(
-    () => getChoresForMemberOnDate(chores, completions, member.id, today),
-    [chores, completions, member.id, today]
-  );
+  const choreItems = useMemo(() => {
+    const raw = getChoresForMemberOnDate(chores, completions, member.id, today);
+    // For rotated/roster_role chores, filter out entries where it's not this member's week
+    return raw.filter((item) => {
+      const chore = chores.find((c) => c.id === item.chore.id);
+      if (!chore || chore.mode === 'standard') return true;
+      const assignee = currentRotationAssignee(chore, members, today);
+      return assignee === member.id;
+    });
+  }, [chores, completions, member.id, today, members]);
 
   const memberGoal = goals.find((g) => g.member_id === member.id && !g.achieved_at);
   const goalProgress = memberGoal
@@ -418,7 +425,12 @@ function ParentManage() {
           active_from: snapshot.active_from,
           requires_photo: snapshot.requires_photo,
           requires_approval: snapshot.requires_approval,
-          archived: snapshot.archived
+          archived: snapshot.archived,
+          mode: snapshot.mode,
+          rotation_roster: snapshot.rotation_roster,
+          rotation_pointer: snapshot.rotation_pointer,
+          rotation_anchor_iso_week: snapshot.rotation_anchor_iso_week,
+          roster_role_name: snapshot.roster_role_name
         });
       }
     });

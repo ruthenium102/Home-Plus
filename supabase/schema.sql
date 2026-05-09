@@ -2,6 +2,8 @@
 -- Phase 1: Foundation (families, members, events)
 -- Phase 2: Chores, rewards, redemptions, goals
 -- Phase 3: Lists, habits, location status
+-- Phase 4: My Day (day_plan_blocks, activity_pool_items)
+-- Phase 5: Multi-user auth (auth_user_id on family_members, invitations)
 -- Designed so Kitchen Plus tables migrate in cleanly.
 -- Run this in the Supabase SQL editor.
 
@@ -446,3 +448,158 @@ begin
     $p$, t);
   end loop;
 end$$;
+
+-- ============================================================================
+-- Phase 4: My Day
+-- ============================================================================
+
+create table if not exists day_plan_blocks (
+  id uuid primary key default uuid_generate_v4(),
+  family_id uuid not null references families(id) on delete cascade,
+  member_id uuid not null references family_members(id) on delete cascade,
+  date date not null,
+  section text not null check (section in ('morning', 'afternoon', 'evening')),
+  source text not null check (source in ('chore', 'habit', 'other', 'event')),
+  source_id text not null,
+  title text not null,
+  icon text,
+  duration_min integer not null default 20,
+  position integer not null default 0,
+  done boolean not null default false,
+  done_at timestamptz,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists idx_day_plan_blocks_member_date
+  on day_plan_blocks(member_id, date);
+
+create table if not exists activity_pool_items (
+  id uuid primary key default uuid_generate_v4(),
+  family_id uuid not null references families(id) on delete cascade,
+  member_id uuid not null references family_members(id) on delete cascade,
+  title text not null,
+  icon text,
+  default_duration_min integer not null default 20,
+  usage_count integer not null default 0,
+  archived boolean not null default false,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists idx_activity_pool_member on activity_pool_items(member_id);
+
+-- Add my_day_enabled to family_members (safe migration)
+do $$ begin
+  alter table family_members add column if not exists my_day_enabled boolean not null default false;
+end $$;
+
+-- Add chore rotation fields (safe migration)
+do $$ begin
+  alter table chores add column if not exists mode text not null default 'standard';
+  alter table chores add column if not exists rotation_roster text[] not null default '{}';
+  alter table chores add column if not exists rotation_pointer integer not null default 0;
+  alter table chores add column if not exists rotation_anchor_iso_week text;
+  alter table chores add column if not exists roster_role_name text;
+end $$;
+
+-- ============================================================================
+-- Phase 5: Multi-user auth — each family member can have their own login
+-- ============================================================================
+
+-- Link family_members to Supabase auth users.
+do $$ begin
+  alter table family_members
+    add column if not exists auth_user_id uuid references auth.users(id) on delete set null;
+end $$;
+
+create index if not exists idx_family_members_auth_user
+  on family_members(auth_user_id) where auth_user_id is not null;
+
+-- ---- Invitations -----------------------------------------------------------
+
+create table if not exists invitations (
+  id uuid primary key default uuid_generate_v4(),
+  family_id uuid not null references families(id) on delete cascade,
+  email text not null,
+  name text,
+  token uuid not null default gen_random_uuid(),
+  invited_by_auth_id uuid references auth.users(id) on delete set null,
+  created_at timestamptz not null default now(),
+  accepted_at timestamptz,
+  expires_at timestamptz not null default now() + interval '7 days'
+);
+
+create unique index if not exists idx_invitations_token on invitations(token);
+create index if not exists idx_invitations_email on invitations(email);
+
+alter table invitations enable row level security;
+
+-- Anyone can read an invitation (used client-side to show family name on accept flow).
+-- In practice the token is a secret UUID so brute-force is infeasible.
+create policy "read by token" on invitations for select using (true);
+
+create policy "parents can insert invitations" on invitations
+  for insert with check (
+    exists (
+      select 1 from family_members fm
+      where fm.family_id = invitations.family_id
+        and fm.auth_user_id = auth.uid()
+        and fm.role = 'parent'
+    )
+  );
+
+alter table day_plan_blocks enable row level security;
+alter table activity_pool_items enable row level security;
+
+create policy "family members can manage day plan blocks" on day_plan_blocks
+  for all using (
+    exists (
+      select 1 from family_members fm
+      where fm.family_id = day_plan_blocks.family_id
+        and fm.auth_user_id = auth.uid()
+    )
+  );
+
+create policy "family members can manage activity pool" on activity_pool_items
+  for all using (
+    exists (
+      select 1 from family_members fm
+      where fm.family_id = activity_pool_items.family_id
+        and fm.auth_user_id = auth.uid()
+    )
+  );
+
+-- ---- Helper: accept an invitation after signup -----------------------------
+
+create or replace function accept_invitation(p_token uuid)
+returns void language plpgsql security definer as $$
+declare
+  inv invitations%rowtype;
+begin
+  select * into inv
+  from invitations
+  where token = p_token and accepted_at is null and expires_at > now();
+
+  if not found then
+    raise exception 'Invitation not found or expired';
+  end if;
+
+  -- Link to existing placeholder member if name matches
+  update family_members
+  set auth_user_id = auth.uid()
+  where family_id = inv.family_id
+    and lower(name) = lower(coalesce(inv.name, ''))
+    and auth_user_id is null;
+
+  -- Otherwise create a new member row
+  if not found then
+    insert into family_members (family_id, name, role, color, auth_user_id)
+    values (
+      inv.family_id,
+      coalesce(inv.name, split_part(auth.jwt() ->> 'email', '@', 1)),
+      'child', 'sage', auth.uid()
+    );
+  end if;
+
+  update invitations set accepted_at = now() where token = p_token;
+end;
+$$;

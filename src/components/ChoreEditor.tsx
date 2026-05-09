@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
 import { localISO } from '@/lib/dates';
-import { X, Trash2, Camera, ShieldCheck } from 'lucide-react';
+import { X, Trash2, Camera, ShieldCheck, RotateCw } from 'lucide-react';
 import { useFamily } from '@/context/FamilyContext';
+import { isoWeekStr } from '@/lib/rotation';
 import { Avatar } from './Avatar';
-import type { Chore, ChoreFrequency, RewardCategoryKey } from '@/types';
+import type { Chore, ChoreFrequency, ChoreMode, RewardCategoryKey } from '@/types';
 
 interface Props {
   open: boolean;
@@ -36,6 +37,9 @@ export function ChoreEditor({ open, onClose, editing }: Props) {
   });
   const [requiresPhoto, setRequiresPhoto] = useState(false);
   const [requiresApproval, setRequiresApproval] = useState(false);
+  const [mode, setMode] = useState<ChoreMode>('standard');
+  const [rotationRoster, setRotationRoster] = useState<string[]>([]);
+  const [rosterRoleName, setRosterRoleName] = useState('');
 
   useEffect(() => {
     if (!open) return;
@@ -48,6 +52,9 @@ export function ChoreEditor({ open, onClose, editing }: Props) {
       setPayout(editing.payout);
       setRequiresPhoto(editing.requires_photo);
       setRequiresApproval(editing.requires_approval);
+      setMode(editing.mode ?? 'standard');
+      setRotationRoster(editing.rotation_roster ?? []);
+      setRosterRoleName(editing.roster_role_name ?? '');
     } else {
       setTitle('');
       setDescription('');
@@ -57,6 +64,9 @@ export function ChoreEditor({ open, onClose, editing }: Props) {
       setPayout({ stars: 5 });
       setRequiresPhoto(false);
       setRequiresApproval(false);
+      setMode('standard');
+      setRotationRoster([]);
+      setRosterRoleName('');
     }
   }, [open, editing]);
 
@@ -65,6 +75,7 @@ export function ChoreEditor({ open, onClose, editing }: Props) {
   const handleSave = () => {
     if (!title.trim()) return;
     const today = localISO();
+    const effectiveRoster = mode !== 'standard' ? rotationRoster : [];
     const payload = {
       title: title.trim(),
       description: description.trim() || null,
@@ -75,7 +86,12 @@ export function ChoreEditor({ open, onClose, editing }: Props) {
       active_from: editing?.active_from || today,
       requires_photo: requiresPhoto,
       requires_approval: requiresApproval,
-      archived: false
+      archived: false,
+      mode,
+      rotation_roster: effectiveRoster,
+      rotation_pointer: editing?.rotation_pointer ?? 0,
+      rotation_anchor_iso_week: editing?.rotation_anchor_iso_week ?? (mode !== 'standard' ? isoWeekStr() : null),
+      roster_role_name: mode === 'roster_role' ? (rosterRoleName.trim() || null) : null
     };
 
     if (editing) {
@@ -224,6 +240,66 @@ export function ChoreEditor({ open, onClose, editing }: Props) {
               </div>
             )}
           </div>
+
+          {/* Rotation mode */}
+          {assigned.length >= 2 && (
+            <div>
+              <div className="text-sm text-text-muted mb-2">Assignment mode</div>
+              <div className="flex gap-1.5 flex-wrap">
+                {(
+                  [
+                    { v: 'standard', label: 'All do it' },
+                    { v: 'rotated', label: 'Rotate weekly' },
+                    { v: 'roster_role', label: 'Role rotation' }
+                  ] as const
+                ).map(({ v, label }) => (
+                  <button
+                    key={v}
+                    onClick={() => {
+                      setMode(v);
+                      if (v !== 'standard' && rotationRoster.length === 0) {
+                        setRotationRoster([...assigned]);
+                      }
+                    }}
+                    className={
+                      'flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs border transition-colors ' +
+                      (mode === v
+                        ? 'bg-accent text-white border-accent'
+                        : 'border-border text-text-muted hover:border-border-strong')
+                    }
+                  >
+                    {v !== 'standard' && <RotateCw size={11} />}
+                    {label}
+                  </button>
+                ))}
+              </div>
+              {mode !== 'standard' && (
+                <div className="mt-2 p-3 bg-surface-2 rounded-lg text-xs text-text-faint space-y-2">
+                  <div>Rotation order (drag to reorder):</div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {rotationRoster.map((id, i) => {
+                      const m = kids.find((k) => k.id === id);
+                      if (!m) return null;
+                      return (
+                        <span key={id} className="flex items-center gap-1 bg-surface border border-border px-2 py-0.5 rounded-full text-xs text-text">
+                          <span className="text-text-faint">{i + 1}.</span> {m.name}
+                        </span>
+                      );
+                    })}
+                  </div>
+                  {mode === 'roster_role' && (
+                    <input
+                      type="text"
+                      value={rosterRoleName}
+                      onChange={(e) => setRosterRoleName(e.target.value)}
+                      placeholder="Role name (e.g. Bins person)"
+                      className="w-full px-2.5 py-1.5 bg-surface border border-border rounded-md text-xs text-text placeholder:text-text-faint focus:outline-none focus:border-accent"
+                    />
+                  )}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Payout + flags side-by-side on tablet */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

@@ -26,6 +26,7 @@ export interface FamilyMember {
   // Optional: when a temporary location should auto-revert. ISO timestamp.
   location_until: string | null;
   reward_balances: Record<string, number>; // e.g. { stars: 142, screen_minutes: 45 }
+  my_day_enabled: boolean;
   created_at: string;
 }
 
@@ -110,6 +111,14 @@ export type ChoreFrequency =
   | 'monthly'
   | 'one_off';
 
+/**
+ * standard: all assigned_to members do it every time (original behaviour).
+ * rotated: one member per week takes responsibility; cycles through rotation_roster.
+ * roster_role: same weekly cycle but the chore carries a named role label
+ *   (e.g. "Bins person") that is displayed on the member strip.
+ */
+export type ChoreMode = 'standard' | 'rotated' | 'roster_role';
+
 export interface Chore {
   id: string;
   family_id: string;
@@ -130,6 +139,12 @@ export interface Chore {
   requires_approval: boolean;
   archived: boolean;
   created_at: string;
+  // Rotation fields (used when mode !== 'standard')
+  mode: ChoreMode;
+  rotation_roster: string[]; // ordered member ids for rotation
+  rotation_pointer: number;  // base index into rotation_roster
+  rotation_anchor_iso_week: string | null; // YYYY-Www when rotation was anchored
+  roster_role_name: string | null; // label for roster_role mode e.g. "Bins person"
 }
 
 /**
@@ -278,5 +293,41 @@ export interface HabitCheckIn {
   family_id: string;
   member_id: string;
   for_date: string; // YYYY-MM-DD
+  created_at: string;
+}
+
+// ============================================================================
+// My Day (Phase 4)
+// ============================================================================
+
+export type DayPlanSection = 'morning' | 'afternoon' | 'evening';
+export type DayPlanBlockSource = 'chore' | 'habit' | 'other' | 'event';
+
+export interface DayPlanBlock {
+  id: string;
+  family_id: string;
+  member_id: string;
+  date: string; // YYYY-MM-DD
+  section: DayPlanSection;
+  source: DayPlanBlockSource;
+  source_id: string;
+  title: string;
+  icon: string | null;
+  duration_min: number;
+  position: number;
+  done: boolean;
+  done_at: string | null;
+  created_at: string;
+}
+
+export interface ActivityPoolItem {
+  id: string;
+  family_id: string;
+  member_id: string;
+  title: string;
+  icon: string | null;
+  default_duration_min: number;
+  usage_count: number;
+  archived: boolean;
   created_at: string;
 }

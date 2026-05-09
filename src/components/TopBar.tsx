@@ -40,6 +40,7 @@ export function TopBar({ onSwitchUser }: Props) {
         <div className="font-display text-2xl sm:text-3xl text-text leading-none">
           {format(now, 'EEEE, d MMM')}
         </div>
+        <div className="text-[10px] text-text-faint/50 mt-0.5">v{__APP_VERSION__}</div>
       </div>
 
       <div className="flex items-center gap-3">

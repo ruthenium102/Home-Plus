@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   Plane,
   Home as HomeIcon,
@@ -8,6 +8,7 @@ import {
   MapPin
 } from 'lucide-react';
 import { useFamily } from '@/context/FamilyContext';
+import { rosterRoleAssignments } from '@/lib/rotation';
 import { Avatar } from './Avatar';
 import { LocationPicker } from './LocationPicker';
 import type { FamilyMember } from '@/types';
@@ -24,8 +25,9 @@ function locationIcon(loc: string | null) {
 }
 
 export function MemberStrip() {
-  const { members } = useFamily();
+  const { members, chores } = useFamily();
   const [picking, setPicking] = useState<FamilyMember | null>(null);
+  const roleMap = useMemo(() => rosterRoleAssignments(chores, members), [chores, members]);
 
   return (
     <>
@@ -52,6 +54,14 @@ export function MemberStrip() {
                   />
                   {m.current_location || 'No status'}
                 </div>
+                {(roleMap.get(m.id) ?? []).map((role) => (
+                  <span
+                    key={role}
+                    className="inline-block mt-0.5 mr-1 text-[9px] uppercase tracking-wider bg-accent/10 text-accent px-1.5 py-0.5 rounded-full font-semibold"
+                  >
+                    {role}
+                  </span>
+                ))}
               </div>
             </button>
           );

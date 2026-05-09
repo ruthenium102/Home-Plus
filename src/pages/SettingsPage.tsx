@@ -1,19 +1,52 @@
-import { useState } from 'react';
-import { Sun, Moon, Monitor, Lock, LockOpen, MapPin } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Sun, Moon, Monitor, Lock, LockOpen, MapPin, Search, X, UserPlus, LogOut } from 'lucide-react';
 import { useFamily } from '@/context/FamilyContext';
 import { useTheme } from '@/context/ThemeContext';
 import { useWeather } from '@/hooks/useWeather';
+import { useAuth } from '@/context/AuthContext';
 import { Avatar } from '@/components/Avatar';
 import { SetPinModal } from '@/components/SetPinModal';
+import { InviteModal } from '@/components/InviteModal';
 import { COLOR_OPTIONS, MEMBER_COLORS } from '@/lib/colors';
+import { isSupabaseConfigured } from '@/lib/supabase';
 import type { ThemeMode, MemberColor, FamilyMember } from '@/types';
+
+interface GeoResult {
+  id: number;
+  name: string;
+  latitude: number;
+  longitude: number;
+  country_code: string;
+  admin1?: string;
+}
 
 export function SettingsPage() {
   const { members, family, isDemoMode, updateMember, signOut, activeMember } =
     useFamily();
   const { mode, setMode } = useTheme();
-  const { temp, locationName, locationStatus, resetLocation } = useWeather();
+  const { temp, locationName, locationStatus, resetLocation, setManualLocation } = useWeather();
+  const { authSignOut } = useAuth();
   const [pinTarget, setPinTarget] = useState<FamilyMember | null>(null);
+  const [inviteOpen, setInviteOpen] = useState(false);
+  const isParent = activeMember?.role === 'parent';
+  const [cityQuery, setCityQuery] = useState('');
+  const [cityResults, setCityResults] = useState<GeoResult[]>([]);
+  const [citySearching, setCitySearching] = useState(false);
+
+  useEffect(() => {
+    if (cityQuery.length < 2) { setCityResults([]); return; }
+    const t = setTimeout(async () => {
+      setCitySearching(true);
+      try {
+        const r = await fetch(
+          `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(cityQuery)}&count=6&language=en&format=json`
+        ).then((x) => x.json());
+        setCityResults((r.results as GeoResult[]) || []);
+      } catch { setCityResults([]); }
+      finally { setCitySearching(false); }
+    }, 400);
+    return () => clearTimeout(t);
+  }, [cityQuery]);
 
   return (
     <div className="space-y-5 max-w-3xl mx-auto">
@@ -85,6 +118,14 @@ export function SettingsPage() {
       <section className="card p-5">
         <div className="flex items-center justify-between mb-4">
           <h2 className="font-display text-lg text-text">Family members</h2>
+          {isParent && isSupabaseConfigured && (
+            <button
+              onClick={() => setInviteOpen(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-accent border border-accent/30 rounded-md hover:bg-accent/10 transition-colors font-medium"
+            >
+              <UserPlus size={13} /> Invite
+            </button>
+          )}
         </div>
         <div className="space-y-2">
           {members.map((m) => (
@@ -95,6 +136,31 @@ export function SettingsPage() {
               onChangeColor={(c) => updateMember(m.id, { color: c })}
               onSetPin={() => setPinTarget(m)}
             />
+          ))}
+        </div>
+      </section>
+
+      {/* My Day */}
+      <section className="card p-5">
+        <h2 className="font-display text-lg text-text mb-1">My Day</h2>
+        <p className="text-xs text-text-faint mb-4">
+          Visual daily planner. Enable per family member.
+        </p>
+        <div className="space-y-2">
+          {members.map((m) => (
+            <label
+              key={m.id}
+              className="flex items-center gap-3 p-2.5 rounded-lg hover:bg-surface-2/60 cursor-pointer transition-colors"
+            >
+              <Avatar member={m} size={32} />
+              <span className="flex-1 text-sm text-text">{m.name}</span>
+              <input
+                type="checkbox"
+                checked={m.my_day_enabled}
+                onChange={(e) => updateMember(m.id, { my_day_enabled: e.target.checked })}
+                className="accent-accent w-4 h-4"
+              />
+            </label>
           ))}
         </div>
       </section>
@@ -118,23 +184,74 @@ export function SettingsPage() {
             <div className="text-text">{temp !== null ? `${temp}°` : '—'}</div>
           </div>
         </div>
+
+        {/* City search */}
+        <div className="relative mb-3">
+          <div className="flex items-center gap-2 px-3 py-2 bg-surface-2 border border-border rounded-md focus-within:border-accent">
+            <Search size={13} className="text-text-faint shrink-0" />
+            <input
+              type="text"
+              value={cityQuery}
+              onChange={(e) => setCityQuery(e.target.value)}
+              placeholder="Pin a city (e.g. Perth, WA)…"
+              className="flex-1 bg-transparent text-sm text-text placeholder:text-text-faint focus:outline-none"
+            />
+            {citySearching && <span className="text-[10px] text-text-faint">…</span>}
+            {cityQuery && (
+              <button onClick={() => { setCityQuery(''); setCityResults([]); }}>
+                <X size={12} className="text-text-faint" />
+              </button>
+            )}
+          </div>
+          {cityResults.length > 0 && (
+            <div className="absolute left-0 right-0 top-full mt-1 z-20 card overflow-hidden shadow-lg border border-border">
+              {cityResults.map((r) => (
+                <button
+                  key={r.id}
+                  onClick={() => {
+                    const name = r.admin1 ? `${r.name}, ${r.admin1}` : r.name;
+                    setManualLocation(r.latitude, r.longitude, name);
+                    setCityQuery('');
+                    setCityResults([]);
+                  }}
+                  className="w-full text-left px-3 py-2.5 text-sm text-text hover:bg-surface-2 border-b border-border last:border-b-0"
+                >
+                  <span className="font-medium">{r.name}</span>
+                  {r.admin1 && <span className="text-text-faint"> · {r.admin1}</span>}
+                  <span className="text-text-faint/60 text-xs ml-1">{r.country_code}</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
         <button
           onClick={resetLocation}
           className="flex items-center gap-2 px-4 py-2 bg-surface-2 border border-border text-text-muted text-sm rounded-md hover:bg-surface"
         >
-          <MapPin size={14} /> Reset location
+          <MapPin size={14} /> Reset to GPS location
         </button>
       </section>
 
       {/* Account */}
       <section className="card p-5">
         <h2 className="font-display text-lg text-text mb-4">Session</h2>
-        <button
-          onClick={signOut}
-          className="flex items-center gap-2 px-4 py-2 bg-surface-2 border border-border text-text-muted text-sm rounded-md hover:bg-surface"
-        >
-          <Lock size={14} /> Lock & switch user
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={signOut}
+            className="flex items-center gap-2 px-4 py-2 bg-surface-2 border border-border text-text-muted text-sm rounded-md hover:bg-surface"
+          >
+            <Lock size={14} /> Lock & switch user
+          </button>
+          {isSupabaseConfigured && (
+            <button
+              onClick={authSignOut}
+              className="flex items-center gap-2 px-4 py-2 bg-surface-2 border border-border text-text-muted text-sm rounded-md hover:bg-surface"
+            >
+              <LogOut size={14} /> Sign out
+            </button>
+          )}
+        </div>
       </section>
 
       <SetPinModal
@@ -143,9 +260,11 @@ export function SettingsPage() {
         onClose={() => setPinTarget(null)}
       />
 
+      <InviteModal open={inviteOpen} onClose={() => setInviteOpen(false)} />
+
       {/* Version footer */}
       <div className="pt-2 pb-6 text-center">
-        <div className="text-xs text-text-faint">Home Plus v0.5.0</div>
+        <div className="text-xs text-text-faint">Home Plus v{__APP_VERSION__}</div>
         <div className="text-[10px] text-text-faint/60 mt-0.5">Built {__BUILD_DATE__}</div>
       </div>
     </div>

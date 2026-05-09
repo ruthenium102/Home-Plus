@@ -1,5 +1,7 @@
 import { localISO, localISODaysAgo } from '@/lib/dates';
+import { isoWeekStr } from '@/lib/rotation';
 import type {
+  ActivityPoolItem,
   CalendarEvent,
   Chore,
   ChoreCompletion,
@@ -22,7 +24,7 @@ import type {
  * when the seed schema or default family changes (e.g. Henderson → Ellis).
  */
 const PREFIX = 'hp:';
-const SEED_VERSION = 4; // 1=Henderson, 2=Ellis+chores, 3=Phase3, 4=swipe+backfill+import
+const SEED_VERSION = 6; // 1=Henderson, 2=Ellis+chores, 3=Phase3, 4=swipe+backfill+import, 5=my-day, 6=rotation
 
 // On first load, if the user has stale demo data from a previous version,
 // wipe the demo:* keys so they get the fresh seed.
@@ -98,6 +100,7 @@ export const DEMO_MEMBERS: FamilyMember[] = [
     current_location: 'Home',
     location_until: null,
     reward_balances: {},
+    my_day_enabled: false,
     created_at: new Date().toISOString()
   },
   {
@@ -112,6 +115,7 @@ export const DEMO_MEMBERS: FamilyMember[] = [
     current_location: 'Home',
     location_until: null,
     reward_balances: {},
+    my_day_enabled: false,
     created_at: new Date().toISOString()
   },
   {
@@ -126,6 +130,7 @@ export const DEMO_MEMBERS: FamilyMember[] = [
     current_location: 'School',
     location_until: null,
     reward_balances: { stars: 184, screen_minutes: 60, savings_cents: 4200 },
+    my_day_enabled: false,
     created_at: new Date().toISOString()
   },
   {
@@ -140,6 +145,7 @@ export const DEMO_MEMBERS: FamilyMember[] = [
     current_location: 'School',
     location_until: null,
     reward_balances: { stars: 132, screen_minutes: 30, savings_cents: 1850 },
+    my_day_enabled: true,
     created_at: new Date().toISOString()
   },
   {
@@ -154,6 +160,7 @@ export const DEMO_MEMBERS: FamilyMember[] = [
     current_location: 'School',
     location_until: null,
     reward_balances: { stars: 96, screen_minutes: 45, savings_cents: 750 },
+    my_day_enabled: false,
     created_at: new Date().toISOString()
   }
 ];
@@ -334,8 +341,14 @@ export const DEMO_EVENTS: CalendarEvent[] = [
 // ---- Chores ----------------------------------------------------------------
 // Tuned for ages 16/14/11. Older kids get higher payouts, more responsibility.
 
+const THIS_WEEK = isoWeekStr();
+
+function stdChore(partial: Omit<Chore, 'mode' | 'rotation_roster' | 'rotation_pointer' | 'rotation_anchor_iso_week' | 'roster_role_name'>): Chore {
+  return { ...partial, mode: 'standard', rotation_roster: [], rotation_pointer: 0, rotation_anchor_iso_week: null, roster_role_name: null };
+}
+
 export const DEMO_CHORES: Chore[] = [
-  {
+  stdChore({
     id: 'c-1',
     family_id: 'fam-ellis',
     title: 'Make your bed',
@@ -349,7 +362,8 @@ export const DEMO_CHORES: Chore[] = [
     requires_approval: false,
     archived: false,
     created_at: new Date().toISOString()
-  },
+  }),
+  // Rotated: Sophie & Henry take turns emptying the dishwasher each day
   {
     id: 'c-2',
     family_id: 'fam-ellis',
@@ -363,9 +377,14 @@ export const DEMO_CHORES: Chore[] = [
     requires_photo: false,
     requires_approval: false,
     archived: false,
-    created_at: new Date().toISOString()
+    created_at: new Date().toISOString(),
+    mode: 'rotated',
+    rotation_roster: ['m-sophie', 'm-henry'],
+    rotation_pointer: 0,
+    rotation_anchor_iso_week: THIS_WEEK,
+    roster_role_name: null
   },
-  {
+  stdChore({
     id: 'c-3',
     family_id: 'fam-ellis',
     title: 'Feed the dog',
@@ -379,8 +398,8 @@ export const DEMO_CHORES: Chore[] = [
     requires_approval: false,
     archived: false,
     created_at: new Date().toISOString()
-  },
-  {
+  }),
+  stdChore({
     id: 'c-4',
     family_id: 'fam-ellis',
     title: 'Vacuum living room',
@@ -394,13 +413,14 @@ export const DEMO_CHORES: Chore[] = [
     requires_approval: true,
     archived: false,
     created_at: new Date().toISOString()
-  },
+  }),
+  // Roster role: bins person rotates weekly between Sophie & Henry
   {
     id: 'c-5',
     family_id: 'fam-ellis',
     title: 'Take out the bins',
     description: null,
-    assigned_to: ['m-sophie'],
+    assigned_to: ['m-sophie', 'm-henry'],
     frequency: 'weekly',
     weekdays: [2],
     payout: { stars: 8 },
@@ -408,9 +428,14 @@ export const DEMO_CHORES: Chore[] = [
     requires_photo: false,
     requires_approval: false,
     archived: false,
-    created_at: new Date().toISOString()
+    created_at: new Date().toISOString(),
+    mode: 'roster_role',
+    rotation_roster: ['m-sophie', 'm-henry'],
+    rotation_pointer: 0,
+    rotation_anchor_iso_week: THIS_WEEK,
+    roster_role_name: 'Bins person'
   },
-  {
+  stdChore({
     id: 'c-6',
     family_id: 'fam-ellis',
     title: 'Clean your bathroom',
@@ -424,8 +449,8 @@ export const DEMO_CHORES: Chore[] = [
     requires_approval: true,
     archived: false,
     created_at: new Date().toISOString()
-  },
-  {
+  }),
+  stdChore({
     id: 'c-7',
     family_id: 'fam-ellis',
     title: 'Tidy bedroom',
@@ -439,8 +464,8 @@ export const DEMO_CHORES: Chore[] = [
     requires_approval: true,
     archived: false,
     created_at: new Date().toISOString()
-  },
-  {
+  }),
+  stdChore({
     id: 'c-8',
     family_id: 'fam-ellis',
     title: 'Help with dinner prep',
@@ -454,7 +479,7 @@ export const DEMO_CHORES: Chore[] = [
     requires_approval: false,
     archived: false,
     created_at: new Date().toISOString()
-  }
+  })
 ];
 
 // ---- A few historical completions so the UI isn't empty --------------------
@@ -781,3 +806,63 @@ export const LOCATION_PRESETS = [
   { label: 'Out', icon: 'Coffee' },
   { label: 'Travelling', icon: 'Plane' }
 ] as const;
+
+// ---- Activity pool (My Day — Phase 4) --------------------------------------
+
+export const DEMO_ACTIVITY_POOL: ActivityPoolItem[] = [
+  {
+    id: 'ap-1',
+    family_id: 'fam-ellis',
+    member_id: 'm-henry',
+    title: 'Reading',
+    icon: 'BookOpen',
+    default_duration_min: 20,
+    usage_count: 0,
+    archived: false,
+    created_at: new Date().toISOString()
+  },
+  {
+    id: 'ap-2',
+    family_id: 'fam-ellis',
+    member_id: 'm-henry',
+    title: 'Piano practice',
+    icon: 'Music',
+    default_duration_min: 15,
+    usage_count: 0,
+    archived: false,
+    created_at: new Date().toISOString()
+  },
+  {
+    id: 'ap-3',
+    family_id: 'fam-ellis',
+    member_id: 'm-henry',
+    title: 'Homework',
+    icon: 'Pencil',
+    default_duration_min: 30,
+    usage_count: 0,
+    archived: false,
+    created_at: new Date().toISOString()
+  },
+  {
+    id: 'ap-4',
+    family_id: 'fam-ellis',
+    member_id: 'm-henry',
+    title: 'Outdoor play',
+    icon: 'TreePine',
+    default_duration_min: 30,
+    usage_count: 0,
+    archived: false,
+    created_at: new Date().toISOString()
+  },
+  {
+    id: 'ap-5',
+    family_id: 'fam-ellis',
+    member_id: 'm-henry',
+    title: 'Screen time',
+    icon: 'Gamepad2',
+    default_duration_min: 30,
+    usage_count: 0,
+    archived: false,
+    created_at: new Date().toISOString()
+  }
+];

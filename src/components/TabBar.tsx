@@ -5,6 +5,7 @@ import {
   Sparkles,
   Trophy,
   ChefHat,
+  Sun,
   Settings as SettingsIcon,
   type LucideIcon
 } from 'lucide-react';
@@ -16,6 +17,7 @@ export type TabKey =
   | 'lists'
   | 'habits'
   | 'kitchen'
+  | 'my-day'
   | 'settings';
 
 interface Tab {
@@ -24,7 +26,7 @@ interface Tab {
   icon: LucideIcon;
 }
 
-const TABS: Tab[] = [
+const BASE_TABS: Tab[] = [
   { key: 'home', label: 'Home', icon: Home },
   { key: 'calendar', label: 'Calendar', icon: Calendar },
   { key: 'chores', label: 'Chores', icon: Trophy },
@@ -34,15 +36,22 @@ const TABS: Tab[] = [
   { key: 'settings', label: 'Settings', icon: SettingsIcon }
 ];
 
+const MY_DAY_TAB: Tab = { key: 'my-day', label: 'My Day', icon: Sun };
+
 interface Props {
   active: TabKey;
   onChange: (k: TabKey) => void;
+  showMyDay?: boolean;
 }
 
-export function TabBar({ active, onChange }: Props) {
+export function TabBar({ active, onChange, showMyDay = false }: Props) {
+  const tabs = showMyDay
+    ? [...BASE_TABS.slice(0, 2), MY_DAY_TAB, ...BASE_TABS.slice(2)]
+    : BASE_TABS;
+
   return (
     <nav className="card p-1.5 flex gap-1 overflow-x-auto scroll-x-clean">
-      {TABS.map((t) => {
+      {tabs.map((t) => {
         const Icon = t.icon;
         const isActive = active === t.key;
         return (
@@ -50,7 +59,7 @@ export function TabBar({ active, onChange }: Props) {
             key={t.key}
             onClick={() => onChange(t.key)}
             className={
-              'flex-1 min-w-[78px] flex flex-col items-center gap-1 px-3 py-2.5 rounded-md transition-all active:scale-95 ' +
+              'flex-1 min-w-[68px] flex flex-col items-center gap-1 px-2 py-2.5 rounded-md transition-all active:scale-95 ' +
               (isActive
                 ? 'bg-accent text-white shadow-sm'
                 : 'text-text-muted hover:bg-surface-2 hover:text-text')

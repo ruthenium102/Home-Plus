@@ -1,6 +1,7 @@
 import { lazy, Suspense, useState } from 'react';
 import { ThemeProvider } from '@/context/ThemeContext';
 import { FamilyProvider, useFamily } from '@/context/FamilyContext';
+import { AuthProvider, useAuth } from '@/context/AuthContext';
 import { ToastProvider } from '@/context/ToastContext';
 import { WeatherProvider } from '@/hooks/useWeather';
 import { TopBar } from '@/components/TopBar';
@@ -8,6 +9,7 @@ import { TabBar, type TabKey } from '@/components/TabBar';
 import { UserSwitcher } from '@/components/UserSwitcher';
 import { HomePage } from '@/pages/HomePage';
 import { TabFallback } from '@/components/TabFallback';
+import { isSupabaseConfigured } from '@/lib/supabase';
 
 // Lazy-load tab pages so the lock screen + home tab load fast.
 // Each chunk is fetched on first visit to that tab.
@@ -29,9 +31,16 @@ const KitchenPage = lazy(() =>
 const SettingsPage = lazy(() =>
   import('@/pages/SettingsPage').then((m) => ({ default: m.SettingsPage }))
 );
+const MyDayPage = lazy(() =>
+  import('@/pages/MyDayPage').then((m) => ({ default: m.MyDayPage }))
+);
+const AuthPage = lazy(() =>
+  import('@/pages/AuthPage').then((m) => ({ default: m.AuthPage }))
+);
 
 function AppShell() {
   const { activeMember } = useFamily();
+  const showMyDay = activeMember?.my_day_enabled ?? false;
   const [tab, setTab] = useState<TabKey>('home');
   const [switcherOpen, setSwitcherOpen] = useState(false);
 
@@ -54,6 +63,7 @@ function AppShell() {
               {tab === 'lists' && <ListsPage />}
               {tab === 'habits' && <HabitsPage />}
               {tab === 'kitchen' && <KitchenPage />}
+              {tab === 'my-day' && <MyDayPage />}
               {tab === 'settings' && <SettingsPage />}
             </Suspense>
           )}
@@ -63,7 +73,7 @@ function AppShell() {
       {/* Sticky bottom tab bar */}
       <div className="fixed bottom-3 left-3 right-3 sm:left-6 sm:right-6 z-30">
         <div className="max-w-6xl mx-auto">
-          <TabBar active={tab} onChange={setTab} />
+          <TabBar active={tab} onChange={setTab} showMyDay={showMyDay} />
         </div>
       </div>
 
@@ -72,15 +82,49 @@ function AppShell() {
   );
 }
 
+/**
+ * Auth gate — only shown when Supabase is configured.
+ * In demo mode (no env vars) this is bypassed entirely.
+ */
+function AuthGate() {
+  const { session, loading } = useAuth();
+
+  // Demo mode: skip auth, go straight to the app
+  if (!isSupabaseConfigured) return <AppShell />;
+
+  // Waiting for Supabase to resolve the session
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-bg flex items-center justify-center">
+        <div className="text-text-faint text-sm animate-pulse">Loading…</div>
+      </div>
+    );
+  }
+
+  // No session → show login / create-family page
+  if (!session) {
+    return (
+      <Suspense fallback={null}>
+        <AuthPage />
+      </Suspense>
+    );
+  }
+
+  // Authenticated → show the full app
+  return <AppShell />;
+}
+
 export default function App() {
   return (
     <ThemeProvider>
       <ToastProvider>
-        <FamilyProvider>
-          <WeatherProvider>
-            <AppShell />
-          </WeatherProvider>
-        </FamilyProvider>
+        <AuthProvider>
+          <FamilyProvider>
+            <WeatherProvider>
+              <AuthGate />
+            </WeatherProvider>
+          </FamilyProvider>
+        </AuthProvider>
       </ToastProvider>
     </ThemeProvider>
   );

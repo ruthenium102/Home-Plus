@@ -21,6 +21,7 @@ import {
   DEMO_LIST_ITEMS,
   DEMO_HABITS,
   DEMO_HABIT_CHECKINS,
+  DEMO_ACTIVITY_POOL,
   DEFAULT_REWARD_CATEGORIES,
   hashPinSync,
   verifyPinSync
@@ -28,9 +29,12 @@ import {
 import { isSupabaseConfigured } from '@/lib/supabase';
 import type {
   ActiveSession,
+  ActivityPoolItem,
   CalendarEvent,
   Chore,
   ChoreCompletion,
+  DayPlanBlock,
+  DayPlanSection,
   Family,
   FamilyMember,
   Habit,
@@ -108,11 +112,19 @@ interface FamilyContextValue {
   addHabit: (h: Omit<Habit, 'id' | 'created_at' | 'family_id'>) => void;
   updateHabit: (id: string, patch: Partial<Habit>) => void;
   deleteHabit: (id: string) => void;
-  /**
-   * Toggle a habit check-in for a date. If the kid's streak crosses a
-   * milestone (7, 30, 100), star reward is automatically credited.
-   */
   toggleCheckIn: (habitId: string, memberId: string, forDate: string) => void;
+
+  // My Day
+  dayPlanBlocks: DayPlanBlock[];
+  activityPool: ActivityPoolItem[];
+  addDayPlanBlock: (block: Omit<DayPlanBlock, 'id' | 'created_at' | 'family_id'>) => DayPlanBlock;
+  updateDayPlanBlock: (id: string, patch: Partial<DayPlanBlock>) => void;
+  removeDayPlanBlock: (id: string) => void;
+  reorderDayPlanBlocks: (updates: { id: string; position: number; section: DayPlanSection }[]) => void;
+  toggleBlockDone: (id: string) => void;
+  addPoolItem: (item: Omit<ActivityPoolItem, 'id' | 'created_at' | 'family_id'>) => void;
+  updatePoolItem: (id: string, patch: Partial<ActivityPoolItem>) => void;
+  archivePoolItem: (id: string) => void;
 }
 
 const FamilyContext = createContext<FamilyContextValue | null>(null);
@@ -128,6 +140,8 @@ const LISTS_KEY = 'demo:lists';
 const LIST_ITEMS_KEY = 'demo:list_items';
 const HABITS_KEY = 'demo:habits';
 const CHECKINS_KEY = 'demo:checkins';
+const DAY_PLAN_KEY = 'demo:day_plan_blocks';
+const ACTIVITY_POOL_KEY = 'demo:activity_pool';
 
 function uid(prefix: string) {
   return prefix + '-' + Math.random().toString(36).slice(2, 10);
@@ -202,6 +216,12 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<ActiveSession | null>(() =>
     storage.get<ActiveSession | null>(SESSION_KEY, null)
   );
+  const [dayPlanBlocks, setDayPlanBlocks] = useState<DayPlanBlock[]>(() =>
+    storage.get<DayPlanBlock[]>(DAY_PLAN_KEY, [])
+  );
+  const [activityPool, setActivityPool] = useState<ActivityPoolItem[]>(() =>
+    storage.get<ActivityPoolItem[]>(ACTIVITY_POOL_KEY, DEMO_ACTIVITY_POOL)
+  );
 
   // Persist
   useEffect(() => storage.set(MEMBERS_KEY, members), [members]);
@@ -214,6 +234,8 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
   useEffect(() => storage.set(LIST_ITEMS_KEY, listItems), [listItems]);
   useEffect(() => storage.set(HABITS_KEY, habits), [habits]);
   useEffect(() => storage.set(CHECKINS_KEY, checkIns), [checkIns]);
+  useEffect(() => storage.set(DAY_PLAN_KEY, dayPlanBlocks), [dayPlanBlocks]);
+  useEffect(() => storage.set(ACTIVITY_POOL_KEY, activityPool), [activityPool]);
   useEffect(() => {
     if (session) storage.set(SESSION_KEY, session);
     else storage.remove(SESSION_KEY);
@@ -693,6 +715,82 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
     [habits, checkIns, members, family.id]
   );
 
+  // ---- My Day ----------------------------------------------------------------
+
+  const addDayPlanBlock = useCallback(
+    (block: Omit<DayPlanBlock, 'id' | 'created_at' | 'family_id'>): DayPlanBlock => {
+      const newBlock: DayPlanBlock = {
+        ...block,
+        id: uid('dp'),
+        created_at: new Date().toISOString(),
+        family_id: family.id
+      };
+      setDayPlanBlocks((prev) => [...prev, newBlock]);
+      if (block.source === 'other') {
+        setActivityPool((prev) =>
+          prev.map((p) => (p.id === block.source_id ? { ...p, usage_count: p.usage_count + 1 } : p))
+        );
+      }
+      return newBlock;
+    },
+    [family.id]
+  );
+
+  const updateDayPlanBlock = useCallback(
+    (id: string, patch: Partial<DayPlanBlock>) =>
+      setDayPlanBlocks((prev) => prev.map((b) => (b.id === id ? { ...b, ...patch } : b))),
+    []
+  );
+
+  const removeDayPlanBlock = useCallback(
+    (id: string) => setDayPlanBlocks((prev) => prev.filter((b) => b.id !== id)),
+    []
+  );
+
+  const reorderDayPlanBlocks = useCallback(
+    (updates: { id: string; position: number; section: DayPlanSection }[]) =>
+      setDayPlanBlocks((prev) =>
+        prev.map((b) => {
+          const u = updates.find((x) => x.id === b.id);
+          return u ? { ...b, position: u.position, section: u.section } : b;
+        })
+      ),
+    []
+  );
+
+  const toggleBlockDone = useCallback(
+    (id: string) =>
+      setDayPlanBlocks((prev) =>
+        prev.map((b) =>
+          b.id === id
+            ? { ...b, done: !b.done, done_at: !b.done ? new Date().toISOString() : null }
+            : b
+        )
+      ),
+    []
+  );
+
+  const addPoolItem = useCallback(
+    (item: Omit<ActivityPoolItem, 'id' | 'created_at' | 'family_id'>) =>
+      setActivityPool((prev) => [
+        ...prev,
+        { ...item, id: uid('ap'), created_at: new Date().toISOString(), family_id: family.id }
+      ]),
+    [family.id]
+  );
+
+  const updatePoolItem = useCallback(
+    (id: string, patch: Partial<ActivityPoolItem>) =>
+      setActivityPool((prev) => prev.map((p) => (p.id === id ? { ...p, ...patch } : p))),
+    []
+  );
+
+  const archivePoolItem = useCallback(
+    (id: string) =>
+      setActivityPool((prev) => prev.map((p) => (p.id === id ? { ...p, archived: true } : p))),
+    []
+  );
+
   const value: FamilyContextValue = {
     family,
     members,
@@ -737,7 +835,17 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
     addHabit,
     updateHabit,
     deleteHabit,
-    toggleCheckIn
+    toggleCheckIn,
+    dayPlanBlocks,
+    activityPool,
+    addDayPlanBlock,
+    updateDayPlanBlock,
+    removeDayPlanBlock,
+    reorderDayPlanBlocks,
+    toggleBlockDone,
+    addPoolItem,
+    updatePoolItem,
+    archivePoolItem
   };
 
   return <FamilyContext.Provider value={value}>{children}</FamilyContext.Provider>;

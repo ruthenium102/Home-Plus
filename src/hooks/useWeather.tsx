@@ -12,9 +12,10 @@ const LOCATION_KEY = 'hp:location';
 const PERTH = { lat: -31.9505, lng: 115.8605, name: 'Perth' };
 const REFRESH_MS = 30 * 60 * 1000; // 30 min
 
-interface Coords {
+interface StoredLocation {
   lat: number;
   lng: number;
+  name?: string; // present when user set a manual city
 }
 
 export type LocationStatus = 'idle' | 'requesting' | 'ready' | 'denied';
@@ -28,6 +29,7 @@ export interface WeatherState {
   locationStatus: LocationStatus;
   requestLocation: () => void;
   resetLocation: () => void;
+  setManualLocation: (lat: number, lng: number, name: string) => void;
 }
 
 // ---- WMO weather-code helpers -----------------------------------------------
@@ -63,40 +65,58 @@ export function WeatherProvider({ children }: { children: ReactNode }) {
   const [locationStatus, setLocationStatus] = useState<LocationStatus>(() =>
     localStorage.getItem(LOCATION_KEY) ? 'ready' : 'idle'
   );
-  const [coords, setCoords] = useState<Coords | null>(() => {
+  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(() => {
     const raw = localStorage.getItem(LOCATION_KEY);
     if (!raw) return null;
     try {
-      return JSON.parse(raw) as Coords;
+      const s = JSON.parse(raw) as StoredLocation;
+      return { lat: s.lat, lng: s.lng };
+    } catch {
+      return null;
+    }
+  });
+  // Name set by user manually — overrides reverse-geocoding result
+  const [manualName, setManualName] = useState<string | null>(() => {
+    const raw = localStorage.getItem(LOCATION_KEY);
+    if (!raw) return null;
+    try {
+      return (JSON.parse(raw) as StoredLocation).name ?? null;
     } catch {
       return null;
     }
   });
   const [temp, setTemp] = useState<number | null>(null);
   const [code, setCode] = useState<number | null>(null);
-  const [locationName, setLocationName] = useState('');
+  const [locationName, setLocationName] = useState(() => {
+    const raw = localStorage.getItem(LOCATION_KEY);
+    if (!raw) return '';
+    try { return (JSON.parse(raw) as StoredLocation).name ?? ''; } catch { return ''; }
+  });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const fetchWeather = useCallback(async (lat: number, lng: number) => {
+  const fetchWeather = useCallback(async (lat: number, lng: number, nameOverride?: string) => {
     setLoading(true);
     setError(null);
     try {
-      const [weather, geo] = await Promise.all([
-        fetch(
-          `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current=temperature_2m,weather_code&timezone=auto`
-        ).then((r) => r.json()),
-        fetch(
+      const weatherRes = await fetch(
+        `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current=temperature_2m,weather_code&timezone=auto`
+      ).then((r) => r.json());
+      setTemp(Math.round(weatherRes.current.temperature_2m));
+      setCode(weatherRes.current.weather_code);
+
+      if (nameOverride) {
+        setLocationName(nameOverride);
+      } else {
+        const geo = await fetch(
           `https://geocoding-api.open-meteo.com/v1/reverse?latitude=${lat}&longitude=${lng}`
         )
           .then((r) => r.json())
-          .catch(() => null)
-      ]);
-      setTemp(Math.round(weather.current.temperature_2m));
-      setCode(weather.current.weather_code);
-      const place = (geo?.results as Array<{ name?: string; admin1?: string }> | undefined)?.[0];
-      setLocationName(place?.name || place?.admin1 || 'Your location');
+          .catch(() => null);
+        const place = (geo?.results as Array<{ name?: string; admin1?: string }> | undefined)?.[0];
+        setLocationName(place?.name || place?.admin1 || 'Your location');
+      }
     } catch {
       setError('Weather unavailable');
     } finally {
@@ -150,13 +170,21 @@ export function WeatherProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem(LOCATION_KEY);
     if (intervalRef.current) clearInterval(intervalRef.current);
     setCoords(null);
+    setManualName(null);
     setTemp(null);
     setCode(null);
     setLocationName('');
     setError(null);
-    // Immediately re-ask (status transitions idle→requesting inside doGeoRequest)
     doGeoRequest();
   }, [doGeoRequest]);
+
+  const setManualLocation = useCallback((lat: number, lng: number, name: string) => {
+    const stored: StoredLocation = { lat, lng, name };
+    localStorage.setItem(LOCATION_KEY, JSON.stringify(stored));
+    setManualName(name);
+    setCoords({ lat, lng });
+    setLocationStatus('ready');
+  }, []);
 
   const value: WeatherState = {
     temp,
@@ -166,7 +194,8 @@ export function WeatherProvider({ children }: { children: ReactNode }) {
     error,
     locationStatus,
     requestLocation,
-    resetLocation
+    resetLocation,
+    setManualLocation
   };
 
   return <WeatherContext.Provider value={value}>{children}</WeatherContext.Provider>;
