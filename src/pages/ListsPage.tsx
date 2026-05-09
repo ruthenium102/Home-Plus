@@ -86,37 +86,48 @@ export function ListsPage() {
             ).length;
 
             return (
-              <button
+              <div
                 key={list.id}
-                onClick={() => setActiveListId(list.id)}
                 className={
-                  'w-full flex items-center gap-2.5 px-2 py-2 rounded-md text-left transition-colors ' +
+                  'flex items-center gap-2.5 px-2 py-2 rounded-md transition-colors group ' +
                   (isActive ? 'bg-surface-2' : 'hover:bg-surface-2/60')
                 }
               >
-                <div
-                  className="w-7 h-7 rounded-md flex items-center justify-center shrink-0"
-                  style={{
-                    background: tokens?.soft || 'rgb(var(--surface-2))',
-                    color: tokens?.base || 'rgb(var(--text-muted))'
-                  }}
+                <button
+                  onClick={() => setActiveListId(list.id)}
+                  className="flex items-center gap-2.5 flex-1 min-w-0 text-left"
                 >
-                  <Icon size={14} />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="text-sm text-text truncate flex items-center gap-1.5">
-                    {list.name}
-                    {list.owner_id !== null ? (
-                      <Lock size={10} className="text-text-faint shrink-0" />
-                    ) : null}
+                  <div
+                    className="w-7 h-7 rounded-md flex items-center justify-center shrink-0"
+                    style={{
+                      background: tokens?.soft || 'rgb(var(--surface-2))',
+                      color: tokens?.base || 'rgb(var(--text-muted))'
+                    }}
+                  >
+                    <Icon size={14} />
                   </div>
-                </div>
-                {itemCount > 0 && (
-                  <span className="text-xs text-text-faint tabular-nums">
-                    {itemCount}
-                  </span>
-                )}
-              </button>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm text-text truncate flex items-center gap-1.5">
+                      {list.name}
+                      {list.owner_id !== null ? (
+                        <Lock size={10} className="text-text-faint shrink-0" />
+                      ) : null}
+                    </div>
+                  </div>
+                  {itemCount > 0 && (
+                    <span className="text-xs text-text-faint tabular-nums">
+                      {itemCount}
+                    </span>
+                  )}
+                </button>
+                <button
+                  onClick={() => { setActiveListId(list.id); setEditingList(list); setListEditorOpen(true); }}
+                  className="w-6 h-6 rounded-md hover:bg-surface-2 flex items-center justify-center text-text-faint hover:text-text shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                  title="Edit list"
+                >
+                  <Pencil size={11} />
+                </button>
+              </div>
             );
           })}
           {myLists.length === 0 && (
@@ -271,11 +282,11 @@ function ListItemRow({
 
   return (
     <SwipeableRow onDelete={handleDelete} mode={swipeMode}>
-      <div className="flex items-start gap-3 p-3 hover:bg-surface-2/50 transition-colors group">
+      <div className="flex items-center gap-3 p-3 bg-surface-2/40 hover:bg-surface-2/70 transition-colors">
         <button
           data-no-swipe
           onClick={() => toggleListItem(item.id)}
-          className="shrink-0 mt-0.5"
+          className="shrink-0"
         >
           {item.done ? (
             <CheckCircle2 size={20} className="text-accent" />
@@ -283,16 +294,11 @@ function ListItemRow({
             <Circle size={20} className="text-text-faint hover:text-text" />
           )}
         </button>
-        <button
-          onClick={onEdit}
-          className="flex-1 min-w-0 text-left"
-        >
+        <div className="flex-1 min-w-0">
           <div
             className={
               'text-sm ' +
-              (item.done
-                ? 'text-text-muted line-through'
-                : 'text-text font-medium')
+              (item.done ? 'text-text-muted line-through' : 'text-text font-medium')
             }
           >
             {item.title}
@@ -300,7 +306,7 @@ function ListItemRow({
           {item.notes && !item.done && (
             <div className="text-xs text-text-faint mt-0.5">{item.notes}</div>
           )}
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-1 text-[11px] text-text-faint">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-0.5 text-[11px] text-text-faint">
             {item.repeat !== 'never' && (
               <span className="flex items-center gap-1">
                 <Repeat size={10} /> {formatRepeat(item.repeat)}
@@ -321,16 +327,20 @@ function ListItemRow({
               </span>
             )}
             {item.done && item.repeat !== 'never' && item.next_due && (
-              <span className="text-text-faint">
-                Next: {formatDue(item.next_due)}
-              </span>
+              <span className="text-text-faint">Next: {formatDue(item.next_due)}</span>
             )}
           </div>
-        </button>
+        </div>
         {list.owner_id === null && assignee && (
           <Avatar member={assignee} size={26} />
         )}
-        <Pencil size={13} className="text-text-faint shrink-0 opacity-0 group-hover:opacity-60 transition-opacity" />
+        <button
+          onClick={onEdit}
+          className="w-7 h-7 rounded-md hover:bg-surface-2 flex items-center justify-center text-text-faint hover:text-text shrink-0"
+          title="Edit item"
+        >
+          <Pencil size={12} />
+        </button>
       </div>
     </SwipeableRow>
   );

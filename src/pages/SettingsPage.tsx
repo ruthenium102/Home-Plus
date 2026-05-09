@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Sun, Moon, Monitor, Lock, LockOpen, MapPin, Search, X, UserPlus, LogOut } from 'lucide-react';
+import { Sun, Moon, Monitor, Lock, LockOpen, MapPin, Search, X, UserPlus, LogOut, Pencil } from 'lucide-react';
 import { useFamily } from '@/context/FamilyContext';
 import { useTheme } from '@/context/ThemeContext';
 import { useWeather } from '@/hooks/useWeather';
@@ -8,9 +8,10 @@ import { Avatar } from '@/components/Avatar';
 import { SetPinModal } from '@/components/SetPinModal';
 import { InviteModal } from '@/components/InviteModal';
 import { AddMemberModal } from '@/components/AddMemberModal';
-import { COLOR_OPTIONS, MEMBER_COLORS } from '@/lib/colors';
+import { EditMemberModal } from '@/components/EditMemberModal';
+import { MEMBER_COLORS } from '@/lib/colors';
 import { isSupabaseConfigured } from '@/lib/supabase';
-import type { ThemeMode, MemberColor, FamilyMember } from '@/types';
+import type { ThemeMode, FamilyMember } from '@/types';
 
 interface GeoResult {
   id: number;
@@ -28,6 +29,7 @@ export function SettingsPage() {
   const { temp, locationName, locationStatus, resetLocation, setManualLocation } = useWeather();
   const { authSignOut } = useAuth();
   const [pinTarget, setPinTarget] = useState<FamilyMember | null>(null);
+  const [editTarget, setEditTarget] = useState<FamilyMember | null>(null);
   const [inviteOpen, setInviteOpen] = useState(false);
   const [addMemberOpen, setAddMemberOpen] = useState(false);
   const isParent = activeMember?.role === 'parent';
@@ -145,7 +147,7 @@ export function SettingsPage() {
               key={m.id}
               member={m}
               isActive={activeMember?.id === m.id}
-              onChangeColor={(c) => updateMember(m.id, { color: c })}
+              onEdit={() => setEditTarget(m)}
               onSetPin={() => setPinTarget(m)}
             />
           ))}
@@ -271,7 +273,11 @@ export function SettingsPage() {
         member={pinTarget}
         onClose={() => setPinTarget(null)}
       />
-
+      <EditMemberModal
+        open={editTarget !== null}
+        member={editTarget}
+        onClose={() => setEditTarget(null)}
+      />
       <AddMemberModal open={addMemberOpen} onClose={() => setAddMemberOpen(false)} />
       <InviteModal open={inviteOpen} onClose={() => setInviteOpen(false)} />
 
@@ -287,16 +293,16 @@ export function SettingsPage() {
 function MemberRow({
   member,
   isActive,
-  onChangeColor,
+  onEdit,
   onSetPin
 }: {
   member: FamilyMember;
   isActive: boolean;
-  onChangeColor: (c: MemberColor) => void;
+  onEdit: () => void;
   onSetPin: () => void;
 }) {
   return (
-    <div className="flex items-start gap-3 p-3 rounded-md hover:bg-surface-2 transition-colors">
+    <div className="flex items-center gap-3 p-3 rounded-md bg-surface-2/40 hover:bg-surface-2/70 transition-colors">
       <Avatar member={member} size={44} />
       <div className="flex-1 min-w-0">
         <div className="flex items-baseline gap-2 mb-0.5">
@@ -307,23 +313,13 @@ function MemberRow({
             </span>
           )}
         </div>
-        <div className="text-xs text-text-faint capitalize mb-2">
+        <div className="text-xs text-text-faint capitalize flex items-center gap-1.5">
+          <span
+            className="inline-block w-2 h-2 rounded-full shrink-0"
+            style={{ background: MEMBER_COLORS[member.color].base }}
+          />
           {member.role}
           {member.birthday && ` · b. ${member.birthday}`}
-        </div>
-        <div className="flex flex-wrap items-center gap-1.5">
-          {COLOR_OPTIONS.map((c) => (
-            <button
-              key={c}
-              onClick={() => onChangeColor(c)}
-              title={c}
-              className={
-                'w-5 h-5 rounded-full transition-transform ' +
-                (member.color === c ? 'ring-2 ring-text-muted scale-110' : '')
-              }
-              style={{ background: MEMBER_COLORS[c].base }}
-            />
-          ))}
         </div>
       </div>
       <button
@@ -332,14 +328,17 @@ function MemberRow({
         title={member.pin_hash ? 'Change or remove PIN' : 'Set a PIN'}
       >
         {member.pin_hash ? (
-          <>
-            <Lock size={12} /> PIN set
-          </>
+          <><Lock size={12} /> PIN set</>
         ) : (
-          <>
-            <LockOpen size={12} /> No PIN
-          </>
+          <><LockOpen size={12} /> No PIN</>
         )}
+      </button>
+      <button
+        onClick={onEdit}
+        className="w-7 h-7 rounded-md hover:bg-surface-2 flex items-center justify-center text-text-faint hover:text-text shrink-0"
+        title="Edit member"
+      >
+        <Pencil size={12} />
       </button>
     </div>
   );

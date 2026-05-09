@@ -457,9 +457,9 @@ function ParentManage() {
               mode={swipeMode}
               onDelete={() => handleDeleteChore(c)}
             >
-              <button
+              <div
                 onClick={() => handleEdit(c)}
-                className="w-full flex items-center gap-3 p-3 hover:bg-surface-2 text-left transition-colors first:rounded-t-lg last:rounded-b-lg"
+                className="w-full flex items-center gap-3 p-3 bg-surface-2/40 hover:bg-surface-2/70 transition-colors cursor-pointer first:rounded-t-lg last:rounded-b-lg"
               >
                 <div className="flex-1 min-w-0">
                   <div className="text-sm font-medium text-text">{c.title}</div>
@@ -474,8 +474,13 @@ function ParentManage() {
                     return <Avatar key={id} member={m} size={26} />;
                   })}
                 </div>
-                <Pencil size={14} className="text-text-faint shrink-0" />
-              </button>
+                <button
+                  onClick={(e) => { e.stopPropagation(); handleEdit(c); }}
+                  className="w-7 h-7 rounded-md hover:bg-surface-2 flex items-center justify-center text-text-faint hover:text-text shrink-0"
+                >
+                  <Pencil size={12} />
+                </button>
+              </div>
             </SwipeableRow>
           ))}
         {chores.filter((c) => !c.archived).length === 0 && (
