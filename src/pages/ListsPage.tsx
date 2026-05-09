@@ -330,6 +330,7 @@ function ListItemRow({
         {list.owner_id === null && assignee && (
           <Avatar member={assignee} size={26} />
         )}
+        <Pencil size={13} className="text-text-faint shrink-0 opacity-0 group-hover:opacity-60 transition-opacity" />
       </div>
     </SwipeableRow>
   );

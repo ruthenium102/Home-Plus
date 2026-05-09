@@ -13,6 +13,10 @@ import {
   startOfMonth,
   startOfWeek
 } from 'date-fns';
+
+function eventSpansDay(occurrenceStart: string, occurrenceEnd: string, day: Date): boolean {
+  return new Date(occurrenceStart) < endOfDay(day) && new Date(occurrenceEnd) > startOfDay(day);
+}
 import { ChevronLeft, ChevronRight, Plus, Sparkles } from 'lucide-react';
 import { useFamily } from '@/context/FamilyContext';
 import { expandEvents, type ExpandedEvent } from '@/lib/recurrence';
@@ -320,7 +324,7 @@ function WeekView({
       <div className="grid grid-cols-7 gap-1.5">
         {days.map((day) => {
           const dayEvents = events.filter((e) =>
-            isSameDay(new Date(e.occurrence_start), day)
+            eventSpansDay(e.occurrence_start, e.occurrence_end, day)
           );
           const isToday = isSameDay(day, today);
           return (
@@ -425,7 +429,7 @@ function MonthView({
       <div className="grid grid-cols-7 gap-1.5">
         {days.map((day) => {
           const dayEvents = events.filter((e) =>
-            isSameDay(new Date(e.occurrence_start), day)
+            eventSpansDay(e.occurrence_start, e.occurrence_end, day)
           );
           const isToday = isSameDay(day, today);
           const inMonth = isSameMonth(day, monthCursor);

@@ -28,6 +28,7 @@ export function SwipeableRow({
   const containerRef = useRef<HTMLDivElement>(null);
   const startXRef = useRef<number | null>(null);
   const startTranslateRef = useRef(0);
+  const capturedRef = useRef(false);
   const [translate, setTranslate] = useState(0);
   const [animating, setAnimating] = useState(false);
   const [committing, setCommitting] = useState(false);
@@ -67,21 +68,28 @@ export function SwipeableRow({
 
   const onPointerDown = (e: React.PointerEvent) => {
     if (disabled || committing) return;
-    // Don't start a swipe on a click that's clearly going to be a button tap
     const target = e.target as HTMLElement;
     if (target.closest('[data-no-swipe]')) return;
 
     startXRef.current = e.clientX;
     startTranslateRef.current = translate;
+    capturedRef.current = false;
     setAnimating(false);
-    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    // Don't capture yet — defer until we confirm horizontal movement so that
+    // taps on child buttons still fire their click handlers normally.
   };
 
   const onPointerMove = (e: React.PointerEvent) => {
     if (startXRef.current === null) return;
     const dx = e.clientX - startXRef.current;
+
+    // Only capture the pointer once we're sure this is a horizontal swipe.
+    if (!capturedRef.current && Math.abs(dx) > 6) {
+      (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+      capturedRef.current = true;
+    }
+
     let next = startTranslateRef.current + dx;
-    // Constrain: only left swipe; clamp at -width
     const width = containerRef.current?.offsetWidth ?? 400;
     if (next > 0) next = 0;
     if (next < -width) next = -width;
@@ -93,7 +101,10 @@ export function SwipeableRow({
     const dx = e.clientX - startXRef.current;
     const width = containerRef.current?.offsetWidth ?? 400;
     startXRef.current = null;
-    (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
+    if (capturedRef.current) {
+      (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
+      capturedRef.current = false;
+    }
 
     // If movement was small, treat as tap — close any open row
     if (Math.abs(dx) < 8) {

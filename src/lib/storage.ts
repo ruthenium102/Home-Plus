@@ -24,7 +24,7 @@ import type {
  * when the seed schema or default family changes (e.g. Henderson → Ellis).
  */
 const PREFIX = 'hp:';
-const SEED_VERSION = 8; // 1=Henderson, 2=Ellis+chores, 3=Phase3, 4=swipe+backfill+import, 5=my-day, 6=rotation, 7=clean-reset, 8=live-mode-empty-defaults
+const SEED_VERSION = 9; // 1=Henderson, 2=Ellis+chores, 3=Phase3, 4=swipe+backfill+import, 5=my-day, 6=rotation, 7=clean-reset, 8=live-mode-empty-defaults, 9=db-wipe
 
 // On first load, if the user has stale demo data from a previous version,
 // wipe the demo:* keys so they get the fresh seed.
@@ -32,13 +32,7 @@ try {
   const stored = parseInt(localStorage.getItem(PREFIX + 'seed_version') || '0', 10);
   if (stored !== SEED_VERSION) {
     Object.keys(localStorage)
-      .filter((k) => k.startsWith(PREFIX + 'demo:'))
-      .forEach((k) => localStorage.removeItem(k));
-    // Also clear session — old session may reference deleted member ids
-    localStorage.removeItem(PREFIX + 'session');
-    // Clear Supabase auth session so user must re-authenticate
-    Object.keys(localStorage)
-      .filter((k) => k.startsWith('sb-'))
+      .filter((k) => k.startsWith(PREFIX) || k.startsWith('sb-'))
       .forEach((k) => localStorage.removeItem(k));
     localStorage.setItem(PREFIX + 'seed_version', String(SEED_VERSION));
   }

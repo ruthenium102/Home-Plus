@@ -62,9 +62,11 @@ export function weatherIconName(code: number): string {
 const WeatherContext = createContext<WeatherState | null>(null);
 
 export function WeatherProvider({ children }: { children: ReactNode }) {
-  const [locationStatus, setLocationStatus] = useState<LocationStatus>(() =>
-    localStorage.getItem(LOCATION_KEY) ? 'ready' : 'idle'
-  );
+  const [locationStatus, setLocationStatus] = useState<LocationStatus>(() => {
+    const raw = localStorage.getItem(LOCATION_KEY);
+    if (!raw) return 'idle';
+    try { JSON.parse(raw); return 'ready'; } catch { return 'idle'; }
+  });
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(() => {
     const raw = localStorage.getItem(LOCATION_KEY);
     if (!raw) return null;
@@ -110,12 +112,25 @@ export function WeatherProvider({ children }: { children: ReactNode }) {
         setLocationName(nameOverride);
       } else {
         const geo = await fetch(
-          `https://geocoding-api.open-meteo.com/v1/reverse?latitude=${lat}&longitude=${lng}`
+          `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`,
+          { headers: { 'Accept-Language': 'en' } }
         )
           .then((r) => r.json())
           .catch(() => null);
-        const place = (geo?.results as Array<{ name?: string; admin1?: string }> | undefined)?.[0];
-        setLocationName(place?.name || place?.admin1 || 'Your location');
+        const addr = geo?.address as Record<string, string> | undefined;
+        const name =
+          addr?.city || addr?.town || addr?.village || addr?.county || addr?.state || 'Your location';
+        setLocationName(name);
+        // Persist resolved name so it shows correctly on next load without re-geocoding
+        try {
+          const stored = localStorage.getItem(LOCATION_KEY);
+          if (stored) {
+            const parsed = JSON.parse(stored) as StoredLocation;
+            if (!parsed.name) {
+              localStorage.setItem(LOCATION_KEY, JSON.stringify({ ...parsed, name }));
+            }
+          }
+        } catch { /* ignore */ }
       }
     } catch {
       setError('Weather unavailable');

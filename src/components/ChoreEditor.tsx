@@ -1,10 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { localISO } from '@/lib/dates';
 import { X, Trash2, Camera, ShieldCheck, RotateCw } from 'lucide-react';
 import { useFamily } from '@/context/FamilyContext';
 import { isoWeekStr } from '@/lib/rotation';
 import { Avatar } from './Avatar';
-import type { Chore, ChoreFrequency, ChoreMode, RewardCategoryKey } from '@/types';
+import type { Chore, ChoreFrequency, ChoreMode, FamilyMember, RewardCategoryKey } from '@/types';
 
 interface Props {
   open: boolean;
@@ -274,29 +274,14 @@ export function ChoreEditor({ open, onClose, editing }: Props) {
                 ))}
               </div>
               {mode !== 'standard' && (
-                <div className="mt-2 p-3 bg-surface-2 rounded-lg text-xs text-text-faint space-y-2">
-                  <div>Rotation order (drag to reorder):</div>
-                  <div className="flex flex-wrap gap-1.5">
-                    {rotationRoster.map((id, i) => {
-                      const m = kids.find((k) => k.id === id);
-                      if (!m) return null;
-                      return (
-                        <span key={id} className="flex items-center gap-1 bg-surface border border-border px-2 py-0.5 rounded-full text-xs text-text">
-                          <span className="text-text-faint">{i + 1}.</span> {m.name}
-                        </span>
-                      );
-                    })}
-                  </div>
-                  {mode === 'roster_role' && (
-                    <input
-                      type="text"
-                      value={rosterRoleName}
-                      onChange={(e) => setRosterRoleName(e.target.value)}
-                      placeholder="Role name (e.g. Bins person)"
-                      className="w-full px-2.5 py-1.5 bg-surface border border-border rounded-md text-xs text-text placeholder:text-text-faint focus:outline-none focus:border-accent"
-                    />
-                  )}
-                </div>
+                <RosterDragList
+                  roster={rotationRoster}
+                  kids={kids}
+                  onChange={setRotationRoster}
+                  mode={mode}
+                  rosterRoleName={rosterRoleName}
+                  onRoleNameChange={setRosterRoleName}
+                />
               )}
             </div>
           )}
@@ -385,6 +370,73 @@ export function ChoreEditor({ open, onClose, editing }: Props) {
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+// ---- Roster drag-and-drop reorder ------------------------------------------
+
+interface RosterDragListProps {
+  roster: string[];
+  kids: FamilyMember[];
+  onChange: (next: string[]) => void;
+  mode: ChoreMode;
+  rosterRoleName: string;
+  onRoleNameChange: (v: string) => void;
+}
+
+function RosterDragList({ roster, kids, onChange, mode, rosterRoleName, onRoleNameChange }: RosterDragListProps) {
+  const dragIndexRef = useRef<number | null>(null);
+
+  const handleDragStart = (i: number) => {
+    dragIndexRef.current = i;
+  };
+
+  const handleDragOver = (e: React.DragEvent, i: number) => {
+    e.preventDefault();
+    const from = dragIndexRef.current;
+    if (from === null || from === i) return;
+    const next = [...roster];
+    const [item] = next.splice(from, 1);
+    next.splice(i, 0, item);
+    dragIndexRef.current = i;
+    onChange(next);
+  };
+
+  const handleDragEnd = () => {
+    dragIndexRef.current = null;
+  };
+
+  return (
+    <div className="mt-2 p-3 bg-surface-2 rounded-lg text-xs text-text-faint space-y-2">
+      <div>Rotation order — drag to reorder:</div>
+      <div className="flex flex-wrap gap-1.5">
+        {roster.map((id, i) => {
+          const m = kids.find((k) => k.id === id);
+          if (!m) return null;
+          return (
+            <span
+              key={id}
+              draggable
+              onDragStart={() => handleDragStart(i)}
+              onDragOver={(e) => handleDragOver(e, i)}
+              onDragEnd={handleDragEnd}
+              className="flex items-center gap-1 bg-surface border border-border px-2 py-0.5 rounded-full text-xs text-text cursor-grab active:cursor-grabbing select-none"
+            >
+              <span className="text-text-faint">{i + 1}.</span> {m.name}
+            </span>
+          );
+        })}
+      </div>
+      {mode === 'roster_role' && (
+        <input
+          type="text"
+          value={rosterRoleName}
+          onChange={(e) => onRoleNameChange(e.target.value)}
+          placeholder="Role name (e.g. Bins person)"
+          className="w-full px-2.5 py-1.5 bg-surface border border-border rounded-md text-xs text-text placeholder:text-text-faint focus:outline-none focus:border-accent"
+        />
+      )}
     </div>
   );
 }
