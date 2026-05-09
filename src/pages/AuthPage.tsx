@@ -126,7 +126,7 @@ export function AuthPage() {
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  placeholder="Ben"
+                  placeholder="Your name"
                   autoComplete="given-name"
                   className="w-full px-3 py-2.5 bg-surface-2 border border-border rounded-md text-text text-sm placeholder:text-text-faint focus:outline-none focus:border-accent"
                 />
@@ -137,7 +137,7 @@ export function AuthPage() {
                   type="text"
                   value={familyName}
                   onChange={(e) => setFamilyName(e.target.value)}
-                  placeholder="The Ellis Family"
+                  placeholder="The Smith Family"
                   autoComplete="organization"
                   className="w-full px-3 py-2.5 bg-surface-2 border border-border rounded-md text-text text-sm placeholder:text-text-faint focus:outline-none focus:border-accent"
                 />
