@@ -16,12 +16,12 @@ export function AuthPage() {
   const [showPw, setShowPw] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
+  const [resetSent, setResetSent] = useState(false);
 
   const reset = (next: Mode) => {
     setMode(next);
     setError('');
-    setSuccess('');
+    setResetSent(false);
     setPassword('');
     setConfirmPassword('');
   };
@@ -29,7 +29,6 @@ export function AuthPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    setSuccess('');
 
     if (mode === 'forgot') {
       if (!email.trim()) { setError('Enter your email address.'); return; }
@@ -37,7 +36,7 @@ export function AuthPage() {
       const { error } = await forgotPassword(email.trim());
       setLoading(false);
       if (error) setError(error);
-      else setSuccess('Password reset email sent — check your inbox.');
+      else setResetSent(true);
       return;
     }
 
@@ -60,10 +59,10 @@ export function AuthPage() {
     setLoading(true);
     const { error } = await signUp(email.trim(), password, name.trim(), familyName.trim());
     setLoading(false);
-    if (error) { setError(error); return; }
-    setSuccess(
-      "Almost there! Check your email and click the confirmation link to activate your account."
-    );
+    // On success with email confirmations disabled (recommended for family apps),
+    // onAuthStateChange fires immediately and AuthGate transitions to AppShell.
+    // If error, show it inline.
+    if (error) setError(error);
   };
 
   return (
@@ -201,31 +200,28 @@ export function AuthPage() {
             </div>
           )}
 
-          {/* Error / success */}
+          {/* Error / confirmation */}
           {error && (
             <div className="text-sm text-red-500 bg-red-500/10 px-3 py-2.5 rounded-md">
               {error}
             </div>
           )}
-          {success && (
-            <div className="text-sm text-green-600 dark:text-green-400 bg-green-500/10 px-3 py-2.5 rounded-md leading-relaxed">
-              {success}
+          {resetSent && (
+            <div className="text-sm text-green-600 dark:text-green-400 bg-green-500/10 px-3 py-2.5 rounded-md">
+              Reset link sent — check your inbox.
             </div>
           )}
-
           {/* Submit */}
-          {!success && (
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full py-3 bg-accent text-white text-sm font-semibold rounded-md hover:opacity-90 active:scale-[0.98] transition-all disabled:opacity-50 flex items-center justify-center gap-2"
-            >
-              {loading && <Loader2 size={16} className="animate-spin" />}
-              {mode === 'signin' && 'Sign in'}
-              {mode === 'signup' && 'Create family account'}
-              {mode === 'forgot' && 'Send reset link'}
-            </button>
-          )}
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full py-3 bg-accent text-white text-sm font-semibold rounded-md hover:opacity-90 active:scale-[0.98] transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+          >
+            {loading && <Loader2 size={16} className="animate-spin" />}
+            {mode === 'signin' && 'Sign in'}
+            {mode === 'signup' && 'Create family account'}
+            {mode === 'forgot' && 'Send reset link'}
+          </button>
 
           {/* Footer links */}
           <div className="flex items-center justify-between text-xs text-text-faint pt-1">
