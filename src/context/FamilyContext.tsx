@@ -2,6 +2,7 @@ import {
   createContext,
   useContext,
   useEffect,
+  useRef,
   useMemo,
   useState,
   useCallback,
@@ -26,7 +27,7 @@ import {
   hashPinSync,
   verifyPinSync
 } from '@/lib/storage';
-import { isSupabaseConfigured } from '@/lib/supabase';
+import { supabase, isSupabaseConfigured } from '@/lib/supabase';
 import type {
   ActiveSession,
   ActivityPoolItem,
@@ -130,6 +131,7 @@ interface FamilyContextValue {
 const FamilyContext = createContext<FamilyContextValue | null>(null);
 
 const SESSION_KEY = 'session';
+const FAMILY_KEY = 'demo:family';
 const EVENTS_KEY = 'demo:events';
 const MEMBERS_KEY = 'demo:members';
 const CHORES_KEY = 'demo:chores';
@@ -142,6 +144,9 @@ const HABITS_KEY = 'demo:habits';
 const CHECKINS_KEY = 'demo:checkins';
 const DAY_PLAN_KEY = 'demo:day_plan_blocks';
 const ACTIVITY_POOL_KEY = 'demo:activity_pool';
+
+// When Supabase auth is configured we start with a blank slate — no demo seed.
+const LIVE = isSupabaseConfigured;
 
 function uid(prefix: string) {
   return prefix + '-' + Math.random().toString(36).slice(2, 10);
@@ -181,37 +186,38 @@ const STREAK_MILESTONES: Record<number, number> = {
 };
 
 export function FamilyProvider({ children }: { children: ReactNode }) {
-  const [family] = useState<Family>(DEMO_FAMILY);
-
+  const [family, setFamily] = useState<Family>(() =>
+    storage.get<Family>(FAMILY_KEY, LIVE ? DEMO_FAMILY : DEMO_FAMILY)
+  );
   const [members, setMembers] = useState<FamilyMember[]>(() =>
-    storage.get<FamilyMember[]>(MEMBERS_KEY, DEMO_MEMBERS)
+    storage.get<FamilyMember[]>(MEMBERS_KEY, LIVE ? [] : DEMO_MEMBERS)
   );
   const [events, setEvents] = useState<CalendarEvent[]>(() =>
-    storage.get<CalendarEvent[]>(EVENTS_KEY, DEMO_EVENTS)
+    storage.get<CalendarEvent[]>(EVENTS_KEY, LIVE ? [] : DEMO_EVENTS)
   );
   const [chores, setChores] = useState<Chore[]>(() =>
-    storage.get<Chore[]>(CHORES_KEY, DEMO_CHORES)
+    storage.get<Chore[]>(CHORES_KEY, LIVE ? [] : DEMO_CHORES)
   );
   const [completions, setCompletions] = useState<ChoreCompletion[]>(() =>
-    storage.get<ChoreCompletion[]>(COMPLETIONS_KEY, DEMO_COMPLETIONS)
+    storage.get<ChoreCompletion[]>(COMPLETIONS_KEY, LIVE ? [] : DEMO_COMPLETIONS)
   );
   const [redemptions, setRedemptions] = useState<Redemption[]>(() =>
-    storage.get<Redemption[]>(REDEMPTIONS_KEY, DEMO_REDEMPTIONS)
+    storage.get<Redemption[]>(REDEMPTIONS_KEY, LIVE ? [] : DEMO_REDEMPTIONS)
   );
   const [goals, setGoals] = useState<RewardGoal[]>(() =>
-    storage.get<RewardGoal[]>(GOALS_KEY, DEMO_GOALS)
+    storage.get<RewardGoal[]>(GOALS_KEY, LIVE ? [] : DEMO_GOALS)
   );
   const [lists, setLists] = useState<TodoList[]>(() =>
-    storage.get<TodoList[]>(LISTS_KEY, DEMO_LISTS)
+    storage.get<TodoList[]>(LISTS_KEY, LIVE ? [] : DEMO_LISTS)
   );
   const [listItems, setListItems] = useState<TodoItem[]>(() =>
-    storage.get<TodoItem[]>(LIST_ITEMS_KEY, DEMO_LIST_ITEMS)
+    storage.get<TodoItem[]>(LIST_ITEMS_KEY, LIVE ? [] : DEMO_LIST_ITEMS)
   );
   const [habits, setHabits] = useState<Habit[]>(() =>
-    storage.get<Habit[]>(HABITS_KEY, DEMO_HABITS)
+    storage.get<Habit[]>(HABITS_KEY, LIVE ? [] : DEMO_HABITS)
   );
   const [checkIns, setCheckIns] = useState<HabitCheckIn[]>(() =>
-    storage.get<HabitCheckIn[]>(CHECKINS_KEY, DEMO_HABIT_CHECKINS)
+    storage.get<HabitCheckIn[]>(CHECKINS_KEY, LIVE ? [] : DEMO_HABIT_CHECKINS)
   );
   const [session, setSession] = useState<ActiveSession | null>(() =>
     storage.get<ActiveSession | null>(SESSION_KEY, null)
@@ -220,10 +226,60 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
     storage.get<DayPlanBlock[]>(DAY_PLAN_KEY, [])
   );
   const [activityPool, setActivityPool] = useState<ActivityPoolItem[]>(() =>
-    storage.get<ActivityPoolItem[]>(ACTIVITY_POOL_KEY, DEMO_ACTIVITY_POOL)
+    storage.get<ActivityPoolItem[]>(ACTIVITY_POOL_KEY, LIVE ? [] : DEMO_ACTIVITY_POOL)
   );
 
+  // When Supabase is configured and the members list is empty (fresh account),
+  // seed the initial parent member + family name from the auth user's signup metadata.
+  const seeded = useRef(false);
+  useEffect(() => {
+    if (!LIVE || !supabase) return;
+
+    const trySeed = async (userId: string | null, userMeta: Record<string, unknown> | null, userEmail: string | null) => {
+      if (!userId || seeded.current) return;
+      const existing = storage.get<FamilyMember[]>(MEMBERS_KEY, []);
+      if (existing.length > 0) { seeded.current = true; return; }
+
+      seeded.current = true;
+      const name = (userMeta?.name as string) || userEmail?.split('@')[0] || 'You';
+      const familyName = (userMeta?.family_name as string) || 'My Family';
+      const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      const familyId = 'f-' + userId.slice(0, 8);
+      const memberId = 'm-' + userId.slice(0, 8);
+      const now = new Date().toISOString();
+
+      const newFamily: Family = { id: familyId, name: familyName, timezone: tz, created_at: now };
+      const newMember: FamilyMember = {
+        id: memberId, family_id: familyId, name,
+        role: 'parent', color: 'terracotta',
+        avatar_url: null, pin_hash: null, birthday: null,
+        current_location: null, location_until: null,
+        reward_balances: {}, my_day_enabled: false,
+        created_at: now
+      };
+
+      setFamily(newFamily);
+      setMembers([newMember]);
+      const sess: ActiveSession = { member_id: memberId, authenticated_at: Date.now() };
+      storage.set(SESSION_KEY, sess);
+      setSession(sess);
+    };
+
+    supabase.auth.getSession().then(({ data }) => {
+      const u = data.session?.user;
+      trySeed(u?.id ?? null, u?.user_metadata ?? null, u?.email ?? null);
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, sess) => {
+      const u = sess?.user;
+      trySeed(u?.id ?? null, u?.user_metadata ?? null, u?.email ?? null);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
   // Persist
+  useEffect(() => storage.set(FAMILY_KEY, family), [family]);
   useEffect(() => storage.set(MEMBERS_KEY, members), [members]);
   useEffect(() => storage.set(EVENTS_KEY, events), [events]);
   useEffect(() => storage.set(CHORES_KEY, chores), [chores]);
