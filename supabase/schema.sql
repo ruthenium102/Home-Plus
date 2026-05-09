@@ -603,3 +603,20 @@ begin
   update invitations set accepted_at = now() where token = p_token;
 end;
 $$;
+
+-- ============================================================================
+-- Realtime — enable for all tables that need cross-device sync
+-- ============================================================================
+alter publication supabase_realtime add table families;
+alter publication supabase_realtime add table family_members;
+alter publication supabase_realtime add table events;
+alter publication supabase_realtime add table chores;
+alter publication supabase_realtime add table chore_completions;
+alter publication supabase_realtime add table todo_lists;
+alter publication supabase_realtime add table todo_items;
+alter publication supabase_realtime add table habits;
+alter publication supabase_realtime add table habit_check_ins;
+alter publication supabase_realtime add table reward_goals;
+alter publication supabase_realtime add table redemptions;
+alter publication supabase_realtime add table day_plan_blocks;
+alter publication supabase_realtime add table activity_pool_items;

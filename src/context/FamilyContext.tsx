@@ -150,8 +150,8 @@ const ACTIVITY_POOL_KEY = 'demo:activity_pool';
 // When Supabase auth is configured we start with a blank slate — no demo seed.
 const LIVE = isSupabaseConfigured;
 
-function uid(prefix: string) {
-  return prefix + '-' + Math.random().toString(36).slice(2, 10);
+function uid(_prefix?: string) {
+  return crypto.randomUUID();
 }
 
 /**
@@ -309,8 +309,8 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
       const name = (userMeta?.name as string) || userEmail?.split('@')[0] || 'You';
       const familyName = (userMeta?.family_name as string) || 'My Family';
       const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-      const familyId = 'f-' + userId.slice(0, 8);
-      const memberId = 'm-' + userId.slice(0, 8);
+      const familyId = crypto.randomUUID();
+      const memberId = crypto.randomUUID();
       const now = new Date().toISOString();
 
       const newFamily: Family = { id: familyId, name: familyName, timezone: tz, created_at: now };
