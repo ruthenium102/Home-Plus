@@ -9,6 +9,7 @@ import {
   ReactNode
 } from 'react';
 import { localISO } from '@/lib/dates';
+import { dbUpsert, dbDelete, dbLoadFamily, dbCreateFamily } from '@/lib/db';
 import {
   storage,
   DEMO_FAMILY,
@@ -230,18 +231,81 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
     storage.get<ActivityPoolItem[]>(ACTIVITY_POOL_KEY, LIVE ? [] : DEMO_ACTIVITY_POOL)
   );
 
-  // When Supabase is configured and the members list is empty (fresh account),
-  // seed the initial parent member + family name from the auth user's signup metadata.
-  const seeded = useRef(false);
+  // On auth, load data from Supabase. On first login, create the initial family.
+  const handled = useRef(false);
   useEffect(() => {
     if (!LIVE || !supabase) return;
 
-    const trySeed = async (userId: string | null, userMeta: Record<string, unknown> | null, userEmail: string | null) => {
-      if (!userId || seeded.current) return;
-      const existing = storage.get<FamilyMember[]>(MEMBERS_KEY, []);
-      if (existing.length > 0) { seeded.current = true; return; }
+    const handleAuth = async (
+      userId: string | null,
+      userMeta: Record<string, unknown> | null,
+      userEmail: string | null,
+    ) => {
+      if (!userId || handled.current) return;
+      handled.current = true;
 
-      seeded.current = true;
+      // 1. Check if this user already has a family in Supabase
+      const { data: memberRow } = await supabase!
+        .from('family_members')
+        .select('family_id')
+        .eq('auth_user_id', userId)
+        .maybeSingle();
+
+      const existingFamilyId = memberRow?.family_id as string | null;
+
+      if (existingFamilyId) {
+        // 2. Load the full family from Supabase and hydrate state
+        const data = await dbLoadFamily(existingFamilyId);
+        if (data) {
+          setFamily(data.family);
+          setMembers(data.members);
+          setEvents(data.events);
+          setChores(data.chores);
+          setCompletions(data.completions);
+          setLists(data.lists);
+          setListItems(data.listItems);
+          setHabits(data.habits);
+          setCheckIns(data.checkIns);
+          setGoals(data.goals);
+          setRedemptions(data.redemptions);
+          setDayPlanBlocks(data.dayPlanBlocks);
+          setActivityPool(data.activityPool);
+
+          // Auto sign-in as the member linked to this auth user
+          const mine = data.members.find((m) => m.auth_user_id === userId);
+          if (mine) {
+            const sess: ActiveSession = { member_id: mine.id, authenticated_at: Date.now() };
+            storage.set(SESSION_KEY, sess);
+            setSession(sess);
+          }
+          return;
+        }
+      }
+
+      // 3. No Supabase family yet — check localStorage for data created before sync
+      const localMembers = storage.get<FamilyMember[]>(MEMBERS_KEY, []);
+      const localFamily = storage.get<Family>(FAMILY_KEY, DEMO_FAMILY);
+
+      if (localMembers.length > 0 && localFamily.id !== DEMO_FAMILY.id) {
+        // Push existing local data up to Supabase
+        await supabase!.from('families').upsert({
+          id: localFamily.id,
+          name: localFamily.name,
+          timezone: localFamily.timezone,
+          owner_user_id: userId,
+          created_at: localFamily.created_at,
+        });
+        for (const m of localMembers) {
+          const isOwner = m.id === localMembers[0]?.id;
+          await supabase!.from('family_members').upsert({
+            ...m,
+            auth_user_id: isOwner ? userId : m.auth_user_id ?? null,
+          });
+        }
+        return;
+      }
+
+      // 4. Truly fresh signup — create family + member in Supabase and local state
       const name = (userMeta?.name as string) || userEmail?.split('@')[0] || 'You';
       const familyName = (userMeta?.family_name as string) || 'My Family';
       const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -256,8 +320,11 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
         avatar_url: null, pin_hash: null, birthday: null,
         current_location: null, location_until: null,
         reward_balances: {}, my_day_enabled: false,
-        created_at: now
+        auth_user_id: userId,
+        created_at: now,
       };
+
+      await dbCreateFamily(newFamily, newMember, userId);
 
       setFamily(newFamily);
       setMembers([newMember]);
@@ -268,16 +335,94 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
 
     supabase.auth.getSession().then(({ data }) => {
       const u = data.session?.user;
-      trySeed(u?.id ?? null, u?.user_metadata ?? null, u?.email ?? null);
+      handleAuth(u?.id ?? null, u?.user_metadata ?? null, u?.email ?? null);
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, sess) => {
-      const u = sess?.user;
-      trySeed(u?.id ?? null, u?.user_metadata ?? null, u?.email ?? null);
+      // Reset handled flag on sign-out so next sign-in re-runs
+      if (!sess) { handled.current = false; return; }
+      const u = sess.user;
+      handleAuth(u?.id ?? null, u?.user_metadata ?? null, u?.email ?? null);
     });
 
     return () => subscription.unsubscribe();
   }, []);
+
+  // Realtime subscriptions — keep all devices in sync
+  useEffect(() => {
+    if (!LIVE || !supabase || !family.id || family.id === DEMO_FAMILY.id) return;
+    const fid = family.id;
+
+    const upsertById = <T extends { id: string }>(setter: React.Dispatch<React.SetStateAction<T[]>>, item: T) =>
+      setter((prev) => prev.some((x) => x.id === item.id) ? prev.map((x) => x.id === item.id ? item : x) : [...prev, item]);
+    const removeById = <T extends { id: string }>(setter: React.Dispatch<React.SetStateAction<T[]>>, id: string) =>
+      setter((prev) => prev.filter((x) => x.id !== id));
+
+    const channel = supabase.channel(`hp-${fid}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'family_members', filter: `family_id=eq.${fid}` },
+        ({ eventType, new: n, old: o }) => {
+          if (eventType === 'DELETE') removeById(setMembers, (o as FamilyMember).id);
+          else upsertById(setMembers, n as FamilyMember);
+        })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'events', filter: `family_id=eq.${fid}` },
+        ({ eventType, new: n, old: o }) => {
+          if (eventType === 'DELETE') removeById(setEvents, (o as CalendarEvent).id);
+          else upsertById(setEvents, n as CalendarEvent);
+        })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'chores', filter: `family_id=eq.${fid}` },
+        ({ eventType, new: n, old: o }) => {
+          if (eventType === 'DELETE') removeById(setChores, (o as Chore).id);
+          else upsertById(setChores, n as Chore);
+        })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'chore_completions', filter: `family_id=eq.${fid}` },
+        ({ eventType, new: n, old: o }) => {
+          if (eventType === 'DELETE') removeById(setCompletions, (o as ChoreCompletion).id);
+          else upsertById(setCompletions, n as ChoreCompletion);
+        })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'todo_lists', filter: `family_id=eq.${fid}` },
+        ({ eventType, new: n, old: o }) => {
+          if (eventType === 'DELETE') removeById(setLists, (o as TodoList).id);
+          else upsertById(setLists, n as TodoList);
+        })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'todo_items', filter: `family_id=eq.${fid}` },
+        ({ eventType, new: n, old: o }) => {
+          if (eventType === 'DELETE') removeById(setListItems, (o as TodoItem).id);
+          else upsertById(setListItems, n as TodoItem);
+        })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'habits', filter: `family_id=eq.${fid}` },
+        ({ eventType, new: n, old: o }) => {
+          if (eventType === 'DELETE') removeById(setHabits, (o as Habit).id);
+          else upsertById(setHabits, n as Habit);
+        })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'habit_check_ins', filter: `family_id=eq.${fid}` },
+        ({ eventType, new: n, old: o }) => {
+          if (eventType === 'DELETE') removeById(setCheckIns, (o as HabitCheckIn).id);
+          else upsertById(setCheckIns, n as HabitCheckIn);
+        })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'reward_goals', filter: `family_id=eq.${fid}` },
+        ({ eventType, new: n, old: o }) => {
+          if (eventType === 'DELETE') removeById(setGoals, (o as RewardGoal).id);
+          else upsertById(setGoals, n as RewardGoal);
+        })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'redemptions', filter: `family_id=eq.${fid}` },
+        ({ eventType, new: n, old: o }) => {
+          if (eventType === 'DELETE') removeById(setRedemptions, (o as Redemption).id);
+          else upsertById(setRedemptions, n as Redemption);
+        })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'day_plan_blocks', filter: `family_id=eq.${fid}` },
+        ({ eventType, new: n, old: o }) => {
+          if (eventType === 'DELETE') removeById(setDayPlanBlocks, (o as DayPlanBlock).id);
+          else upsertById(setDayPlanBlocks, n as DayPlanBlock);
+        })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'activity_pool_items', filter: `family_id=eq.${fid}` },
+        ({ eventType, new: n, old: o }) => {
+          if (eventType === 'DELETE') removeById(setActivityPool, (o as ActivityPoolItem).id);
+          else upsertById(setActivityPool, n as ActivityPoolItem);
+        })
+      .subscribe();
+
+    return () => { supabase!.removeChannel(channel); };
+  }, [family.id]);
 
   // Persist
   useEffect(() => storage.set(FAMILY_KEY, family), [family]);
@@ -342,63 +487,75 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
   // ---- Events --------------------------------------------------------------
 
   const addEvent = useCallback(
-    (e: Omit<CalendarEvent, 'id' | 'created_at' | 'family_id'>) =>
-      setEvents((prev) => [
-        ...prev,
-        {
-          ...e,
-          id: uid('e'),
-          created_at: new Date().toISOString(),
-          family_id: family.id
-        }
-      ]),
+    (e: Omit<CalendarEvent, 'id' | 'created_at' | 'family_id'>) => {
+      const newEvent: CalendarEvent = { ...e, id: uid('e'), created_at: new Date().toISOString(), family_id: family.id };
+      setEvents((prev) => [...prev, newEvent]);
+      dbUpsert('events', newEvent as unknown as Record<string, unknown>);
+    },
     [family.id]
   );
 
   const updateEvent = useCallback(
     (id: string, patch: Partial<CalendarEvent>) =>
-      setEvents((prev) => prev.map((e) => (e.id === id ? { ...e, ...patch } : e))),
+      setEvents((prev) => prev.map((e) => {
+        if (e.id !== id) return e;
+        const updated = { ...e, ...patch };
+        dbUpsert('events', updated as unknown as Record<string, unknown>);
+        return updated;
+      })),
     []
   );
 
   const deleteEvent = useCallback(
-    (id: string) => setEvents((prev) => prev.filter((e) => e.id !== id)),
+    (id: string) => {
+      setEvents((prev) => prev.filter((e) => e.id !== id));
+      dbDelete('events', id);
+    },
     []
   );
 
   // ---- Members -------------------------------------------------------------
 
   const addMember = useCallback(
-    (m: Omit<FamilyMember, 'id' | 'created_at' | 'family_id'>) =>
-      setMembers((prev) => [
-        ...prev,
-        { ...m, id: uid('m'), family_id: family.id, created_at: new Date().toISOString() }
-      ]),
+    (m: Omit<FamilyMember, 'id' | 'created_at' | 'family_id'>) => {
+      const newMember: FamilyMember = { ...m, id: uid('m'), family_id: family.id, created_at: new Date().toISOString() };
+      setMembers((prev) => [...prev, newMember]);
+      dbUpsert('family_members', newMember as unknown as Record<string, unknown>);
+    },
     [family.id]
   );
 
   const updateMember = useCallback(
     (id: string, patch: Partial<FamilyMember>) =>
-      setMembers((prev) => prev.map((m) => (m.id === id ? { ...m, ...patch } : m))),
+      setMembers((prev) => prev.map((m) => {
+        if (m.id !== id) return m;
+        const updated = { ...m, ...patch };
+        dbUpsert('family_members', updated as unknown as Record<string, unknown>);
+        return updated;
+      })),
     []
   );
 
   const setMemberPin = useCallback((id: string, pin: string | null) => {
     setMembers((prev) =>
-      prev.map((m) =>
-        m.id === id ? { ...m, pin_hash: pin ? hashPinSync(pin) : null } : m
-      )
+      prev.map((m) => {
+        if (m.id !== id) return m;
+        const updated = { ...m, pin_hash: pin ? hashPinSync(pin) : null };
+        dbUpsert('family_members', updated as unknown as Record<string, unknown>);
+        return updated;
+      })
     );
   }, []);
 
   const setMemberLocation = useCallback(
     (id: string, location: string | null, until: string | null) => {
       setMembers((prev) =>
-        prev.map((m) =>
-          m.id === id
-            ? { ...m, current_location: location, location_until: until }
-            : m
-        )
+        prev.map((m) => {
+          if (m.id !== id) return m;
+          const updated = { ...m, current_location: location, location_until: until };
+          dbUpsert('family_members', updated as unknown as Record<string, unknown>);
+          return updated;
+        })
       );
     },
     []
@@ -407,27 +564,30 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
   // ---- Chores --------------------------------------------------------------
 
   const addChore = useCallback(
-    (c: Omit<Chore, 'id' | 'created_at' | 'family_id'>) =>
-      setChores((prev) => [
-        ...prev,
-        {
-          ...c,
-          id: uid('c'),
-          created_at: new Date().toISOString(),
-          family_id: family.id
-        }
-      ]),
+    (c: Omit<Chore, 'id' | 'created_at' | 'family_id'>) => {
+      const newChore: Chore = { ...c, id: uid('c'), created_at: new Date().toISOString(), family_id: family.id };
+      setChores((prev) => [...prev, newChore]);
+      dbUpsert('chores', newChore as unknown as Record<string, unknown>);
+    },
     [family.id]
   );
 
   const updateChore = useCallback(
     (id: string, patch: Partial<Chore>) =>
-      setChores((prev) => prev.map((c) => (c.id === id ? { ...c, ...patch } : c))),
+      setChores((prev) => prev.map((c) => {
+        if (c.id !== id) return c;
+        const updated = { ...c, ...patch };
+        dbUpsert('chores', updated as unknown as Record<string, unknown>);
+        return updated;
+      })),
     []
   );
 
   const deleteChore = useCallback(
-    (id: string) => setChores((prev) => prev.filter((c) => c.id !== id)),
+    (id: string) => {
+      setChores((prev) => prev.filter((c) => c.id !== id));
+      dbDelete('chores', id);
+    },
     []
   );
 
@@ -474,6 +634,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
       };
 
       setCompletions((prev) => [...prev, completion]);
+      dbUpsert('chore_completions', completion as unknown as Record<string, unknown>);
 
       if (status === 'approved') {
         setMembers((prev) => applyPayout(prev, memberId, chore.payout, 1));
@@ -489,31 +650,23 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
       const target = prev.find((c) => c.id === completionId);
       if (!target || target.status !== 'pending_approval') return prev;
       setMembers((m) => applyPayout(m, target.member_id, target.payout, 1));
-      return prev.map((c) =>
-        c.id === completionId
-          ? {
-              ...c,
-              status: 'approved',
-              approved_by: approverId,
-              approved_at: new Date().toISOString()
-            }
-          : c
-      );
+      return prev.map((c) => {
+        if (c.id !== completionId) return c;
+        const updated = { ...c, status: 'approved' as const, approved_by: approverId, approved_at: new Date().toISOString() };
+        dbUpsert('chore_completions', updated as unknown as Record<string, unknown>);
+        return updated;
+      });
     });
   }, []);
 
   const rejectCompletion = useCallback((completionId: string, approverId: string) =>
     setCompletions((prev) =>
-      prev.map((c) =>
-        c.id === completionId
-          ? {
-              ...c,
-              status: 'rejected',
-              approved_by: approverId,
-              approved_at: new Date().toISOString()
-            }
-          : c
-      )
+      prev.map((c) => {
+        if (c.id !== completionId) return c;
+        const updated = { ...c, status: 'rejected' as const, approved_by: approverId, approved_at: new Date().toISOString() };
+        dbUpsert('chore_completions', updated as unknown as Record<string, unknown>);
+        return updated;
+      })
     ), []);
 
   // ---- Redemptions ---------------------------------------------------------
@@ -543,6 +696,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
       };
 
       setRedemptions((prev) => [...prev, redemption]);
+      dbUpsert('redemptions', redemption as unknown as Record<string, unknown>);
 
       if (autoApprove) {
         setMembers((prev) =>
@@ -559,55 +713,42 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
     setRedemptions((prev) => {
       const r = prev.find((x) => x.id === id);
       if (!r || r.status !== 'pending_approval') return prev;
-      setMembers((m) =>
-        applyPayout(m, r.member_id, { [r.category]: r.amount } as any, -1)
-      );
-      return prev.map((x) =>
-        x.id === id
-          ? {
-              ...x,
-              status: 'approved',
-              approved_by: approverId,
-              approved_at: new Date().toISOString()
-            }
-          : x
-      );
+      setMembers((m) => applyPayout(m, r.member_id, { [r.category]: r.amount } as any, -1));
+      return prev.map((x) => {
+        if (x.id !== id) return x;
+        const updated = { ...x, status: 'approved' as const, approved_by: approverId, approved_at: new Date().toISOString() };
+        dbUpsert('redemptions', updated as unknown as Record<string, unknown>);
+        return updated;
+      });
     });
   }, []);
 
   const rejectRedemption = useCallback((id: string, approverId: string) =>
     setRedemptions((prev) =>
-      prev.map((x) =>
-        x.id === id
-          ? {
-              ...x,
-              status: 'rejected',
-              approved_by: approverId,
-              approved_at: new Date().toISOString()
-            }
-          : x
-      )
+      prev.map((x) => {
+        if (x.id !== id) return x;
+        const updated = { ...x, status: 'rejected' as const, approved_by: approverId, approved_at: new Date().toISOString() };
+        dbUpsert('redemptions', updated as unknown as Record<string, unknown>);
+        return updated;
+      })
     ), []);
 
   // ---- Goals ---------------------------------------------------------------
 
   const addGoal = useCallback(
-    (g: Omit<RewardGoal, 'id' | 'created_at' | 'family_id' | 'achieved_at'>) =>
-      setGoals((prev) => [
-        ...prev,
-        {
-          ...g,
-          id: uid('g'),
-          created_at: new Date().toISOString(),
-          family_id: family.id,
-          achieved_at: null
-        }
-      ]),
+    (g: Omit<RewardGoal, 'id' | 'created_at' | 'family_id' | 'achieved_at'>) => {
+      const newGoal: RewardGoal = { ...g, id: uid('g'), created_at: new Date().toISOString(), family_id: family.id, achieved_at: null };
+      setGoals((prev) => [...prev, newGoal]);
+      dbUpsert('reward_goals', newGoal as unknown as Record<string, unknown>);
+    },
     [family.id]
   );
 
   const deleteGoal = useCallback(
-    (id: string) => setGoals((prev) => prev.filter((g) => g.id !== id)),
+    (id: string) => {
+      setGoals((prev) => prev.filter((g) => g.id !== id));
+      dbDelete('reward_goals', id);
+    },
     []
   );
 
@@ -616,10 +757,9 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
   const addList = useCallback(
     (l: Omit<TodoList, 'id' | 'created_at' | 'family_id'>): string => {
       const id = uid('l');
-      setLists((prev) => [
-        ...prev,
-        { ...l, id, created_at: new Date().toISOString(), family_id: family.id }
-      ]);
+      const newList: TodoList = { ...l, id, created_at: new Date().toISOString(), family_id: family.id };
+      setLists((prev) => [...prev, newList]);
+      dbUpsert('todo_lists', newList as unknown as Record<string, unknown>);
       return id;
     },
     [family.id]
@@ -627,32 +767,38 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
 
   const updateList = useCallback(
     (id: string, patch: Partial<TodoList>) =>
-      setLists((prev) => prev.map((l) => (l.id === id ? { ...l, ...patch } : l))),
+      setLists((prev) => prev.map((l) => {
+        if (l.id !== id) return l;
+        const updated = { ...l, ...patch };
+        dbUpsert('todo_lists', updated as unknown as Record<string, unknown>);
+        return updated;
+      })),
     []
   );
 
   const deleteList = useCallback((id: string) => {
     setLists((prev) => prev.filter((l) => l.id !== id));
     setListItems((prev) => prev.filter((i) => i.list_id !== id));
+    dbDelete('todo_lists', id);
   }, []);
 
   const addListItem = useCallback(
-    (item: Omit<TodoItem, 'id' | 'created_at' | 'family_id'>) =>
-      setListItems((prev) => [
-        ...prev,
-        {
-          ...item,
-          id: uid('li'),
-          created_at: new Date().toISOString(),
-          family_id: family.id
-        }
-      ]),
+    (item: Omit<TodoItem, 'id' | 'created_at' | 'family_id'>) => {
+      const newItem: TodoItem = { ...item, id: uid('li'), created_at: new Date().toISOString(), family_id: family.id };
+      setListItems((prev) => [...prev, newItem]);
+      dbUpsert('todo_items', newItem as unknown as Record<string, unknown>);
+    },
     [family.id]
   );
 
   const updateListItem = useCallback(
     (id: string, patch: Partial<TodoItem>) =>
-      setListItems((prev) => prev.map((i) => (i.id === id ? { ...i, ...patch } : i))),
+      setListItems((prev) => prev.map((i) => {
+        if (i.id !== id) return i;
+        const updated = { ...i, ...patch };
+        dbUpsert('todo_items', updated as unknown as Record<string, unknown>);
+        return updated;
+      })),
     []
   );
 
@@ -701,30 +847,39 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const deleteListItem = useCallback(
-    (id: string) => setListItems((prev) => prev.filter((i) => i.id !== id)),
+    (id: string) => {
+      setListItems((prev) => prev.filter((i) => i.id !== id));
+      dbDelete('todo_items', id);
+    },
     []
   );
 
   // ---- Habits --------------------------------------------------------------
 
   const addHabit = useCallback(
-    (h: Omit<Habit, 'id' | 'created_at' | 'family_id'>) =>
-      setHabits((prev) => [
-        ...prev,
-        { ...h, id: uid('h'), created_at: new Date().toISOString(), family_id: family.id }
-      ]),
+    (h: Omit<Habit, 'id' | 'created_at' | 'family_id'>) => {
+      const newHabit: Habit = { ...h, id: uid('h'), created_at: new Date().toISOString(), family_id: family.id };
+      setHabits((prev) => [...prev, newHabit]);
+      dbUpsert('habits', newHabit as unknown as Record<string, unknown>);
+    },
     [family.id]
   );
 
   const updateHabit = useCallback(
     (id: string, patch: Partial<Habit>) =>
-      setHabits((prev) => prev.map((h) => (h.id === id ? { ...h, ...patch } : h))),
+      setHabits((prev) => prev.map((h) => {
+        if (h.id !== id) return h;
+        const updated = { ...h, ...patch };
+        dbUpsert('habits', updated as unknown as Record<string, unknown>);
+        return updated;
+      })),
     []
   );
 
   const deleteHabit = useCallback((id: string) => {
     setHabits((prev) => prev.filter((h) => h.id !== id));
     setCheckIns((prev) => prev.filter((c) => c.habit_id !== id));
+    dbDelete('habits', id);
   }, []);
 
   const toggleCheckIn = useCallback(
@@ -737,8 +892,8 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
       );
 
       if (existing) {
-        // Remove check-in (no reward refund — keep it simple)
         setCheckIns((prev) => prev.filter((c) => c.id !== existing.id));
+        dbDelete('habit_check_ins', existing.id);
         return;
       }
 
@@ -753,6 +908,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
 
       const nextCheckIns = [...checkIns, newCheckIn];
       setCheckIns(nextCheckIns);
+      dbUpsert('habit_check_ins', newCheckIn as unknown as Record<string, unknown>);
 
       // Streak rewards — for kids on habits with streak_rewards enabled.
       // Awarded whenever a check-in causes the streak to land on a milestone,
@@ -792,9 +948,15 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
         family_id: family.id
       };
       setDayPlanBlocks((prev) => [...prev, newBlock]);
+      dbUpsert('day_plan_blocks', newBlock as unknown as Record<string, unknown>);
       if (block.source === 'other') {
         setActivityPool((prev) =>
-          prev.map((p) => (p.id === block.source_id ? { ...p, usage_count: p.usage_count + 1 } : p))
+          prev.map((p) => {
+            if (p.id !== block.source_id) return p;
+            const updated = { ...p, usage_count: p.usage_count + 1 };
+            dbUpsert('activity_pool_items', updated as unknown as Record<string, unknown>);
+            return updated;
+          })
         );
       }
       return newBlock;
@@ -804,12 +966,20 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
 
   const updateDayPlanBlock = useCallback(
     (id: string, patch: Partial<DayPlanBlock>) =>
-      setDayPlanBlocks((prev) => prev.map((b) => (b.id === id ? { ...b, ...patch } : b))),
+      setDayPlanBlocks((prev) => prev.map((b) => {
+        if (b.id !== id) return b;
+        const updated = { ...b, ...patch };
+        dbUpsert('day_plan_blocks', updated as unknown as Record<string, unknown>);
+        return updated;
+      })),
     []
   );
 
   const removeDayPlanBlock = useCallback(
-    (id: string) => setDayPlanBlocks((prev) => prev.filter((b) => b.id !== id)),
+    (id: string) => {
+      setDayPlanBlocks((prev) => prev.filter((b) => b.id !== id));
+      dbDelete('day_plan_blocks', id);
+    },
     []
   );
 
@@ -818,7 +988,10 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
       setDayPlanBlocks((prev) =>
         prev.map((b) => {
           const u = updates.find((x) => x.id === b.id);
-          return u ? { ...b, position: u.position, section: u.section } : b;
+          if (!u) return b;
+          const updated = { ...b, position: u.position, section: u.section };
+          dbUpsert('day_plan_blocks', updated as unknown as Record<string, unknown>);
+          return updated;
         })
       ),
     []
@@ -827,33 +1000,44 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
   const toggleBlockDone = useCallback(
     (id: string) =>
       setDayPlanBlocks((prev) =>
-        prev.map((b) =>
-          b.id === id
-            ? { ...b, done: !b.done, done_at: !b.done ? new Date().toISOString() : null }
-            : b
-        )
+        prev.map((b) => {
+          if (b.id !== id) return b;
+          const updated = { ...b, done: !b.done, done_at: !b.done ? new Date().toISOString() : null };
+          dbUpsert('day_plan_blocks', updated as unknown as Record<string, unknown>);
+          return updated;
+        })
       ),
     []
   );
 
   const addPoolItem = useCallback(
-    (item: Omit<ActivityPoolItem, 'id' | 'created_at' | 'family_id'>) =>
-      setActivityPool((prev) => [
-        ...prev,
-        { ...item, id: uid('ap'), created_at: new Date().toISOString(), family_id: family.id }
-      ]),
+    (item: Omit<ActivityPoolItem, 'id' | 'created_at' | 'family_id'>) => {
+      const newItem: ActivityPoolItem = { ...item, id: uid('ap'), created_at: new Date().toISOString(), family_id: family.id };
+      setActivityPool((prev) => [...prev, newItem]);
+      dbUpsert('activity_pool_items', newItem as unknown as Record<string, unknown>);
+    },
     [family.id]
   );
 
   const updatePoolItem = useCallback(
     (id: string, patch: Partial<ActivityPoolItem>) =>
-      setActivityPool((prev) => prev.map((p) => (p.id === id ? { ...p, ...patch } : p))),
+      setActivityPool((prev) => prev.map((p) => {
+        if (p.id !== id) return p;
+        const updated = { ...p, ...patch };
+        dbUpsert('activity_pool_items', updated as unknown as Record<string, unknown>);
+        return updated;
+      })),
     []
   );
 
   const archivePoolItem = useCallback(
     (id: string) =>
-      setActivityPool((prev) => prev.map((p) => (p.id === id ? { ...p, archived: true } : p))),
+      setActivityPool((prev) => prev.map((p) => {
+        if (p.id !== id) return p;
+        const updated = { ...p, archived: true };
+        dbUpsert('activity_pool_items', updated as unknown as Record<string, unknown>);
+        return updated;
+      })),
     []
   );
 

@@ -12,7 +12,6 @@ import type { LucideIcon } from 'lucide-react';
 import { useFamily } from '@/context/FamilyContext';
 import { useWeather, weatherLabel, weatherIconName } from '@/hooks/useWeather';
 import { Avatar } from './Avatar';
-import { ThemeToggle } from './ThemeToggle';
 
 const ICON_MAP: Record<string, LucideIcon> = {
   Sun, CloudSun, Cloud, CloudRain, CloudSnow, CloudLightning
@@ -45,7 +44,7 @@ export function TopBar({ onSwitchUser }: Props) {
 
       <div className="flex items-center gap-3">
         {/* Weather widget */}
-        <div className="hidden sm:block text-right pr-1">
+        <div className="text-right pr-1">
           {locationStatus === 'idle' ? (
             <button
               onClick={requestLocation}
@@ -53,7 +52,7 @@ export function TopBar({ onSwitchUser }: Props) {
               title="Enable location for weather"
             >
               <MapPin size={11} />
-              Tap to enable location
+              <span className="hidden sm:inline">Enable weather</span>
             </button>
           ) : locationStatus === 'requesting' ? (
             <div className="text-xs text-text-faint">Locating…</div>
@@ -63,14 +62,13 @@ export function TopBar({ onSwitchUser }: Props) {
                 {WeatherIcon && <WeatherIcon size={15} className="text-text-muted" />}
                 <span className="text-xl font-medium text-text">{tempStr}</span>
               </div>
-              <div className="text-xs text-text-faint mt-0.5">
-                {locationName}{code !== null && ` · ${weatherLabel(code)}`}
+              <div className="text-xs text-text-faint mt-0.5 leading-tight">
+                {locationName || 'Location set'}
+                {code !== null && <span className="hidden sm:inline"> · {weatherLabel(code)}</span>}
               </div>
             </>
           )}
         </div>
-
-        <ThemeToggle />
 
         {activeMember && (
           <button

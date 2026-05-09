@@ -27,6 +27,7 @@ export interface FamilyMember {
   location_until: string | null;
   reward_balances: Record<string, number>; // e.g. { stars: 142, screen_minutes: 45 }
   my_day_enabled: boolean;
+  auth_user_id?: string | null; // links this profile to a Supabase auth user
   created_at: string;
 }
 
