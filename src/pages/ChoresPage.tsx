@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { localISO } from '@/lib/dates';
 import {
   CheckCircle2,
   Circle,
@@ -162,7 +163,7 @@ function KidView({ member }: { member: FamilyMember }) {
                 key={item.chore.id}
                 item={item}
                 memberId={member.id}
-                onComplete={() => completeChore(item.chore.id, member.id, today.toISOString().slice(0, 10))}
+                onComplete={() => completeChore(item.chore.id, member.id, localISO(today))}
               />
             ))}
           </div>
@@ -446,7 +447,6 @@ function ParentManage() {
             >
               <button
                 onClick={() => handleEdit(c)}
-                data-no-swipe
                 className="w-full flex items-center gap-3 p-3 hover:bg-surface-2 text-left transition-colors first:rounded-t-lg last:rounded-b-lg"
               >
                 <div className="flex-1 min-w-0">

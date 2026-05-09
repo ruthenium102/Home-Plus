@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { localISO } from '@/lib/dates';
 import {
   X,
   Home as HomeIcon,
@@ -144,7 +145,7 @@ export function LocationPicker({ open, member, onClose }: Props) {
                   type="date"
                   value={travelUntil}
                   onChange={(e) => setTravelUntil(e.target.value)}
-                  min={new Date().toISOString().slice(0, 10)}
+                  min={localISO()}
                   className="w-full px-3 py-2.5 bg-surface-2 border border-border rounded-md text-text text-sm focus:outline-none focus:border-accent"
                 />
                 <div className="text-[11px] text-text-faint mt-1">

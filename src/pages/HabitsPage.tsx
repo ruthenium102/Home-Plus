@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { localISO } from '@/lib/dates';
 import {
   Plus,
   Pencil,
@@ -80,7 +81,7 @@ export function HabitsPage() {
   }, [habitsToShow, members, activeMember]);
 
   const today = new Date();
-  const todayISO = today.toISOString().slice(0, 10);
+  const todayISO = localISO(today);
 
   const handleNew = () => {
     setEditing(null);

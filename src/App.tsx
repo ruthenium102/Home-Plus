@@ -2,6 +2,7 @@ import { lazy, Suspense, useState } from 'react';
 import { ThemeProvider } from '@/context/ThemeContext';
 import { FamilyProvider, useFamily } from '@/context/FamilyContext';
 import { ToastProvider } from '@/context/ToastContext';
+import { WeatherProvider } from '@/hooks/useWeather';
 import { TopBar } from '@/components/TopBar';
 import { TabBar, type TabKey } from '@/components/TabBar';
 import { UserSwitcher } from '@/components/UserSwitcher';
@@ -76,7 +77,9 @@ export default function App() {
     <ThemeProvider>
       <ToastProvider>
         <FamilyProvider>
-          <AppShell />
+          <WeatherProvider>
+            <AppShell />
+          </WeatherProvider>
         </FamilyProvider>
       </ToastProvider>
     </ThemeProvider>

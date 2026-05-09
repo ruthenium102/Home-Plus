@@ -1,3 +1,4 @@
+import { localISO, localISODaysAgo } from '@/lib/dates';
 import type {
   CalendarEvent,
   Chore,
@@ -72,9 +73,7 @@ function isoAt(daysOffset: number, hour: number, minute = 0): string {
 }
 
 function daysAgoISO(n: number) {
-  const d = new Date();
-  d.setDate(d.getDate() - n);
-  return d.toISOString().slice(0, 10);
+  return localISODaysAgo(n);
 }
 
 // ---- Family ----------------------------------------------------------------
@@ -663,7 +662,7 @@ export const DEMO_LIST_ITEMS: TodoItem[] = [
   // Sophie school
   listItem('li-9', 'l-sophie-school', 'Permission slip — excursion', {
     position: 0,
-    due_date: new Date(Date.now() + 5 * 86400000).toISOString().slice(0, 10)
+    due_date: localISODaysAgo(-5)
   }),
   listItem('li-10', 'l-sophie-school', 'Order new uniform shirt', { position: 1 }),
 
@@ -671,7 +670,7 @@ export const DEMO_LIST_ITEMS: TodoItem[] = [
   listItem('li-11', 'l-ben-personal', 'Book dentist', { position: 0 }),
   listItem('li-12', 'l-ben-personal', 'Renew passport', {
     position: 1,
-    due_date: new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10)
+    due_date: localISODaysAgo(-30)
   })
 ];
 

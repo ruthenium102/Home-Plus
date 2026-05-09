@@ -1,49 +1,106 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { X, Trash2, Repeat, Bell, MapPin, Users } from 'lucide-react';
 import { format } from 'date-fns';
 import { useFamily } from '@/context/FamilyContext';
+import { suggestDuration } from '@/lib/events';
 import { Avatar } from './Avatar';
 import type { CalendarEvent, EventCategory, Recurrence } from '@/types';
 
 interface Props {
   open: boolean;
   onClose: () => void;
-  // Existing event (edit mode) OR initial start time (create mode)
   editing?: CalendarEvent | null;
   initialStart?: Date;
 }
 
 const CATEGORIES: EventCategory[] = [
-  'general',
-  'school',
-  'work',
-  'sport',
-  'medical',
-  'social',
-  'travel',
-  'meal'
+  'general', 'school', 'work', 'sport', 'medical', 'social', 'travel', 'meal'
 ];
 
+const QUICK_DURATIONS = [
+  { label: '15min', mins: 15 },
+  { label: '30min', mins: 30 },
+  { label: '1hr',   mins: 60 },
+  { label: '1.5hr', mins: 90 },
+  { label: '2hr',   mins: 120 },
+];
+
+function durationLabel(
+  allDay: boolean,
+  startDate: string,
+  startTime: string,
+  endDate: string,
+  endTime: string
+): string {
+  if (!startDate || !endDate) return '';
+  if (allDay) {
+    const s = new Date(startDate + 'T00:00:00');
+    const e = new Date(endDate + 'T00:00:00');
+    const days = Math.round((e.getTime() - s.getTime()) / 86400000) + 1;
+    if (days <= 0) return '—';
+    return days === 1 ? '1 day' : `${days} days`;
+  }
+  if (!startTime || !endTime) return '';
+  const s = new Date(`${startDate}T${startTime}:00`);
+  const e = new Date(`${endDate}T${endTime}:00`);
+  const mins = Math.round((e.getTime() - s.getTime()) / 60000);
+  if (mins <= 0) return '—';
+  if (mins < 60) return `${mins} minute${mins === 1 ? '' : 's'}`;
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  if (m === 0) return `${h} hour${h === 1 ? '' : 's'}`;
+  return `${h} hour${h === 1 ? '' : 's'} ${m} minute${m === 1 ? '' : 's'}`;
+}
+
+function shiftEnd(
+  startDate: string,
+  startTime: string,
+  endDate: string,
+  endTime: string,
+  newStartDate: string,
+  newStartTime: string
+): { date: string; time: string } {
+  const s = new Date(`${startDate}T${startTime}:00`);
+  const e = new Date(`${endDate}T${endTime}:00`);
+  const durationMs = Math.max(0, e.getTime() - s.getTime());
+  const ns = new Date(`${newStartDate}T${newStartTime}:00`);
+  const ne = new Date(ns.getTime() + durationMs);
+  return { date: format(ne, 'yyyy-MM-dd'), time: format(ne, 'HH:mm') };
+}
+
+function applyMins(
+  startDate: string,
+  startTime: string,
+  mins: number
+): { date: string; time: string } {
+  const s = new Date(`${startDate}T${startTime}:00`);
+  const e = new Date(s.getTime() + mins * 60000);
+  return { date: format(e, 'yyyy-MM-dd'), time: format(e, 'HH:mm') };
+}
+
 export function EventEditor({ open, onClose, editing, initialStart }: Props) {
-  const { members, addEvent, updateEvent, deleteEvent, activeMember } = useFamily();
+  const { members, events, addEvent, updateEvent, deleteEvent, activeMember } = useFamily();
 
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [location, setLocation] = useState('');
   const [category, setCategory] = useState<EventCategory>('general');
   const [allDay, setAllDay] = useState(false);
-  const [date, setDate] = useState(''); // YYYY-MM-DD
-  const [startTime, setStartTime] = useState(''); // HH:mm
+  const [startDate, setStartDate] = useState('');
+  const [startTime, setStartTime] = useState('');
+  const [endDate, setEndDate] = useState('');
   const [endTime, setEndTime] = useState('');
   const [memberIds, setMemberIds] = useState<string[]>([]);
-  const [recurFreq, setRecurFreq] = useState<'none' | 'daily' | 'weekly' | 'monthly' | 'yearly'>(
-    'none'
-  );
+  const [recurFreq, setRecurFreq] = useState<'none' | 'daily' | 'weekly' | 'monthly' | 'yearly'>('none');
   const [reminderMin, setReminderMin] = useState<number | null>(null);
 
-  // Populate form when opening
+  // True once the user has manually picked an end time — stops smart-duration overwriting it.
+  const userChangedEndRef = useRef(false);
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (!open) return;
+    userChangedEndRef.current = false;
     if (editing) {
       const s = new Date(editing.start_at);
       const e = new Date(editing.end_at);
@@ -52,23 +109,28 @@ export function EventEditor({ open, onClose, editing, initialStart }: Props) {
       setLocation(editing.location || '');
       setCategory(editing.category);
       setAllDay(editing.all_day);
-      setDate(format(s, 'yyyy-MM-dd'));
+      setStartDate(format(s, 'yyyy-MM-dd'));
       setStartTime(format(s, 'HH:mm'));
+      setEndDate(format(e, 'yyyy-MM-dd'));
       setEndTime(format(e, 'HH:mm'));
       setMemberIds(editing.member_ids);
-      setRecurFreq((editing.recurrence?.freq as any) ?? 'none');
+      setRecurFreq((editing.recurrence?.freq as 'daily' | 'weekly' | 'monthly' | 'yearly') ?? 'none');
       setReminderMin(editing.reminder_offsets[0] ?? null);
     } else {
       const s = initialStart || new Date();
-      const e = new Date(s.getTime() + 60 * 60 * 1000);
+      const sd = format(s, 'yyyy-MM-dd');
+      const st = format(s, 'HH:mm');
+      const suggestedMins = suggestDuration(events, '', 'general');
+      const end = applyMins(sd, st, suggestedMins);
       setTitle('');
       setDescription('');
       setLocation('');
       setCategory('general');
       setAllDay(false);
-      setDate(format(s, 'yyyy-MM-dd'));
-      setStartTime(format(s, 'HH:mm'));
-      setEndTime(format(e, 'HH:mm'));
+      setStartDate(sd);
+      setStartTime(st);
+      setEndDate(end.date);
+      setEndTime(end.time);
       setMemberIds(activeMember ? [activeMember.id] : []);
       setRecurFreq('none');
       setReminderMin(null);
@@ -77,14 +139,79 @@ export function EventEditor({ open, onClose, editing, initialStart }: Props) {
 
   if (!open) return null;
 
+  // ---- handlers ---------------------------------------------------------------
+
+  const handleTitleChange = (val: string) => {
+    setTitle(val);
+    if (!editing && !userChangedEndRef.current && startDate && startTime) {
+      const mins = suggestDuration(events, val, category);
+      const end = applyMins(startDate, startTime, mins);
+      setEndDate(end.date);
+      setEndTime(end.time);
+    }
+  };
+
+  const handleCategoryChange = (c: EventCategory) => {
+    setCategory(c);
+    if (!editing && !userChangedEndRef.current && startDate && startTime) {
+      const mins = suggestDuration(events, title, c);
+      const end = applyMins(startDate, startTime, mins);
+      setEndDate(end.date);
+      setEndTime(end.time);
+    }
+  };
+
+  const handleStartDateChange = (val: string) => {
+    if (startDate && startTime && endDate && endTime) {
+      const ne = shiftEnd(startDate, startTime, endDate, endTime, val, startTime);
+      setEndDate(ne.date);
+      if (!allDay) setEndTime(ne.time);
+    }
+    setStartDate(val);
+    // All-day: keep end >= start
+    if (allDay && endDate && val > endDate) setEndDate(val);
+  };
+
+  const handleStartTimeChange = (val: string) => {
+    if (startDate && startTime && endDate && endTime) {
+      const ne = shiftEnd(startDate, startTime, endDate, endTime, startDate, val);
+      setEndDate(ne.date);
+      setEndTime(ne.time);
+    }
+    setStartTime(val);
+  };
+
+  const handleAllDayToggle = (checked: boolean) => {
+    setAllDay(checked);
+    if (checked) {
+      if (!endDate || endDate < startDate) setEndDate(startDate);
+    } else {
+      const st = startTime || '09:00';
+      if (!startTime) setStartTime(st);
+      const mins = suggestDuration(events, title, category);
+      const end = applyMins(startDate, st, mins);
+      setEndDate(end.date);
+      setEndTime(end.time);
+      userChangedEndRef.current = false;
+    }
+  };
+
+  const handleQuickDuration = (mins: number) => {
+    if (!startDate || !startTime) return;
+    const end = applyMins(startDate, startTime, mins);
+    setEndDate(end.date);
+    setEndTime(end.time);
+    userChangedEndRef.current = true;
+  };
+
   const handleSave = () => {
     if (!title.trim()) return;
     const startISO = allDay
-      ? new Date(`${date}T00:00:00`).toISOString()
-      : new Date(`${date}T${startTime}:00`).toISOString();
+      ? new Date(`${startDate}T00:00:00`).toISOString()
+      : new Date(`${startDate}T${startTime}:00`).toISOString();
     const endISO = allDay
-      ? new Date(`${date}T23:59:00`).toISOString()
-      : new Date(`${date}T${endTime}:00`).toISOString();
+      ? new Date(`${endDate}T23:59:00`).toISOString()
+      : new Date(`${endDate}T${endTime}:00`).toISOString();
 
     const recurrence: Recurrence | null =
       recurFreq === 'none' ? null : { freq: recurFreq, interval: 1 };
@@ -124,6 +251,11 @@ export function EventEditor({ open, onClose, editing, initialStart }: Props) {
       prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
     );
 
+  const durLabel = durationLabel(allDay, startDate, startTime, endDate, endTime);
+
+  const inputCls =
+    'px-3 py-2 bg-surface-2 border border-border rounded-md text-text text-sm focus:outline-none focus:border-accent';
+
   return (
     <div
       className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4"
@@ -151,45 +283,103 @@ export function EventEditor({ open, onClose, editing, initialStart }: Props) {
           <input
             type="text"
             value={title}
-            onChange={(e) => setTitle(e.target.value)}
+            onChange={(e) => handleTitleChange(e.target.value)}
             placeholder="Event title"
             autoFocus
             className="w-full px-3 py-3 bg-surface-2 border border-border rounded-md text-text text-lg font-medium placeholder:text-text-faint focus:outline-none focus:border-accent"
           />
 
           {/* Date & time */}
-          <div className="space-y-2">
-            <label className="flex items-center gap-2 text-sm text-text-muted">
+          <div className="space-y-3">
+            {/* All day toggle */}
+            <label className="flex items-center gap-2 text-sm text-text-muted cursor-pointer select-none">
               <input
                 type="checkbox"
                 checked={allDay}
-                onChange={(e) => setAllDay(e.target.checked)}
-                className="accent-accent"
+                onChange={(e) => handleAllDayToggle(e.target.checked)}
+                className="accent-accent w-4 h-4"
               />
               All day
             </label>
-            <div className="grid grid-cols-3 gap-2">
-              <input
-                type="date"
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
-                className="px-3 py-2.5 bg-surface-2 border border-border rounded-md text-text text-sm focus:outline-none focus:border-accent"
-              />
-              <input
-                type="time"
-                value={startTime}
-                onChange={(e) => setStartTime(e.target.value)}
-                disabled={allDay}
-                className="px-3 py-2.5 bg-surface-2 border border-border rounded-md text-text text-sm focus:outline-none focus:border-accent disabled:opacity-50"
-              />
-              <input
-                type="time"
-                value={endTime}
-                onChange={(e) => setEndTime(e.target.value)}
-                disabled={allDay}
-                className="px-3 py-2.5 bg-surface-2 border border-border rounded-md text-text text-sm focus:outline-none focus:border-accent disabled:opacity-50"
-              />
+
+            {/* Starts / Ends */}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <div className="text-xs text-text-faint mb-1.5">Starts</div>
+                {allDay ? (
+                  <input
+                    type="date"
+                    value={startDate}
+                    onChange={(e) => handleStartDateChange(e.target.value)}
+                    className={inputCls + ' w-full'}
+                  />
+                ) : (
+                  <div className="flex gap-1.5">
+                    <input
+                      type="date"
+                      value={startDate}
+                      onChange={(e) => handleStartDateChange(e.target.value)}
+                      className={inputCls + ' flex-1 min-w-0'}
+                    />
+                    <input
+                      type="time"
+                      value={startTime}
+                      onChange={(e) => handleStartTimeChange(e.target.value)}
+                      className={inputCls + ' w-[5.5rem]'}
+                    />
+                  </div>
+                )}
+              </div>
+              <div>
+                <div className="text-xs text-text-faint mb-1.5">Ends</div>
+                {allDay ? (
+                  <input
+                    type="date"
+                    value={endDate}
+                    min={startDate}
+                    onChange={(e) => { setEndDate(e.target.value); userChangedEndRef.current = true; }}
+                    className={inputCls + ' w-full'}
+                  />
+                ) : (
+                  <div className="flex gap-1.5">
+                    <input
+                      type="date"
+                      value={endDate}
+                      min={startDate}
+                      onChange={(e) => { setEndDate(e.target.value); userChangedEndRef.current = true; }}
+                      className={inputCls + ' flex-1 min-w-0'}
+                    />
+                    <input
+                      type="time"
+                      value={endTime}
+                      onChange={(e) => { setEndTime(e.target.value); userChangedEndRef.current = true; }}
+                      className={inputCls + ' w-[5.5rem]'}
+                    />
+                  </div>
+                )}
+              </div>
             </div>
+
+            {/* Duration label */}
+            {durLabel && (
+              <div className="text-xs text-text-faint pl-0.5">{durLabel}</div>
+            )}
+
+            {/* Quick duration presets — timed events only */}
+            {!allDay && (
+              <div className="flex flex-wrap gap-1.5">
+                {QUICK_DURATIONS.map(({ label, mins }) => (
+                  <button
+                    key={mins}
+                    type="button"
+                    onClick={() => handleQuickDuration(mins)}
+                    className="px-3 py-1 rounded-full text-xs border border-border text-text-muted hover:border-accent hover:text-accent transition-colors"
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Members */}
@@ -243,7 +433,7 @@ export function EventEditor({ open, onClose, editing, initialStart }: Props) {
               {CATEGORIES.map((c) => (
                 <button
                   key={c}
-                  onClick={() => setCategory(c)}
+                  onClick={() => handleCategoryChange(c)}
                   className={
                     'px-3 py-1.5 rounded-full text-xs capitalize border transition-colors ' +
                     (category === c
@@ -286,14 +476,16 @@ export function EventEditor({ open, onClose, editing, initialStart }: Props) {
               <Bell size={14} /> Reminder
             </div>
             <div className="flex flex-wrap gap-1.5">
-              {[
-                { v: null, label: 'None' },
-                { v: 0, label: 'At time' },
-                { v: 10, label: '10 min' },
-                { v: 30, label: '30 min' },
-                { v: 60, label: '1 hr' },
-                { v: 1440, label: '1 day' }
-              ].map((opt) => (
+              {(
+                [
+                  { v: null, label: 'None' },
+                  { v: 0,    label: 'At time' },
+                  { v: 10,   label: '10 min' },
+                  { v: 30,   label: '30 min' },
+                  { v: 60,   label: '1 hr' },
+                  { v: 1440, label: '1 day' }
+                ] as { v: number | null; label: string }[]
+              ).map((opt) => (
                 <button
                   key={String(opt.v)}
                   onClick={() => setReminderMin(opt.v)}

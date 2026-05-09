@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { localISO } from '@/lib/dates';
 import { X, Trash2, Camera, ShieldCheck } from 'lucide-react';
 import { useFamily } from '@/context/FamilyContext';
 import { Avatar } from './Avatar';
@@ -63,7 +64,7 @@ export function ChoreEditor({ open, onClose, editing }: Props) {
 
   const handleSave = () => {
     if (!title.trim()) return;
-    const today = new Date().toISOString().slice(0, 10);
+    const today = localISO();
     const payload = {
       title: title.trim(),
       description: description.trim() || null,

@@ -1,3 +1,4 @@
+import { localISO } from '@/lib/dates';
 import type { Chore, ChoreCompletion, FamilyMember, RewardCategoryKey } from '@/types';
 
 /**
@@ -12,7 +13,7 @@ export function isChoreDue(
   if (chore.archived) return false;
   if (!chore.assigned_to.includes(memberId)) return false;
 
-  const dateISO = date.toISOString().slice(0, 10);
+  const dateISO = localISO(date);
   if (dateISO < chore.active_from) return false;
 
   const dow = date.getDay(); // 0=Sun..6=Sat
@@ -46,7 +47,7 @@ export function findCompletion(
   memberId: string,
   date: Date
 ): ChoreCompletion | null {
-  const dateISO = date.toISOString().slice(0, 10);
+  const dateISO = localISO(date);
   return (
     completions.find(
       (c) =>
@@ -140,10 +141,10 @@ export function weeklyEarnings(
   memberId: string,
   weekStart: Date
 ): Partial<Record<RewardCategoryKey, number>> {
-  const weekStartISO = weekStart.toISOString().slice(0, 10);
+  const weekStartISO = localISO(weekStart);
   const weekEnd = new Date(weekStart);
   weekEnd.setDate(weekEnd.getDate() + 6);
-  const weekEndISO = weekEnd.toISOString().slice(0, 10);
+  const weekEndISO = localISO(weekEnd);
 
   const totals: Partial<Record<RewardCategoryKey, number>> = {};
   for (const c of completions) {

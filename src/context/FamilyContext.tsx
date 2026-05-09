@@ -7,6 +7,7 @@ import {
   useCallback,
   ReactNode
 } from 'react';
+import { localISO } from '@/lib/dates';
 import {
   storage,
   DEMO_FAMILY,
@@ -146,7 +147,7 @@ function computeStreak(checkIns: HabitCheckIn[], habitId: string, memberId: stri
   const cursor = new Date();
   // Allow today not yet checked in — start from today; if missing, try yesterday.
   for (let i = 0; i < 365; i++) {
-    const iso = cursor.toISOString().slice(0, 10);
+    const iso = localISO(cursor);
     if (dates.has(iso)) {
       streak++;
     } else if (i === 0) {
@@ -596,7 +597,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
               d.setFullYear(d.getFullYear() + 1);
               break;
           }
-          next_due = d.toISOString().slice(0, 10);
+          next_due = localISO(d);
           // Reopen after a tick — but for UX simplicity, also mark done with a
           // fresh next_due so the user sees the strike-through briefly.
           // (We'll let the UI surface "Next: 2026-11-08" as a hint.)

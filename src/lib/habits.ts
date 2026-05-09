@@ -1,3 +1,4 @@
+import { localISO } from '@/lib/dates';
 import type { Habit, HabitCheckIn } from '@/types';
 
 /**
@@ -39,7 +40,7 @@ export function computeHabitStreak(
   let streak = 0;
   const cursor = new Date();
   for (let i = 0; i < 365; i++) {
-    const iso = cursor.toISOString().slice(0, 10);
+    const iso = localISO(cursor);
     if (dates.has(iso)) {
       streak++;
     } else if (i === 0) {
@@ -61,7 +62,7 @@ export function isCheckedIn(
   memberId: string,
   date: Date
 ): boolean {
-  const iso = date.toISOString().slice(0, 10);
+  const iso = localISO(date);
   return checkIns.some(
     (c) => c.habit_id === habitId && c.member_id === memberId && c.for_date === iso
   );
@@ -81,7 +82,7 @@ export function lastNDays(
   const cursor = new Date();
   cursor.setDate(cursor.getDate() - (n - 1));
   for (let i = 0; i < n; i++) {
-    const iso = cursor.toISOString().slice(0, 10);
+    const iso = localISO(cursor);
     out.push({
       date: iso,
       checked: checkIns.some(

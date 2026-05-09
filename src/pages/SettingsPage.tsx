@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { Sun, Moon, Monitor, Lock, LockOpen, KeyRound } from 'lucide-react';
+import { Sun, Moon, Monitor, Lock, LockOpen, MapPin } from 'lucide-react';
 import { useFamily } from '@/context/FamilyContext';
 import { useTheme } from '@/context/ThemeContext';
+import { useWeather } from '@/hooks/useWeather';
 import { Avatar } from '@/components/Avatar';
 import { SetPinModal } from '@/components/SetPinModal';
 import { COLOR_OPTIONS, MEMBER_COLORS } from '@/lib/colors';
@@ -11,6 +12,7 @@ export function SettingsPage() {
   const { members, family, isDemoMode, updateMember, signOut, activeMember } =
     useFamily();
   const { mode, setMode } = useTheme();
+  const { temp, locationName, locationStatus, resetLocation } = useWeather();
   const [pinTarget, setPinTarget] = useState<FamilyMember | null>(null);
 
   return (
@@ -97,6 +99,33 @@ export function SettingsPage() {
         </div>
       </section>
 
+      {/* Weather */}
+      <section className="card p-5">
+        <h2 className="font-display text-lg text-text mb-4">Weather</h2>
+        <div className="grid grid-cols-2 gap-3 text-sm mb-4">
+          <div>
+            <div className="text-text-faint text-xs uppercase tracking-wider mb-1">Location</div>
+            <div className="text-text">
+              {locationStatus === 'idle'
+                ? 'Not set'
+                : locationStatus === 'requesting'
+                  ? 'Detecting…'
+                  : locationName || 'Unknown'}
+            </div>
+          </div>
+          <div>
+            <div className="text-text-faint text-xs uppercase tracking-wider mb-1">Current</div>
+            <div className="text-text">{temp !== null ? `${temp}°` : '—'}</div>
+          </div>
+        </div>
+        <button
+          onClick={resetLocation}
+          className="flex items-center gap-2 px-4 py-2 bg-surface-2 border border-border text-text-muted text-sm rounded-md hover:bg-surface"
+        >
+          <MapPin size={14} /> Reset location
+        </button>
+      </section>
+
       {/* Account */}
       <section className="card p-5">
         <h2 className="font-display text-lg text-text mb-4">Session</h2>
@@ -113,6 +142,12 @@ export function SettingsPage() {
         member={pinTarget}
         onClose={() => setPinTarget(null)}
       />
+
+      {/* Version footer */}
+      <div className="pt-2 pb-6 text-center">
+        <div className="text-xs text-text-faint">Home Plus v0.5.0</div>
+        <div className="text-[10px] text-text-faint/60 mt-0.5">Built {__BUILD_DATE__}</div>
+      </div>
     </div>
   );
 }

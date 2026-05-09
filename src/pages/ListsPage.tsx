@@ -284,7 +284,6 @@ function ListItemRow({
           )}
         </button>
         <button
-          data-no-swipe
           onClick={onEdit}
           className="flex-1 min-w-0 text-left"
         >
