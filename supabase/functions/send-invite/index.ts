@@ -63,7 +63,8 @@ Deno.serve(async (req) => {
     });
 
     // Send Supabase auth invitation email
-    const siteUrl = site_url || Deno.env.get('SITE_URL') || 'http://localhost:5173';
+    // SITE_URL secret takes priority over whatever the client reported (avoids localhost links)
+    const siteUrl = Deno.env.get('SITE_URL') || site_url || 'http://localhost:5173';
     const { error: inviteErr } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
       data: { family_id, family_name, invited_by_name, invited_name: name || null, invite_token: token },
       redirectTo: `${siteUrl}?invite=${token}`
