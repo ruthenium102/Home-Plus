@@ -23,19 +23,28 @@ export function Avatar({ member, size = 40, showRing = false, onClick }: Props) 
     boxShadow: showRing ? `0 0 0 3px ${tokens.base}` : undefined
   };
 
+  const className = 'rounded-full flex items-center justify-center font-medium overflow-hidden flex-shrink-0';
+
+  if (onClick) {
+    return (
+      <button
+        onClick={onClick}
+        className={className + ' transition-transform active:scale-95'}
+        style={styles}
+        aria-label={member.name}
+      >
+        {member.avatar_url ? (
+          <img src={member.avatar_url} alt={member.name} className="w-full h-full object-cover" />
+        ) : initial}
+      </button>
+    );
+  }
+
   return (
-    <button
-      onClick={onClick}
-      disabled={!onClick}
-      className="rounded-full flex items-center justify-center font-medium overflow-hidden flex-shrink-0 transition-transform active:scale-95 disabled:cursor-default disabled:active:scale-100"
-      style={styles}
-      aria-label={member.name}
-    >
+    <div className={className} style={styles} aria-label={member.name}>
       {member.avatar_url ? (
         <img src={member.avatar_url} alt={member.name} className="w-full h-full object-cover" />
-      ) : (
-        initial
-      )}
-    </button>
+      ) : initial}
+    </div>
   );
 }

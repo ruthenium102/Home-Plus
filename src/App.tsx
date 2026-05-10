@@ -1,4 +1,4 @@
-import { lazy, Suspense, useState } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { ThemeProvider } from '@/context/ThemeContext';
 import { FamilyProvider, useFamily } from '@/context/FamilyContext';
 import { AuthProvider, useAuth } from '@/context/AuthContext';
@@ -41,8 +41,20 @@ const AuthPage = lazy(() =>
 function AppShell() {
   const { activeMember } = useFamily();
   const showMyDay = activeMember?.my_day_enabled ?? false;
+  const showChores = activeMember?.chores_enabled ?? true;
+  const showHabits = activeMember?.habits_enabled ?? true;
+  const showKitchen = activeMember?.kitchen_enabled ?? false;
   const [tab, setTab] = useState<TabKey>('home');
   const [switcherOpen, setSwitcherOpen] = useState(false);
+
+  // Reset to home when switching members so hidden tabs aren't left active
+  const prevMemberId = useRef(activeMember?.id);
+  useEffect(() => {
+    if (prevMemberId.current !== activeMember?.id) {
+      prevMemberId.current = activeMember?.id;
+      setTab('home');
+    }
+  }, [activeMember?.id]);
 
   // No active member → show fullscreen user switcher
   if (!activeMember) {
@@ -73,7 +85,14 @@ function AppShell() {
       {/* Sticky bottom tab bar */}
       <div className="fixed bottom-3 left-3 right-3 sm:left-6 sm:right-6 z-30">
         <div className="max-w-6xl mx-auto">
-          <TabBar active={tab} onChange={setTab} showMyDay={showMyDay} />
+          <TabBar
+            active={tab}
+            onChange={setTab}
+            showMyDay={showMyDay}
+            showChores={showChores}
+            showHabits={showHabits}
+            showKitchen={showKitchen}
+          />
         </div>
       </div>
 

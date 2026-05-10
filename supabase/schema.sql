@@ -31,12 +31,9 @@ create index if not exists idx_families_owner on families(owner_user_id);
 -- ============================================================================
 -- Family members (profiles within a family)
 -- ============================================================================
-create type member_role as enum ('parent', 'child');
+do $$ begin create type member_role as enum ('parent', 'child'); exception when duplicate_object then null; end $$;
 
-create type member_color as enum (
-  'terracotta', 'sage', 'sand', 'dusty-blue',
-  'plum', 'rose', 'olive', 'slate'
-);
+do $$ begin create type member_color as enum ('terracotta', 'sage', 'sand', 'dusty-blue', 'plum', 'rose', 'olive', 'slate'); exception when duplicate_object then null; end $$;
 
 create table if not exists family_members (
   id uuid primary key default uuid_generate_v4(),
@@ -88,9 +85,7 @@ $$;
 -- ============================================================================
 -- Calendar events
 -- ============================================================================
-create type event_category as enum (
-  'general', 'school', 'work', 'sport', 'medical', 'social', 'travel', 'meal'
-);
+do $$ begin create type event_category as enum ('general', 'school', 'work', 'sport', 'medical', 'social', 'travel', 'meal'); exception when duplicate_object then null; end $$;
 
 create table if not exists events (
   id uuid primary key default uuid_generate_v4(),
@@ -123,11 +118,13 @@ alter table family_members enable row level security;
 alter table events enable row level security;
 
 -- Owner can do everything on their own family
+drop policy if exists "Owner manages family" on families;
 create policy "Owner manages family"
   on families for all
   using (owner_user_id = auth.uid())
   with check (owner_user_id = auth.uid());
 
+drop policy if exists "Owner manages members" on family_members;
 create policy "Owner manages members"
   on family_members for all
   using (
@@ -141,6 +138,7 @@ create policy "Owner manages members"
     )
   );
 
+drop policy if exists "Owner manages events" on events;
 create policy "Owner manages events"
   on events for all
   using (
@@ -173,14 +171,7 @@ create table if not exists reward_categories (
 create index if not exists idx_reward_categories_family on reward_categories(family_id);
 
 -- Chores
-create type chore_frequency as enum (
-  'daily',
-  'weekdays',
-  'weekend',
-  'weekly',
-  'monthly',
-  'one_off'
-);
+do $$ begin create type chore_frequency as enum ('daily','weekdays','weekend','weekly','monthly','one_off'); exception when duplicate_object then null; end $$;
 
 create table if not exists chores (
   id uuid primary key default uuid_generate_v4(),
@@ -201,11 +192,7 @@ create index if not exists idx_chores_family on chores(family_id);
 create index if not exists idx_chores_archived on chores(family_id, archived);
 
 -- Chore completions
-create type chore_completion_status as enum (
-  'pending_approval',
-  'approved',
-  'rejected'
-);
+do $$ begin create type chore_completion_status as enum ('pending_approval','approved','rejected'); exception when duplicate_object then null; end $$;
 
 create table if not exists chore_completions (
   id uuid primary key default uuid_generate_v4(),
@@ -225,11 +212,32 @@ create table if not exists chore_completions (
 );
 create index if not exists idx_completions_family on chore_completions(family_id);
 create index if not exists idx_completions_member_date on chore_completions(member_id, for_date desc);
-create index if not exists idx_completions_pending on chore_completions(family_id, status)
-  where status = 'pending_approval';
+do $$
+begin
+  -- Add status column if table pre-dates this column
+  if not exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public'
+      and table_name   = 'chore_completions'
+      and column_name  = 'status'
+  ) then
+    alter table chore_completions
+      add column status chore_completion_status not null default 'approved';
+  end if;
+  -- Create partial index if it doesn't exist yet
+  if not exists (
+    select 1 from pg_indexes
+    where schemaname = 'public'
+      and tablename  = 'chore_completions'
+      and indexname  = 'idx_completions_pending'
+  ) then
+    create index idx_completions_pending on chore_completions(family_id, status)
+      where status = 'pending_approval';
+  end if;
+end $$;
 
 -- Redemptions (kids spending points)
-create type redemption_status as enum ('pending_approval', 'approved', 'rejected');
+do $$ begin create type redemption_status as enum ('pending_approval','approved','rejected'); exception when duplicate_object then null; end $$;
 
 create table if not exists redemptions (
   id uuid primary key default uuid_generate_v4(),
@@ -245,8 +253,27 @@ create table if not exists redemptions (
 );
 create index if not exists idx_redemptions_family on redemptions(family_id);
 create index if not exists idx_redemptions_member on redemptions(member_id, created_at desc);
-create index if not exists idx_redemptions_pending on redemptions(family_id, status)
-  where status = 'pending_approval';
+do $$
+begin
+  if not exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public'
+      and table_name   = 'redemptions'
+      and column_name  = 'status'
+  ) then
+    alter table redemptions
+      add column status redemption_status not null default 'pending_approval';
+  end if;
+  if not exists (
+    select 1 from pg_indexes
+    where schemaname = 'public'
+      and tablename  = 'redemptions'
+      and indexname  = 'idx_redemptions_pending'
+  ) then
+    create index idx_redemptions_pending on redemptions(family_id, status)
+      where status = 'pending_approval';
+  end if;
+end $$;
 
 -- Reward goals (Sophie's AirPods, Henry's skateboard, etc.)
 create table if not exists reward_goals (
@@ -338,15 +365,7 @@ create table if not exists todo_lists (
 create index if not exists idx_todo_lists_family on todo_lists(family_id);
 create index if not exists idx_todo_lists_owner on todo_lists(owner_id);
 
-create type list_item_repeat as enum (
-  'never',
-  'daily',
-  'weekly',
-  'monthly',
-  'quarterly',
-  'biannually',
-  'yearly'
-);
+do $$ begin create type list_item_repeat as enum ('never','daily','weekly','monthly','quarterly','biannually','yearly'); exception when duplicate_object then null; end $$;
 
 create table if not exists todo_items (
   id uuid primary key default uuid_generate_v4(),
@@ -368,8 +387,8 @@ create index if not exists idx_todo_items_family on todo_items(family_id);
 create index if not exists idx_todo_items_due on todo_items(family_id, next_due, due_date);
 
 -- Habits
-create type habit_cadence as enum ('daily', 'weekdays', 'weekend', 'weekly');
-create type habit_visibility as enum ('private', 'shared');
+do $$ begin create type habit_cadence as enum ('daily','weekdays','weekend','weekly'); exception when duplicate_object then null; end $$;
+do $$ begin create type habit_visibility as enum ('private','shared'); exception when duplicate_object then null; end $$;
 
 create table if not exists habits (
   id uuid primary key default uuid_generate_v4(),
@@ -487,9 +506,13 @@ create table if not exists activity_pool_items (
 
 create index if not exists idx_activity_pool_member on activity_pool_items(member_id);
 
--- Add my_day_enabled to family_members (safe migration)
+-- Add my_day_enabled and per-page visibility flags to family_members (safe migration)
 do $$ begin
   alter table family_members add column if not exists my_day_enabled boolean not null default false;
+  alter table family_members add column if not exists chores_enabled boolean not null default true;
+  alter table family_members add column if not exists habits_enabled boolean not null default true;
+  alter table family_members add column if not exists kitchen_enabled boolean not null default false;
+  alter table family_members add column if not exists email text;
 end $$;
 
 -- Add chore rotation fields (safe migration)
@@ -535,8 +558,10 @@ alter table invitations enable row level security;
 
 -- Anyone can read an invitation (used client-side to show family name on accept flow).
 -- In practice the token is a secret UUID so brute-force is infeasible.
+drop policy if exists "read by token" on invitations;
 create policy "read by token" on invitations for select using (true);
 
+drop policy if exists "parents can insert invitations" on invitations;
 create policy "parents can insert invitations" on invitations
   for insert with check (
     exists (
@@ -550,6 +575,7 @@ create policy "parents can insert invitations" on invitations
 alter table day_plan_blocks enable row level security;
 alter table activity_pool_items enable row level security;
 
+drop policy if exists "family members can manage day plan blocks" on day_plan_blocks;
 create policy "family members can manage day plan blocks" on day_plan_blocks
   for all using (
     exists (
@@ -559,6 +585,7 @@ create policy "family members can manage day plan blocks" on day_plan_blocks
     )
   );
 
+drop policy if exists "family members can manage activity pool" on activity_pool_items;
 create policy "family members can manage activity pool" on activity_pool_items
   for all using (
     exists (
@@ -606,17 +633,30 @@ $$;
 
 -- ============================================================================
 -- Realtime — enable for all tables that need cross-device sync
+-- Wrapped in a loop so re-running is safe (duplicate_object is swallowed).
 -- ============================================================================
-alter publication supabase_realtime add table families;
-alter publication supabase_realtime add table family_members;
-alter publication supabase_realtime add table events;
-alter publication supabase_realtime add table chores;
-alter publication supabase_realtime add table chore_completions;
-alter publication supabase_realtime add table todo_lists;
-alter publication supabase_realtime add table todo_items;
-alter publication supabase_realtime add table habits;
-alter publication supabase_realtime add table habit_check_ins;
-alter publication supabase_realtime add table reward_goals;
-alter publication supabase_realtime add table redemptions;
-alter publication supabase_realtime add table day_plan_blocks;
-alter publication supabase_realtime add table activity_pool_items;
+do $$
+declare t text;
+begin
+  for t in select unnest(array[
+    'families',
+    'family_members',
+    'events',
+    'chores',
+    'chore_completions',
+    'todo_lists',
+    'todo_items',
+    'habits',
+    'habit_check_ins',
+    'reward_goals',
+    'redemptions',
+    'day_plan_blocks',
+    'activity_pool_items'
+  ])
+  loop
+    begin
+      execute format('alter publication supabase_realtime add table %I', t);
+    exception when others then null;
+    end;
+  end loop;
+end$$;

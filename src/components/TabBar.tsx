@@ -26,28 +26,33 @@ interface Tab {
   icon: LucideIcon;
 }
 
-const BASE_TABS: Tab[] = [
-  { key: 'home', label: 'Home', icon: Home },
-  { key: 'calendar', label: 'Calendar', icon: Calendar },
-  { key: 'chores', label: 'Chores', icon: Trophy },
-  { key: 'lists', label: 'Lists', icon: ListChecks },
-  { key: 'habits', label: 'Habits', icon: Sparkles },
-  { key: 'kitchen', label: 'Kitchen+', icon: ChefHat },
-  { key: 'settings', label: 'Settings', icon: SettingsIcon }
-];
-
-const MY_DAY_TAB: Tab = { key: 'my-day', label: 'My Day', icon: Sun };
-
 interface Props {
   active: TabKey;
   onChange: (k: TabKey) => void;
   showMyDay?: boolean;
+  showChores?: boolean;
+  showHabits?: boolean;
+  showKitchen?: boolean;
 }
 
-export function TabBar({ active, onChange, showMyDay = false }: Props) {
-  const tabs = showMyDay
-    ? [...BASE_TABS.slice(0, 2), MY_DAY_TAB, ...BASE_TABS.slice(2)]
-    : BASE_TABS;
+export function TabBar({
+  active,
+  onChange,
+  showMyDay = false,
+  showChores = true,
+  showHabits = true,
+  showKitchen = false
+}: Props) {
+  const tabs: Tab[] = [
+    { key: 'home', label: 'Home', icon: Home },
+    { key: 'calendar', label: 'Calendar', icon: Calendar },
+    ...(showMyDay ? [{ key: 'my-day' as TabKey, label: 'My Day', icon: Sun }] : []),
+    ...(showChores ? [{ key: 'chores' as TabKey, label: 'Chores', icon: Trophy }] : []),
+    { key: 'lists', label: 'Lists', icon: ListChecks },
+    ...(showHabits ? [{ key: 'habits' as TabKey, label: 'Habits', icon: Sparkles }] : []),
+    ...(showKitchen ? [{ key: 'kitchen' as TabKey, label: 'Kitchen+', icon: ChefHat }] : []),
+    { key: 'settings', label: 'Settings', icon: SettingsIcon }
+  ];
 
   return (
     <nav className="card p-1.5 flex gap-1 overflow-x-auto scroll-x-clean">

@@ -1,8 +1,11 @@
 import { useEffect, useState } from 'react';
-import { X } from 'lucide-react';
+import { X, Mail } from 'lucide-react';
 import { useFamily } from '@/context/FamilyContext';
 import { Avatar } from '@/components/Avatar';
+import { BirthdayPicker } from '@/components/BirthdayPicker';
 import { COLOR_OPTIONS, MEMBER_COLORS } from '@/lib/colors';
+import { isSupabaseConfigured } from '@/lib/supabase';
+import { InviteModal } from '@/components/InviteModal';
 import type { MemberColor, Role, FamilyMember } from '@/types';
 
 interface Props {
@@ -18,6 +21,8 @@ export function EditMemberModal({ open, member, onClose }: Props) {
   const [role, setRole] = useState<Role>('child');
   const [color, setColor] = useState<MemberColor>('dusty-blue');
   const [birthday, setBirthday] = useState('');
+  const [email, setEmail] = useState('');
+  const [inviteOpen, setInviteOpen] = useState(false);
 
   useEffect(() => {
     if (!open || !member) return;
@@ -25,6 +30,7 @@ export function EditMemberModal({ open, member, onClose }: Props) {
     setRole(member.role);
     setColor(member.color);
     setBirthday(member.birthday || '');
+    setEmail(member.email || '');
   }, [open, member]);
 
   if (!open || !member) return null;
@@ -37,7 +43,8 @@ export function EditMemberModal({ open, member, onClose }: Props) {
       name: name.trim(),
       role,
       color,
-      birthday: birthday || null
+      birthday: birthday || null,
+      email: email.trim() || null
     });
     onClose();
   };
@@ -115,12 +122,43 @@ export function EditMemberModal({ open, member, onClose }: Props) {
             <label className="block text-xs text-text-muted mb-1.5 font-medium">
               Birthday <span className="text-text-faint">(optional)</span>
             </label>
-            <input
-              type="date"
-              value={birthday}
-              onChange={(e) => setBirthday(e.target.value)}
-              className="w-full px-3 py-2.5 bg-surface-2 border border-border rounded-md text-text text-sm focus:outline-none focus:border-accent"
-            />
+            <BirthdayPicker value={birthday} onChange={setBirthday} />
+            {birthday && (
+              <button
+                type="button"
+                onClick={() => setBirthday('')}
+                className="mt-1 text-xs text-text-faint hover:text-text"
+              >
+                Clear birthday
+              </button>
+            )}
+          </div>
+
+          <div>
+            <label className="block text-xs text-text-muted mb-1.5 font-medium">
+              Login email <span className="text-text-faint">(optional)</span>
+            </label>
+            <div className="flex gap-2">
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="email@example.com"
+                className="flex-1 px-3 py-2.5 bg-surface-2 border border-border rounded-md text-text text-sm placeholder:text-text-faint focus:outline-none focus:border-accent"
+              />
+              {isSupabaseConfigured && email.trim() && !member?.auth_user_id && (
+                <button
+                  type="button"
+                  onClick={() => setInviteOpen(true)}
+                  className="flex items-center gap-1.5 px-3 py-2 bg-accent text-white text-xs font-medium rounded-md hover:opacity-90 shrink-0"
+                >
+                  <Mail size={12} /> Invite
+                </button>
+              )}
+            </div>
+            {member?.auth_user_id && (
+              <div className="mt-1 text-xs text-text-faint">Account linked</div>
+            )}
           </div>
         </div>
 
@@ -140,6 +178,7 @@ export function EditMemberModal({ open, member, onClose }: Props) {
           </button>
         </div>
       </div>
+      <InviteModal open={inviteOpen} onClose={() => setInviteOpen(false)} />
     </div>
   );
 }

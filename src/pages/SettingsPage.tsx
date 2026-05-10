@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Sun, Moon, Monitor, Lock, LockOpen, MapPin, Search, X, UserPlus, LogOut, Pencil } from 'lucide-react';
+import { Sun, Moon, Monitor, Lock, LockOpen, MapPin, Search, X, UserPlus, LogOut, Pencil, Home, Calendar, ListChecks, Trophy, Sparkles, ChefHat } from 'lucide-react';
 import { useFamily } from '@/context/FamilyContext';
 import { useTheme } from '@/context/ThemeContext';
 import { useWeather } from '@/hooks/useWeather';
@@ -154,28 +154,70 @@ export function SettingsPage() {
         </div>
       </section>
 
-      {/* My Day */}
+      {/* Pages */}
       <section className="card p-5">
-        <h2 className="font-display text-lg text-text mb-1">My Day</h2>
+        <h2 className="font-display text-lg text-text mb-1">Pages</h2>
         <p className="text-xs text-text-faint mb-4">
-          Visual daily planner. Enable per family member.
+          Control which pages each family member can access.
         </p>
-        <div className="space-y-2">
-          {members.map((m) => (
-            <label
-              key={m.id}
-              className="flex items-center gap-3 p-2.5 rounded-lg hover:bg-surface-2/60 cursor-pointer transition-colors"
-            >
-              <Avatar member={m} size={32} />
-              <span className="flex-1 text-sm text-text">{m.name}</span>
-              <input
-                type="checkbox"
-                checked={m.my_day_enabled}
-                onChange={(e) => updateMember(m.id, { my_day_enabled: e.target.checked })}
-                className="accent-accent w-4 h-4"
-              />
-            </label>
-          ))}
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs">
+            <thead>
+              <tr>
+                <th className="text-left pb-2 pr-3 text-text-faint font-medium">Member</th>
+                {[
+                  { icon: Home, label: 'Home', locked: true },
+                  { icon: Calendar, label: 'Calendar', locked: true },
+                  { icon: ListChecks, label: 'Lists', locked: true },
+                  { icon: Sun, label: 'My Day', locked: false, field: 'my_day_enabled' as const },
+                  { icon: Trophy, label: 'Chores', locked: false, field: 'chores_enabled' as const },
+                  { icon: Sparkles, label: 'Habits', locked: false, field: 'habits_enabled' as const },
+                  { icon: ChefHat, label: 'Kitchen+', locked: false, field: 'kitchen_enabled' as const },
+                ].map(({ icon: Icon, label }) => (
+                  <th key={label} className="text-center pb-2 px-1 text-text-faint font-medium min-w-[52px]">
+                    <div className="flex flex-col items-center gap-0.5">
+                      <Icon size={13} />
+                      <span className="text-[10px]">{label}</span>
+                    </div>
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {members.map((m) => (
+                <tr key={m.id}>
+                  <td className="py-2 pr-3">
+                    <div className="flex items-center gap-2">
+                      <Avatar member={m} size={28} />
+                      <span className="text-sm text-text">{m.name}</span>
+                    </div>
+                  </td>
+                  {[
+                    { locked: true },
+                    { locked: true },
+                    { locked: true },
+                    { locked: false, field: 'my_day_enabled' as keyof typeof m, value: m.my_day_enabled },
+                    { locked: false, field: 'chores_enabled' as keyof typeof m, value: m.chores_enabled },
+                    { locked: false, field: 'habits_enabled' as keyof typeof m, value: m.habits_enabled },
+                    { locked: false, field: 'kitchen_enabled' as keyof typeof m, value: m.kitchen_enabled },
+                  ].map((col, idx) => (
+                    <td key={idx} className="text-center py-2 px-1">
+                      {col.locked ? (
+                        <Lock size={13} className="mx-auto text-text-faint/40" />
+                      ) : (
+                        <input
+                          type="checkbox"
+                          checked={col.value as boolean}
+                          onChange={(e) => updateMember(m.id, { [col.field!]: e.target.checked })}
+                          className="accent-accent w-4 h-4 cursor-pointer"
+                        />
+                      )}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       </section>
 
@@ -319,7 +361,7 @@ function MemberRow({
             style={{ background: MEMBER_COLORS[member.color].base }}
           />
           {member.role}
-          {member.birthday && ` · b. ${member.birthday}`}
+          {member.email && <span className="lowercase normal-case truncate">· {member.email}</span>}
         </div>
       </div>
       <button

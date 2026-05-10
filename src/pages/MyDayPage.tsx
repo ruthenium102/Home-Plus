@@ -21,6 +21,16 @@ import {
   Brush,
   Coffee,
   Apple,
+  Utensils,
+  Bath,
+  Dog,
+  ShoppingCart,
+  Laptop,
+  Bed,
+  Pill,
+  Leaf,
+  Film,
+  Waves,
   type LucideIcon
 } from 'lucide-react';
 import { format } from 'date-fns';
@@ -41,7 +51,8 @@ import type { ActivityPoolItem, DayPlanBlock, DayPlanSection } from '@/types';
 
 const ICON_MAP: Record<string, LucideIcon> = {
   Circle, BookOpen, Music, Pencil, TreePine, Gamepad2,
-  Bike, Heart, Star, Dumbbell, Brush, Coffee, Apple
+  Bike, Heart, Star, Dumbbell, Brush, Coffee, Apple,
+  Utensils, Bath, Dog, ShoppingCart, Laptop, Bed, Pill, Leaf, Film, Waves
 };
 
 function resolveIcon(name: string | null): LucideIcon {
@@ -457,16 +468,19 @@ interface AddPoolModalProps {
   memberId: string;
   onAdd: (item: Omit<ActivityPoolItem, 'id' | 'created_at' | 'family_id'>) => void;
   onClose: () => void;
+  scheduleSection?: DayPlanSection;
+  onScheduleNow?: (title: string, icon: string, duration: number, section: DayPlanSection) => void;
 }
 
-function AddPoolModal({ memberId, onAdd, onClose }: AddPoolModalProps) {
+function AddPoolModal({ memberId, onAdd, onClose, scheduleSection, onScheduleNow }: AddPoolModalProps) {
   const [title, setTitle] = useState('');
-  const [duration, setDuration] = useState(20);
+  const [duration, setDuration] = useState(60);
   const [icon, setIcon] = useState('Circle');
 
   const QUICK_ICONS = [
     'BookOpen', 'Music', 'Pencil', 'TreePine', 'Gamepad2', 'Bike',
-    'Heart', 'Star', 'Dumbbell', 'Brush', 'Coffee', 'Apple'
+    'Heart', 'Star', 'Dumbbell', 'Brush', 'Coffee', 'Apple',
+    'Utensils', 'Bath', 'Dog', 'ShoppingCart', 'Laptop', 'Bed', 'Pill', 'Leaf', 'Film', 'Waves'
   ];
 
   const handleSave = () => {
@@ -479,6 +493,9 @@ function AddPoolModal({ memberId, onAdd, onClose }: AddPoolModalProps) {
       usage_count: 0,
       archived: false
     });
+    if (onScheduleNow && scheduleSection) {
+      onScheduleNow(title.trim(), icon, duration, scheduleSection);
+    }
     onClose();
   };
 
@@ -718,6 +735,22 @@ export function MyDayPage() {
           memberId={activeMember.id}
           onAdd={addPoolItem}
           onClose={() => setAddPoolOpen(false)}
+          scheduleSection={currentSection}
+          onScheduleNow={(title, icon, duration, section) => {
+            addDayPlanBlock({
+              member_id: activeMember.id,
+              date: today,
+              section,
+              source: 'other',
+              source_id: '',
+              title,
+              icon,
+              duration_min: duration,
+              position: nextPosition(memberBlocks, section),
+              done: false,
+              done_at: null
+            });
+          }}
         />
       )}
     </>

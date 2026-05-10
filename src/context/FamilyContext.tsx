@@ -320,6 +320,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
         avatar_url: null, pin_hash: null, birthday: null,
         current_location: null, location_until: null,
         reward_balances: {}, my_day_enabled: false,
+        chores_enabled: true, habits_enabled: true, kitchen_enabled: false, email: null,
         auth_user_id: userId,
         created_at: now,
       };

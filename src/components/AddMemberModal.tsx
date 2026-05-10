@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { X, Loader2 } from 'lucide-react';
 import { useFamily } from '@/context/FamilyContext';
 import { Avatar } from '@/components/Avatar';
+import { BirthdayPicker } from '@/components/BirthdayPicker';
 import { COLOR_OPTIONS, MEMBER_COLORS } from '@/lib/colors';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 import type { MemberColor, Role, FamilyMember } from '@/types';
@@ -22,6 +23,10 @@ const BLANK: Omit<FamilyMember, 'id' | 'created_at' | 'family_id'> = {
   location_until: null,
   reward_balances: {},
   my_day_enabled: false,
+  chores_enabled: true,
+  habits_enabled: true,
+  kitchen_enabled: false,
+  email: null,
 };
 
 export function AddMemberModal({ open, onClose }: Props) {
@@ -61,6 +66,7 @@ export function AddMemberModal({ open, onClose }: Props) {
       role,
       color,
       birthday: birthday || null,
+      email: email.trim() || null,
     });
 
     // Optionally send a Supabase invite so this person can log in on their own device
@@ -163,12 +169,7 @@ export function AddMemberModal({ open, onClose }: Props) {
             <label className="block text-xs text-text-muted mb-1.5 font-medium">
               Birthday <span className="text-text-faint">(optional)</span>
             </label>
-            <input
-              type="date"
-              value={birthday}
-              onChange={(e) => setBirthday(e.target.value)}
-              className="w-full px-3 py-2.5 bg-surface-2 border border-border rounded-md text-text text-sm focus:outline-none focus:border-accent"
-            />
+            <BirthdayPicker value={birthday} onChange={setBirthday} />
           </div>
 
           {/* Email invite — optional, only when Supabase is configured */}

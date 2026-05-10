@@ -24,7 +24,7 @@ import type {
  * when the seed schema or default family changes (e.g. Henderson → Ellis).
  */
 const PREFIX = 'hp:';
-const SEED_VERSION = 9; // 1=Henderson, 2=Ellis+chores, 3=Phase3, 4=swipe+backfill+import, 5=my-day, 6=rotation, 7=clean-reset, 8=live-mode-empty-defaults, 9=db-wipe
+const SEED_VERSION = 10; // 1=Henderson, 2=Ellis+chores, 3=Phase3, 4=swipe+backfill+import, 5=my-day, 6=rotation, 7=clean-reset, 8=live-mode-empty-defaults, 9=db-wipe, 10=page-flags+email
 
 // On first load, if the user has stale demo data from a previous version,
 // wipe the demo:* keys so they get the fresh seed.
@@ -98,7 +98,7 @@ export const DEMO_MEMBERS: FamilyMember[] = [
     current_location: 'Home',
     location_until: null,
     reward_balances: {},
-    my_day_enabled: false,
+    my_day_enabled: false, chores_enabled: true, habits_enabled: true, kitchen_enabled: false, email: null,
     created_at: new Date().toISOString()
   },
   {
@@ -113,7 +113,7 @@ export const DEMO_MEMBERS: FamilyMember[] = [
     current_location: 'Home',
     location_until: null,
     reward_balances: {},
-    my_day_enabled: false,
+    my_day_enabled: false, chores_enabled: true, habits_enabled: true, kitchen_enabled: false, email: null,
     created_at: new Date().toISOString()
   },
   {
@@ -128,7 +128,7 @@ export const DEMO_MEMBERS: FamilyMember[] = [
     current_location: 'School',
     location_until: null,
     reward_balances: { stars: 184, screen_minutes: 60, savings_cents: 4200 },
-    my_day_enabled: false,
+    my_day_enabled: false, chores_enabled: true, habits_enabled: true, kitchen_enabled: false, email: null,
     created_at: new Date().toISOString()
   },
   {
@@ -143,7 +143,7 @@ export const DEMO_MEMBERS: FamilyMember[] = [
     current_location: 'School',
     location_until: null,
     reward_balances: { stars: 132, screen_minutes: 30, savings_cents: 1850 },
-    my_day_enabled: true,
+    my_day_enabled: true, chores_enabled: true, habits_enabled: true, kitchen_enabled: false, email: null,
     created_at: new Date().toISOString()
   },
   {
@@ -158,7 +158,7 @@ export const DEMO_MEMBERS: FamilyMember[] = [
     current_location: 'School',
     location_until: null,
     reward_balances: { stars: 96, screen_minutes: 45, savings_cents: 750 },
-    my_day_enabled: false,
+    my_day_enabled: false, chores_enabled: true, habits_enabled: true, kitchen_enabled: false, email: null,
     created_at: new Date().toISOString()
   }
 ];
