@@ -6,14 +6,15 @@ import { useFamily } from '@/context/FamilyContext';
 interface Props {
   open: boolean;
   onClose: () => void;
+  defaultName?: string;
 }
 
 type State = 'idle' | 'loading' | 'success' | 'error';
 
-export function InviteModal({ open, onClose }: Props) {
+export function InviteModal({ open, onClose, defaultName }: Props) {
   const { family, activeMember } = useFamily();
   const [email, setEmail] = useState('');
-  const [name, setName] = useState('');
+  const [name, setName] = useState(defaultName ?? '');
   const [state, setState] = useState<State>('idle');
   const [errorMsg, setErrorMsg] = useState('');
   const [copied, setCopied] = useState(false);
@@ -22,7 +23,7 @@ export function InviteModal({ open, onClose }: Props) {
 
   const handleClose = () => {
     setEmail('');
-    setName('');
+    setName(defaultName ?? '');
     setState('idle');
     setErrorMsg('');
     setCopied(false);

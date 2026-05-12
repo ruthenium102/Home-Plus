@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import {
   addDays,
   addMonths,
@@ -31,7 +31,7 @@ import type { CalendarEvent, FamilyMember } from '@/types';
 type ViewMode = 'day' | 'week' | 'month';
 
 export function CalendarPage() {
-  const { events, members } = useFamily();
+  const { events, members, updateEvent } = useFamily();
   const [view, setView] = useState<ViewMode>('week');
   const [cursor, setCursor] = useState<Date>(new Date());
   const [memberFilter, setMemberFilter] = useState<string | null>(null);
@@ -39,6 +39,8 @@ export function CalendarPage() {
   const [editing, setEditing] = useState<CalendarEvent | null>(null);
   const [createInitial, setCreateInitial] = useState<Date | undefined>();
   const [importOpen, setImportOpen] = useState(false);
+  const draggingRef = useRef<ExpandedEvent | null>(null);
+  const [dragOverDayKey, setDragOverDayKey] = useState<string | null>(null);
 
   const range = useMemo(() => {
     if (view === 'day') {
@@ -83,6 +85,40 @@ export function CalendarPage() {
     setEditing(source);
     setCreateInitial(undefined);
     setEditorOpen(true);
+  };
+
+  const handleDragStart = (e: ExpandedEvent) => {
+    draggingRef.current = e;
+  };
+
+  const handleDropOnDay = (day: Date) => {
+    const evt = draggingRef.current;
+    draggingRef.current = null;
+    setDragOverDayKey(null);
+    if (!evt) return;
+    const source = events.find((x) => x.id === evt.id);
+    if (!source || source.recurrence) return;
+
+    if (source.all_day) {
+      const origStart = new Date(evt.occurrence_start);
+      const origEnd = new Date(evt.occurrence_end);
+      const spanMs = Math.max(0, origEnd.getTime() - origStart.getTime());
+      const newStart = startOfDay(day);
+      updateEvent(source.id, {
+        start_at: newStart.toISOString(),
+        end_at: new Date(newStart.getTime() + spanMs).toISOString()
+      });
+    } else {
+      const origStart = new Date(evt.occurrence_start);
+      const origEnd = new Date(evt.occurrence_end);
+      const durationMs = Math.max(0, origEnd.getTime() - origStart.getTime());
+      const newStart = startOfDay(day);
+      newStart.setHours(origStart.getHours(), origStart.getMinutes(), 0, 0);
+      updateEvent(source.id, {
+        start_at: newStart.toISOString(),
+        end_at: new Date(newStart.getTime() + durationMs).toISOString()
+      });
+    }
   };
 
   const handleNew = (date?: Date) => {
@@ -197,6 +233,10 @@ export function CalendarPage() {
           events={expanded}
           onEdit={handleEditEvent}
           onCreate={handleNew}
+          onDragStart={handleDragStart}
+          onDropOnDay={handleDropOnDay}
+          dragOverDayKey={dragOverDayKey}
+          onDragOverDay={setDragOverDayKey}
         />
       )}
       {view === 'month' && (
@@ -211,6 +251,10 @@ export function CalendarPage() {
             setCursor(d);
             setView('day');
           }}
+          onDragStart={handleDragStart}
+          onDropOnDay={handleDropOnDay}
+          dragOverDayKey={dragOverDayKey}
+          onDragOverDay={setDragOverDayKey}
         />
       )}
 
@@ -309,12 +353,20 @@ function WeekView({
   weekStart,
   events,
   onEdit,
-  onCreate
+  onCreate,
+  onDragStart,
+  onDropOnDay,
+  dragOverDayKey,
+  onDragOverDay
 }: {
   weekStart: Date;
   events: ExpandedEvent[];
   onEdit: (e: ExpandedEvent) => void;
   onCreate: (d: Date) => void;
+  onDragStart: (e: ExpandedEvent) => void;
+  onDropOnDay: (day: Date) => void;
+  dragOverDayKey: string | null;
+  onDragOverDay: (key: string | null) => void;
 }) {
   const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
   const today = new Date();
@@ -323,17 +375,23 @@ function WeekView({
     <div className="card p-2 sm:p-3">
       <div className="grid grid-cols-7 gap-1.5">
         {days.map((day) => {
+          const dayKey = day.toISOString();
           const dayEvents = events.filter((e) =>
             eventSpansDay(e.occurrence_start, e.occurrence_end, day)
           );
           const isToday = isSameDay(day, today);
+          const isDragOver = dragOverDayKey === dayKey;
           return (
             <div
-              key={day.toISOString()}
+              key={dayKey}
               className={
-                'rounded-md p-2 min-h-[200px] flex flex-col ' +
-                (isToday ? 'bg-accent-soft' : 'bg-surface-2')
+                'rounded-md p-2 min-h-[200px] flex flex-col transition-colors ' +
+                (isToday ? 'bg-accent-soft' : 'bg-surface-2') +
+                (isDragOver ? ' ring-2 ring-accent' : '')
               }
+              onDragOver={(ev) => { ev.preventDefault(); onDragOverDay(dayKey); }}
+              onDragLeave={() => onDragOverDay(null)}
+              onDrop={() => onDropOnDay(day)}
             >
               <div className="flex items-baseline gap-1.5 mb-2">
                 <div
@@ -354,14 +412,25 @@ function WeekView({
                 </div>
               </div>
               <div className="flex-1 space-y-0">
-                {dayEvents.map((e) => (
-                  <EventChip
-                    key={e.occurrence_key}
-                    event={e}
-                    onClick={() => onEdit(e)}
-                    variant="week"
-                  />
-                ))}
+                {dayEvents.map((e) =>
+                  e.recurrence ? (
+                    <EventChip
+                      key={e.occurrence_key}
+                      event={e}
+                      onClick={() => onEdit(e)}
+                      variant="week"
+                    />
+                  ) : (
+                    <div
+                      key={e.occurrence_key}
+                      draggable
+                      onDragStart={() => onDragStart(e)}
+                      onDragEnd={() => onDragOverDay(null)}
+                    >
+                      <EventChip event={e} onClick={() => onEdit(e)} variant="week" />
+                    </div>
+                  )
+                )}
               </div>
               <button
                 onClick={() => onCreate(day)}
@@ -386,7 +455,11 @@ function MonthView({
   events,
   onEdit,
   onCreate,
-  onJumpToDay
+  onJumpToDay,
+  onDragStart,
+  onDropOnDay,
+  dragOverDayKey,
+  onDragOverDay
 }: {
   monthCursor: Date;
   gridStart: Date;
@@ -395,6 +468,10 @@ function MonthView({
   onEdit: (e: ExpandedEvent) => void;
   onCreate: (d: Date) => void;
   onJumpToDay: (d: Date) => void;
+  onDragStart: (e: ExpandedEvent) => void;
+  onDropOnDay: (day: Date) => void;
+  dragOverDayKey: string | null;
+  onDragOverDay: (key: string | null) => void;
 }) {
   const { resolved } = useTheme();
   const { members } = useFamily();
@@ -428,11 +505,13 @@ function MonthView({
       {/* Day cells */}
       <div className="grid grid-cols-7 gap-1.5">
         {days.map((day) => {
+          const dayKey = day.toISOString();
           const dayEvents = events.filter((e) =>
             eventSpansDay(e.occurrence_start, e.occurrence_end, day)
           );
           const isToday = isSameDay(day, today);
           const inMonth = isSameMonth(day, monthCursor);
+          const isDragOver = dragOverDayKey === dayKey;
 
           // Show up to 3 events as colored bars; rest become "+N more"
           const visible = dayEvents.slice(0, 3);
@@ -440,16 +519,20 @@ function MonthView({
 
           return (
             <button
-              key={day.toISOString()}
+              key={dayKey}
               onClick={() => onJumpToDay(day)}
               onDoubleClick={() => onCreate(day)}
+              onDragOver={(ev) => { ev.preventDefault(); onDragOverDay(dayKey); }}
+              onDragLeave={() => onDragOverDay(null)}
+              onDrop={() => onDropOnDay(day)}
               className={
                 'rounded-md p-1.5 min-h-[80px] sm:min-h-[100px] flex flex-col text-left transition-colors hover:ring-1 hover:ring-border-strong ' +
                 (isToday
                   ? 'bg-accent-soft'
                   : inMonth
                     ? 'bg-surface-2'
-                    : 'bg-surface-2/40')
+                    : 'bg-surface-2/40') +
+                (isDragOver ? ' ring-2 ring-accent' : '')
               }
             >
               <div className="flex items-baseline justify-between mb-1">
@@ -480,13 +563,8 @@ function MonthView({
                   const tokens = owner
                     ? getColorTokens(owner.color, isDark)
                     : { base: 'rgb(var(--accent))', soft: 'rgb(var(--accent-soft))', text: '#fff' };
-                  return (
+                  const chip = (
                     <div
-                      key={e.occurrence_key}
-                      onClick={(ev) => {
-                        ev.stopPropagation();
-                        onEdit(e);
-                      }}
                       className="text-[10px] truncate px-1 py-0.5 rounded-sm leading-tight"
                       style={{
                         background: tokens.soft,
@@ -500,6 +578,24 @@ function MonthView({
                         </span>
                       )}
                       {e.title}
+                    </div>
+                  );
+                  return e.recurrence ? (
+                    <div
+                      key={e.occurrence_key}
+                      onClick={(ev) => { ev.stopPropagation(); onEdit(e); }}
+                    >
+                      {chip}
+                    </div>
+                  ) : (
+                    <div
+                      key={e.occurrence_key}
+                      draggable
+                      onClick={(ev) => { ev.stopPropagation(); onEdit(e); }}
+                      onDragStart={(ev) => { ev.stopPropagation(); onDragStart(e); }}
+                      onDragEnd={() => onDragOverDay(null)}
+                    >
+                      {chip}
                     </div>
                   );
                 })}

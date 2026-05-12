@@ -16,6 +16,8 @@ interface PublicHoliday {
 // 2026 WA public holidays (verified from official WA Government calendar).
 // Updated annually. We hardcode a year ahead so users always have at least
 // 12 months of holidays to import without needing the network.
+// Dates are the WA-observed public holiday dates. Where a holiday falls on
+// a weekend, only the observed weekday substitute is listed (no duplicates).
 const HARDCODED_HOLIDAYS_WA: PublicHoliday[] = [
   // 2026
   { date: '2026-01-01', name: "New Year's Day", state: 'NAT' },
@@ -25,13 +27,11 @@ const HARDCODED_HOLIDAYS_WA: PublicHoliday[] = [
   { date: '2026-04-04', name: 'Easter Saturday', state: 'WA' },
   { date: '2026-04-05', name: 'Easter Sunday', state: 'WA' },
   { date: '2026-04-06', name: 'Easter Monday', state: 'NAT' },
-  { date: '2026-04-25', name: 'ANZAC Day', state: 'NAT' },
-  { date: '2026-04-27', name: 'ANZAC Day (Public Holiday)', state: 'WA' },
-  { date: '2026-06-01', name: "Western Australia Day", state: 'WA' },
+  { date: '2026-04-27', name: 'ANZAC Day', state: 'WA' }, // Apr 25 = Sat → observed Mon Apr 27
+  { date: '2026-06-01', name: 'Western Australia Day', state: 'WA' },
   { date: '2026-09-28', name: "King's Birthday (WA)", state: 'WA' },
   { date: '2026-12-25', name: 'Christmas Day', state: 'NAT' },
-  { date: '2026-12-26', name: 'Boxing Day', state: 'NAT' },
-  { date: '2026-12-28', name: 'Boxing Day (Public Holiday)', state: 'WA' },
+  { date: '2026-12-28', name: 'Boxing Day', state: 'WA' }, // Dec 26 = Sat → observed Mon Dec 28
   // 2027
   { date: '2027-01-01', name: "New Year's Day", state: 'NAT' },
   { date: '2027-01-26', name: 'Australia Day', state: 'NAT' },
@@ -40,13 +40,11 @@ const HARDCODED_HOLIDAYS_WA: PublicHoliday[] = [
   { date: '2027-03-27', name: 'Easter Saturday', state: 'WA' },
   { date: '2027-03-28', name: 'Easter Sunday', state: 'WA' },
   { date: '2027-03-29', name: 'Easter Monday', state: 'NAT' },
-  { date: '2027-04-25', name: 'ANZAC Day', state: 'NAT' },
-  { date: '2027-04-26', name: 'ANZAC Day (Observed)', state: 'WA' },
-  { date: '2027-06-07', name: "Western Australia Day", state: 'WA' },
+  { date: '2027-04-26', name: 'ANZAC Day', state: 'WA' }, // Apr 25 = Sun → observed Mon Apr 26
+  { date: '2027-06-07', name: 'Western Australia Day', state: 'WA' },
   { date: '2027-09-27', name: "King's Birthday (WA)", state: 'WA' },
-  { date: '2027-12-25', name: 'Christmas Day', state: 'NAT' },
-  { date: '2027-12-27', name: "Christmas Day (Observed)", state: 'WA' },
-  { date: '2027-12-28', name: 'Boxing Day', state: 'NAT' }
+  { date: '2027-12-27', name: 'Christmas Day', state: 'WA' }, // Dec 25 = Sat → observed Mon Dec 27
+  { date: '2027-12-28', name: 'Boxing Day', state: 'WA' }   // Dec 26 = Sun → observed Tue Dec 28
 ];
 
 // WA school terms 2026 (verified from Department of Education WA)

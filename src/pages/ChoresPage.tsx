@@ -46,8 +46,9 @@ export function ChoresPage() {
 // ============================================================================
 
 function KidView({ member }: { member: FamilyMember }) {
-  const { chores, completions, completeChore, goals, rewardCategories, members } = useFamily();
+  const { chores, completions, completeChore, deleteCompletion, goals, rewardCategories, members } = useFamily();
   const { resolved } = useTheme();
+  const { show } = useToast();
   const [redeemOpen, setRedeemOpen] = useState(false);
   const tokens = getColorTokens(member.color, resolved === 'dark');
 
@@ -170,7 +171,13 @@ function KidView({ member }: { member: FamilyMember }) {
                 key={item.chore.id}
                 item={item}
                 memberId={member.id}
-                onComplete={() => completeChore(item.chore.id, member.id, localISO(today))}
+                onComplete={() => {
+                  const completion = completeChore(item.chore.id, member.id, localISO(today));
+                  show({
+                    message: `"${item.chore.title}" done!`,
+                    onUndo: () => deleteCompletion(completion.id)
+                  });
+                }}
               />
             ))}
           </div>
@@ -310,7 +317,13 @@ function ParentOverview() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {kids.map((kid) => {
           const tokens = getColorTokens(kid.color, isDark);
-          const items = getChoresForMemberOnDate(chores, completions, kid.id, today);
+          const rawItems = getChoresForMemberOnDate(chores, completions, kid.id, today);
+          const items = rawItems.filter((item) => {
+            const chore = chores.find((c) => c.id === item.chore.id);
+            if (!chore || chore.mode === 'standard') return true;
+            const assignee = currentRotationAssignee(chore, members, today);
+            return assignee === kid.id;
+          });
           const todayDone = items.filter((i) => i.state === 'done').length;
           const earnings = weeklyEarnings(completions, kid.id, weekStart);
           const goal = goals.find((g) => g.member_id === kid.id && !g.achieved_at);

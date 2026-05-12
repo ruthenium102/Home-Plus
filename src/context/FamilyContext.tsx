@@ -85,6 +85,7 @@ interface FamilyContextValue {
   updateChore: (id: string, patch: Partial<Chore>) => void;
   deleteChore: (id: string) => void;
   completeChore: (choreId: string, memberId: string, forDate: string) => ChoreCompletion;
+  deleteCompletion: (completionId: string) => void;
   approveCompletion: (completionId: string, approverId: string) => void;
   rejectCompletion: (completionId: string, approverId: string) => void;
 
@@ -646,6 +647,18 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
     [chores, family.id]
   );
 
+  const deleteCompletion = useCallback((completionId: string) => {
+    setCompletions((prev) => {
+      const target = prev.find((c) => c.id === completionId);
+      if (!target) return prev;
+      if (target.status === 'approved') {
+        setMembers((m) => applyPayout(m, target.member_id, target.payout, -1));
+      }
+      dbDelete('chore_completions', completionId);
+      return prev.filter((c) => c.id !== completionId);
+    });
+  }, []);
+
   const approveCompletion = useCallback((completionId: string, approverId: string) => {
     setCompletions((prev) => {
       const target = prev.find((c) => c.id === completionId);
@@ -1070,6 +1083,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
     updateChore,
     deleteChore,
     completeChore,
+    deleteCompletion,
     approveCompletion,
     rejectCompletion,
     requestRedemption,

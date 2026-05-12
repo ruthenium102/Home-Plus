@@ -92,7 +92,9 @@ export function EventEditor({ open, onClose, editing, initialStart }: Props) {
   const [endTime, setEndTime] = useState('');
   const [memberIds, setMemberIds] = useState<string[]>([]);
   const [recurFreq, setRecurFreq] = useState<'none' | 'daily' | 'weekly' | 'monthly' | 'yearly'>('none');
+  const [byweekday, setByweekday] = useState<number[]>([]);
   const [reminderMin, setReminderMin] = useState<number | null>(null);
+  const [showCustomEnd, setShowCustomEnd] = useState(false);
 
   // True once the user has manually picked an end time — stops smart-duration overwriting it.
   const userChangedEndRef = useRef(false);
@@ -102,6 +104,7 @@ export function EventEditor({ open, onClose, editing, initialStart }: Props) {
     if (!open) return;
     userChangedEndRef.current = false;
     if (editing) {
+      setShowCustomEnd(true);
       const s = new Date(editing.start_at);
       const e = new Date(editing.end_at);
       setTitle(editing.title);
@@ -115,8 +118,10 @@ export function EventEditor({ open, onClose, editing, initialStart }: Props) {
       setEndTime(format(e, 'HH:mm'));
       setMemberIds(editing.member_ids);
       setRecurFreq((editing.recurrence?.freq as 'daily' | 'weekly' | 'monthly' | 'yearly') ?? 'none');
+      setByweekday((editing.recurrence?.byweekday as number[]) ?? []);
       setReminderMin(editing.reminder_offsets[0] ?? null);
     } else {
+      setShowCustomEnd(false);
       const s = initialStart || new Date();
       const sd = format(s, 'yyyy-MM-dd');
       const st = format(s, 'HH:mm');
@@ -133,6 +138,7 @@ export function EventEditor({ open, onClose, editing, initialStart }: Props) {
       setEndTime(end.time);
       setMemberIds(activeMember ? [activeMember.id] : []);
       setRecurFreq('none');
+      setByweekday([]);
       setReminderMin(null);
     }
   }, [open, editing, initialStart, activeMember]);
@@ -193,8 +199,14 @@ export function EventEditor({ open, onClose, editing, initialStart }: Props) {
       setEndDate(end.date);
       setEndTime(end.time);
       userChangedEndRef.current = false;
+      setShowCustomEnd(false);
     }
   };
+
+  const toggleByWeekday = (d: number) =>
+    setByweekday((prev) =>
+      prev.includes(d) ? prev.filter((x) => x !== d) : [...prev, d]
+    );
 
   const handleQuickDuration = (mins: number) => {
     if (!startDate || !startTime) return;
@@ -214,7 +226,13 @@ export function EventEditor({ open, onClose, editing, initialStart }: Props) {
       : new Date(`${endDate}T${endTime}:00`).toISOString();
 
     const recurrence: Recurrence | null =
-      recurFreq === 'none' ? null : { freq: recurFreq, interval: 1 };
+      recurFreq === 'none'
+        ? null
+        : {
+            freq: recurFreq,
+            interval: 1,
+            ...(recurFreq === 'weekly' && byweekday.length > 0 ? { byweekday } : {})
+          };
 
     const payload = {
       title: title.trim(),
@@ -302,45 +320,51 @@ export function EventEditor({ open, onClose, editing, initialStart }: Props) {
               All day
             </label>
 
-            {/* Starts / Ends */}
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <div className="text-xs text-text-faint mb-1.5">Starts</div>
-                {allDay ? (
+            {/* Start field */}
+            <div>
+              <div className="text-xs text-text-faint mb-1.5">Starts</div>
+              {allDay ? (
+                <input
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => handleStartDateChange(e.target.value)}
+                  className={inputCls + ' w-full'}
+                />
+              ) : (
+                <div className="flex gap-1.5">
                   <input
                     type="date"
                     value={startDate}
                     onChange={(e) => handleStartDateChange(e.target.value)}
-                    className={inputCls + ' w-full'}
+                    className={inputCls + ' flex-1 min-w-0'}
                   />
-                ) : (
-                  <div className="flex gap-1.5">
-                    <input
-                      type="date"
-                      value={startDate}
-                      onChange={(e) => handleStartDateChange(e.target.value)}
-                      className={inputCls + ' flex-1 min-w-0'}
-                    />
-                    <input
-                      type="time"
-                      value={startTime}
-                      onChange={(e) => handleStartTimeChange(e.target.value)}
-                      className={inputCls + ' w-[5.5rem]'}
-                    />
-                  </div>
-                )}
-              </div>
+                  <input
+                    type="time"
+                    value={startTime}
+                    onChange={(e) => handleStartTimeChange(e.target.value)}
+                    className={inputCls + ' w-[5.5rem]'}
+                  />
+                </div>
+              )}
+            </div>
+
+            {/* All-day end OR timed duration */}
+            {allDay ? (
               <div>
                 <div className="text-xs text-text-faint mb-1.5">Ends</div>
-                {allDay ? (
-                  <input
-                    type="date"
-                    value={endDate}
-                    min={startDate}
-                    onChange={(e) => { setEndDate(e.target.value); userChangedEndRef.current = true; }}
-                    className={inputCls + ' w-full'}
-                  />
-                ) : (
+                <input
+                  type="date"
+                  value={endDate}
+                  min={startDate}
+                  onChange={(e) => { setEndDate(e.target.value); userChangedEndRef.current = true; }}
+                  className={inputCls + ' w-full'}
+                />
+                {durLabel && <div className="text-xs text-text-faint mt-1.5">{durLabel}</div>}
+              </div>
+            ) : showCustomEnd ? (
+              <>
+                <div>
+                  <div className="text-xs text-text-faint mb-1.5">Ends</div>
                   <div className="flex gap-1.5">
                     <input
                       type="date"
@@ -356,17 +380,22 @@ export function EventEditor({ open, onClose, editing, initialStart }: Props) {
                       className={inputCls + ' w-[5.5rem]'}
                     />
                   </div>
-                )}
-              </div>
-            </div>
-
-            {/* Duration label */}
-            {durLabel && (
-              <div className="text-xs text-text-faint pl-0.5">{durLabel}</div>
-            )}
-
-            {/* Quick duration presets — timed events only */}
-            {!allDay && (
+                </div>
+                {durLabel && <div className="text-xs text-text-faint pl-0.5">{durLabel}</div>}
+                <div className="flex flex-wrap gap-1.5">
+                  {QUICK_DURATIONS.map(({ label, mins }) => (
+                    <button
+                      key={mins}
+                      type="button"
+                      onClick={() => handleQuickDuration(mins)}
+                      className="px-3 py-1 rounded-full text-xs border border-border text-text-muted hover:border-accent hover:text-accent transition-colors"
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </>
+            ) : (
               <div className="flex flex-wrap gap-1.5">
                 {QUICK_DURATIONS.map(({ label, mins }) => (
                   <button
@@ -378,6 +407,13 @@ export function EventEditor({ open, onClose, editing, initialStart }: Props) {
                     {label}
                   </button>
                 ))}
+                <button
+                  type="button"
+                  onClick={() => setShowCustomEnd(true)}
+                  className="px-3 py-1 rounded-full text-xs border border-border text-text-muted hover:border-accent hover:text-accent transition-colors"
+                >
+                  Other…
+                </button>
               </div>
             )}
           </div>
@@ -468,6 +504,25 @@ export function EventEditor({ open, onClose, editing, initialStart }: Props) {
                 </button>
               ))}
             </div>
+            {recurFreq === 'weekly' && (
+              <div className="flex flex-wrap gap-1.5 mt-2">
+                {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day, i) => (
+                  <button
+                    key={i}
+                    type="button"
+                    onClick={() => toggleByWeekday(i)}
+                    className={
+                      'w-10 py-1.5 rounded-full text-xs border transition-colors ' +
+                      (byweekday.includes(i)
+                        ? 'bg-accent text-white border-accent'
+                        : 'border-border text-text-muted hover:border-border-strong')
+                    }
+                  >
+                    {day}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Reminder */}

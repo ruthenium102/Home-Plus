@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { X, Mail } from 'lucide-react';
+import { X, Mail, CheckCircle2 } from 'lucide-react';
 import { useFamily } from '@/context/FamilyContext';
 import { Avatar } from '@/components/Avatar';
 import { BirthdayPicker } from '@/components/BirthdayPicker';
@@ -21,7 +21,6 @@ export function EditMemberModal({ open, member, onClose }: Props) {
   const [role, setRole] = useState<Role>('child');
   const [color, setColor] = useState<MemberColor>('dusty-blue');
   const [birthday, setBirthday] = useState('');
-  const [email, setEmail] = useState('');
   const [inviteOpen, setInviteOpen] = useState(false);
 
   useEffect(() => {
@@ -30,7 +29,6 @@ export function EditMemberModal({ open, member, onClose }: Props) {
     setRole(member.role);
     setColor(member.color);
     setBirthday(member.birthday || '');
-    setEmail(member.email || '');
   }, [open, member]);
 
   if (!open || !member) return null;
@@ -43,8 +41,7 @@ export function EditMemberModal({ open, member, onClose }: Props) {
       name: name.trim(),
       role,
       color,
-      birthday: birthday || null,
-      email: email.trim() || null
+      birthday: birthday || null
     });
     onClose();
   };
@@ -134,32 +131,26 @@ export function EditMemberModal({ open, member, onClose }: Props) {
             )}
           </div>
 
-          <div>
-            <label className="block text-xs text-text-muted mb-1.5 font-medium">
-              Login email <span className="text-text-faint">(optional)</span>
-            </label>
-            <div className="flex gap-2">
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="email@example.com"
-                className="flex-1 px-3 py-2.5 bg-surface-2 border border-border rounded-md text-text text-sm placeholder:text-text-faint focus:outline-none focus:border-accent"
-              />
-              {isSupabaseConfigured && email.trim() && !member?.auth_user_id && (
+          {isSupabaseConfigured && (
+            <div>
+              <label className="block text-xs text-text-muted mb-1.5 font-medium">Account</label>
+              {member.auth_user_id ? (
+                <div className="flex items-center gap-2 text-sm text-text-muted">
+                  <CheckCircle2 size={15} className="text-green-500 shrink-0" />
+                  Account linked
+                </div>
+              ) : (
                 <button
                   type="button"
                   onClick={() => setInviteOpen(true)}
-                  className="flex items-center gap-1.5 px-3 py-2 bg-accent text-white text-xs font-medium rounded-md hover:opacity-90 shrink-0"
+                  className="flex items-center gap-2 px-3 py-2 bg-surface-2 border border-border rounded-md text-sm text-text-muted hover:border-accent hover:text-accent transition-colors"
                 >
-                  <Mail size={12} /> Invite
+                  <Mail size={14} />
+                  Send invite to join Home+
                 </button>
               )}
             </div>
-            {member?.auth_user_id && (
-              <div className="mt-1 text-xs text-text-faint">Account linked</div>
-            )}
-          </div>
+          )}
         </div>
 
         <div className="flex gap-2 p-5 pt-0">
@@ -178,7 +169,7 @@ export function EditMemberModal({ open, member, onClose }: Props) {
           </button>
         </div>
       </div>
-      <InviteModal open={inviteOpen} onClose={() => setInviteOpen(false)} />
+      <InviteModal open={inviteOpen} onClose={() => setInviteOpen(false)} defaultName={member.name} />
     </div>
   );
 }
