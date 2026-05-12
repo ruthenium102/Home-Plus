@@ -26,7 +26,7 @@ const HabitsPage = lazy(() =>
   import('@/pages/HabitsPage').then((m) => ({ default: m.HabitsPage }))
 );
 const KitchenPage = lazy(() =>
-  import('@/pages/Placeholders').then((m) => ({ default: m.KitchenPage }))
+  import('@/pages/KitchenPage').then((m) => ({ default: m.KitchenPage }))
 );
 const SettingsPage = lazy(() =>
   import('@/pages/SettingsPage').then((m) => ({ default: m.SettingsPage }))

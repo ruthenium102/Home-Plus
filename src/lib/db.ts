@@ -25,6 +25,8 @@ import type {
   Redemption,
   DayPlanBlock,
   ActivityPoolItem,
+  Recipe,
+  MealPlan,
 } from '@/types';
 
 // ---------------------------------------------------------------------------
@@ -63,6 +65,8 @@ export interface FamilyData {
   redemptions: Redemption[];
   dayPlanBlocks: DayPlanBlock[];
   activityPool: ActivityPoolItem[];
+  recipes: Recipe[];
+  mealPlans: MealPlan[];
 }
 
 export async function dbLoadFamily(familyId: string): Promise<FamilyData | null> {
@@ -82,6 +86,8 @@ export async function dbLoadFamily(familyId: string): Promise<FamilyData | null>
       { data: redemptions },
       { data: dayPlanBlocks },
       { data: activityPool },
+      { data: recipes },
+      { data: mealPlans },
     ] = await Promise.all([
       supabase.from('families').select('id,name,timezone,created_at').eq('id', familyId).single(),
       supabase.from('family_members').select('*').eq('family_id', familyId),
@@ -96,6 +102,8 @@ export async function dbLoadFamily(familyId: string): Promise<FamilyData | null>
       supabase.from('redemptions').select('*').eq('family_id', familyId),
       supabase.from('day_plan_blocks').select('*').eq('family_id', familyId),
       supabase.from('activity_pool_items').select('*').eq('family_id', familyId),
+      supabase.from('recipes').select('*').eq('family_id', familyId),
+      supabase.from('meal_plans').select('*').eq('family_id', familyId),
     ]);
 
     if (fe || !family) return null;
@@ -114,6 +122,8 @@ export async function dbLoadFamily(familyId: string): Promise<FamilyData | null>
       redemptions: (redemptions ?? []) as unknown as Redemption[],
       dayPlanBlocks: (dayPlanBlocks ?? []) as unknown as DayPlanBlock[],
       activityPool: (activityPool ?? []) as unknown as ActivityPoolItem[],
+      recipes: (recipes ?? []) as unknown as Recipe[],
+      mealPlans: (mealPlans ?? []) as unknown as MealPlan[],
     };
   } catch (e) {
     console.warn('[db] loadFamily error:', e);

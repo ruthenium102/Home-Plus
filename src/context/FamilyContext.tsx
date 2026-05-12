@@ -41,7 +41,11 @@ import type {
   FamilyMember,
   Habit,
   HabitCheckIn,
+  KitchenSettings,
+  MealPlan,
+  MealType,
   Redemption,
+  Recipe,
   RewardCategory,
   RewardCategoryKey,
   RewardGoal,
@@ -129,6 +133,18 @@ interface FamilyContextValue {
   addPoolItem: (item: Omit<ActivityPoolItem, 'id' | 'created_at' | 'family_id'>) => void;
   updatePoolItem: (id: string, patch: Partial<ActivityPoolItem>) => void;
   archivePoolItem: (id: string) => void;
+
+  // Kitchen
+  recipes: Recipe[];
+  mealPlans: MealPlan[];
+  kitchenSettings: KitchenSettings;
+  addRecipe: (r: Omit<Recipe, 'id' | 'created_at' | 'family_id'>) => void;
+  updateRecipe: (id: string, patch: Partial<Recipe>) => void;
+  deleteRecipe: (id: string) => void;
+  toggleRecipeFavorite: (id: string) => void;
+  addMealPlan: (mp: Omit<MealPlan, 'id' | 'created_at' | 'family_id'>) => void;
+  removeMealPlan: (id: string) => void;
+  updateKitchenSettings: (patch: Partial<KitchenSettings>) => void;
 }
 
 const FamilyContext = createContext<FamilyContextValue | null>(null);
@@ -147,6 +163,16 @@ const HABITS_KEY = 'demo:habits';
 const CHECKINS_KEY = 'demo:checkins';
 const DAY_PLAN_KEY = 'demo:day_plan_blocks';
 const ACTIVITY_POOL_KEY = 'demo:activity_pool';
+const RECIPES_KEY = 'demo:recipes';
+const MEAL_PLANS_KEY = 'demo:meal_plans';
+const KITCHEN_SETTINGS_KEY = 'kitchen:settings';
+
+const DEFAULT_KITCHEN_SETTINGS: KitchenSettings = {
+  cupboard: [],
+  primary_shop_day: null,
+  mid_week_shop_enabled: false,
+  mid_week_shop_day: null,
+};
 
 // When Supabase auth is configured we start with a blank slate — no demo seed.
 const LIVE = isSupabaseConfigured;
@@ -231,6 +257,15 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
   const [activityPool, setActivityPool] = useState<ActivityPoolItem[]>(() =>
     storage.get<ActivityPoolItem[]>(ACTIVITY_POOL_KEY, LIVE ? [] : DEMO_ACTIVITY_POOL)
   );
+  const [recipes, setRecipes] = useState<Recipe[]>(() =>
+    storage.get<Recipe[]>(RECIPES_KEY, [])
+  );
+  const [mealPlans, setMealPlans] = useState<MealPlan[]>(() =>
+    storage.get<MealPlan[]>(MEAL_PLANS_KEY, [])
+  );
+  const [kitchenSettings, setKitchenSettings] = useState<KitchenSettings>(() =>
+    storage.get<KitchenSettings>(KITCHEN_SETTINGS_KEY, DEFAULT_KITCHEN_SETTINGS)
+  );
 
   // On auth, load data from Supabase. On first login, create the initial family.
   const handled = useRef(false);
@@ -271,6 +306,8 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
           setRedemptions(data.redemptions);
           setDayPlanBlocks(data.dayPlanBlocks);
           setActivityPool(data.activityPool);
+          setRecipes(data.recipes);
+          setMealPlans(data.mealPlans);
 
           // Auto sign-in as the member linked to this auth user
           const mine = data.members.find((m) => m.auth_user_id === userId);
@@ -421,6 +458,16 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
           if (eventType === 'DELETE') removeById(setActivityPool, (o as ActivityPoolItem).id);
           else upsertById(setActivityPool, n as ActivityPoolItem);
         })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'recipes', filter: `family_id=eq.${fid}` },
+        ({ eventType, new: n, old: o }) => {
+          if (eventType === 'DELETE') removeById(setRecipes, (o as Recipe).id);
+          else upsertById(setRecipes, n as Recipe);
+        })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'meal_plans', filter: `family_id=eq.${fid}` },
+        ({ eventType, new: n, old: o }) => {
+          if (eventType === 'DELETE') removeById(setMealPlans, (o as MealPlan).id);
+          else upsertById(setMealPlans, n as MealPlan);
+        })
       .subscribe();
 
     return () => { supabase!.removeChannel(channel); };
@@ -440,6 +487,9 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
   useEffect(() => storage.set(CHECKINS_KEY, checkIns), [checkIns]);
   useEffect(() => storage.set(DAY_PLAN_KEY, dayPlanBlocks), [dayPlanBlocks]);
   useEffect(() => storage.set(ACTIVITY_POOL_KEY, activityPool), [activityPool]);
+  useEffect(() => storage.set(RECIPES_KEY, recipes), [recipes]);
+  useEffect(() => storage.set(MEAL_PLANS_KEY, mealPlans), [mealPlans]);
+  useEffect(() => storage.set(KITCHEN_SETTINGS_KEY, kitchenSettings), [kitchenSettings]);
   useEffect(() => {
     if (session) storage.set(SESSION_KEY, session);
     else storage.remove(SESSION_KEY);
@@ -1055,6 +1105,120 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
     []
   );
 
+  // ---- Kitchen ---------------------------------------------------------------
+
+  const addRecipe = useCallback(
+    (r: Omit<Recipe, 'id' | 'created_at' | 'family_id'>) => {
+      const newRecipe: Recipe = { ...r, id: uid('r'), created_at: new Date().toISOString(), family_id: family.id };
+      setRecipes((prev) => [...prev, newRecipe]);
+      dbUpsert('recipes', newRecipe as unknown as Record<string, unknown>);
+    },
+    [family.id]
+  );
+
+  const updateRecipe = useCallback(
+    (id: string, patch: Partial<Recipe>) =>
+      setRecipes((prev) => prev.map((r) => {
+        if (r.id !== id) return r;
+        const updated = { ...r, ...patch };
+        dbUpsert('recipes', updated as unknown as Record<string, unknown>);
+        return updated;
+      })),
+    []
+  );
+
+  const deleteRecipe = useCallback(
+    (id: string) => {
+      setRecipes((prev) => prev.filter((r) => r.id !== id));
+      // Also remove any meal plans referencing this recipe
+      setMealPlans((prev) => {
+        const toRemove = prev.filter((m) => m.recipe_id === id);
+        toRemove.forEach((m) => {
+          dbDelete('meal_plans', m.id);
+          if (m.calendar_event_id) {
+            setEvents((ev) => ev.filter((e) => e.id !== m.calendar_event_id));
+            dbDelete('events', m.calendar_event_id);
+          }
+        });
+        return prev.filter((m) => m.recipe_id !== id);
+      });
+      dbDelete('recipes', id);
+    },
+    []
+  );
+
+  const toggleRecipeFavorite = useCallback(
+    (id: string) =>
+      setRecipes((prev) => prev.map((r) => {
+        if (r.id !== id) return r;
+        const updated = { ...r, favorite: !r.favorite };
+        dbUpsert('recipes', updated as unknown as Record<string, unknown>);
+        return updated;
+      })),
+    []
+  );
+
+  const addMealPlan = useCallback(
+    (mp: Omit<MealPlan, 'id' | 'created_at' | 'family_id'>) => {
+      const recipe = recipes.find((r) => r.id === mp.recipe_id);
+      const eventId = uid('e');
+      const times = { breakfast: ['08:00', '09:00'], lunch: ['12:30', '13:30'], dinner: ['18:30', '20:00'], snack: ['15:00', '15:30'] };
+      const [startTime, endTime] = times[mp.meal_type as MealType] ?? times.dinner;
+
+      const newEvent: CalendarEvent = {
+        id: eventId,
+        family_id: family.id,
+        title: recipe ? `${recipe.icon || '🍽️'} ${recipe.title}` : '🍽️ Meal',
+        description: null,
+        start_at: `${mp.date}T${startTime}:00`,
+        end_at: `${mp.date}T${endTime}:00`,
+        all_day: false,
+        location: null,
+        category: 'meal',
+        member_ids: [],
+        recurrence: null,
+        reminder_offsets: [],
+        created_by: activeMember?.id ?? null,
+        created_at: new Date().toISOString(),
+      };
+
+      const newMealPlan: MealPlan = {
+        ...mp,
+        id: uid('mp'),
+        family_id: family.id,
+        calendar_event_id: eventId,
+        created_at: new Date().toISOString(),
+      };
+
+      setEvents((prev) => [...prev, newEvent]);
+      setMealPlans((prev) => [...prev, newMealPlan]);
+      dbUpsert('events', newEvent as unknown as Record<string, unknown>);
+      dbUpsert('meal_plans', newMealPlan as unknown as Record<string, unknown>);
+    },
+    [family.id, recipes, activeMember]
+  );
+
+  const removeMealPlan = useCallback(
+    (id: string) => {
+      setMealPlans((prev) => {
+        const target = prev.find((m) => m.id === id);
+        if (target?.calendar_event_id) {
+          setEvents((ev) => ev.filter((e) => e.id !== target.calendar_event_id));
+          dbDelete('events', target.calendar_event_id);
+        }
+        dbDelete('meal_plans', id);
+        return prev.filter((m) => m.id !== id);
+      });
+    },
+    []
+  );
+
+  const updateKitchenSettings = useCallback(
+    (patch: Partial<KitchenSettings>) =>
+      setKitchenSettings((prev) => ({ ...prev, ...patch })),
+    []
+  );
+
   const value: FamilyContextValue = {
     family,
     members,
@@ -1111,7 +1275,17 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
     toggleBlockDone,
     addPoolItem,
     updatePoolItem,
-    archivePoolItem
+    archivePoolItem,
+    recipes,
+    mealPlans,
+    kitchenSettings,
+    addRecipe,
+    updateRecipe,
+    deleteRecipe,
+    toggleRecipeFavorite,
+    addMealPlan,
+    removeMealPlan,
+    updateKitchenSettings,
   };
 
   return <FamilyContext.Provider value={value}>{children}</FamilyContext.Provider>;

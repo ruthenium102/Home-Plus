@@ -336,3 +336,52 @@ export interface ActivityPoolItem {
   archived: boolean;
   created_at: string;
 }
+
+// ============================================================================
+// Kitchen Plus (Phase 5)
+// ============================================================================
+
+export interface Ingredient {
+  quantity: number | null;
+  unit: string;
+  item: string;
+}
+
+export interface Recipe {
+  id: string;
+  family_id: string;
+  title: string;
+  icon: string | null;
+  servings: number;
+  prep_minutes: number | null;
+  cook_minutes: number | null;
+  ingredients: Ingredient[];
+  steps: string[];
+  notes: string | null;
+  source_url: string | null;
+  favorite: boolean;
+  created_by: string | null;
+  created_at: string;
+}
+
+export type MealType = 'breakfast' | 'lunch' | 'dinner' | 'snack';
+
+export interface MealPlan {
+  id: string;
+  family_id: string;
+  recipe_id: string;
+  date: string; // YYYY-MM-DD
+  meal_type: MealType;
+  servings: number;
+  calendar_event_id: string | null;
+  notes: string | null;
+  created_by: string | null;
+  created_at: string;
+}
+
+export interface KitchenSettings {
+  cupboard: string[];
+  primary_shop_day: number | null; // 0=Sun..6=Sat
+  mid_week_shop_enabled: boolean;
+  mid_week_shop_day: number | null;
+}

@@ -13,6 +13,7 @@ export default {
         bg: 'rgb(var(--bg) / <alpha-value>)',
         surface: 'rgb(var(--surface) / <alpha-value>)',
         'surface-2': 'rgb(var(--surface-2) / <alpha-value>)',
+        'surface-3': 'rgb(var(--surface-3) / <alpha-value>)',
         border: 'rgb(var(--border) / <alpha-value>)',
         'border-strong': 'rgb(var(--border-strong) / <alpha-value>)',
         text: 'rgb(var(--text) / <alpha-value>)',
