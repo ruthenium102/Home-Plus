@@ -1,4 +1,14 @@
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
+
+// Capture ?invite=TOKEN from URL immediately on module load (before React renders).
+// Supabase will consume the #hash auth tokens asynchronously; we grab our param first.
+const _inviteParam = new URLSearchParams(window.location.search).get('invite');
+if (_inviteParam) {
+  sessionStorage.setItem('pending_invite', _inviteParam);
+  // Clean the token from the URL without a page reload
+  const clean = window.location.pathname + window.location.hash;
+  window.history.replaceState(null, '', clean);
+}
 import { ThemeProvider } from '@/context/ThemeContext';
 import { FamilyProvider, useFamily } from '@/context/FamilyContext';
 import { AuthProvider, useAuth } from '@/context/AuthContext';
@@ -9,6 +19,7 @@ import { TabBar, type TabKey } from '@/components/TabBar';
 import { UserSwitcher } from '@/components/UserSwitcher';
 import { HomePage } from '@/pages/HomePage';
 import { TabFallback } from '@/components/TabFallback';
+import { SetPasswordModal } from '@/components/SetPasswordModal';
 import { isSupabaseConfigured } from '@/lib/supabase';
 
 // Lazy-load tab pages so the lock screen + home tab load fast.
@@ -46,6 +57,9 @@ function AppShell() {
   const showKitchen = activeMember?.kitchen_enabled ?? false;
   const [tab, setTab] = useState<TabKey>('home');
   const [switcherOpen, setSwitcherOpen] = useState(false);
+  const [showSetPassword, setShowSetPassword] = useState(
+    () => sessionStorage.getItem('needs_password_setup') === '1'
+  );
 
   // Reset to home when switching members so hidden tabs aren't left active
   const prevMemberId = useRef(activeMember?.id);
@@ -97,6 +111,13 @@ function AppShell() {
       </div>
 
       {switcherOpen && <UserSwitcher onClose={() => setSwitcherOpen(false)} />}
+
+      {showSetPassword && (
+        <SetPasswordModal onDone={() => {
+          sessionStorage.removeItem('needs_password_setup');
+          setShowSetPassword(false);
+        }} />
+      )}
     </div>
   );
 }

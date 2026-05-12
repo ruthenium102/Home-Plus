@@ -320,7 +320,55 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
         }
       }
 
-      // 3. No Supabase family yet — check localStorage for data created before sync
+      // 3. Check for a pending invite token (user arrived via email invite link).
+      //    Call the accept_invitation() function which links them to the family,
+      //    then re-fetch the family_member row that was just created.
+      const pendingInvite = sessionStorage.getItem('pending_invite');
+      if (pendingInvite) {
+        sessionStorage.removeItem('pending_invite');
+        try {
+          await supabase!.rpc('accept_invitation', { p_token: pendingInvite });
+        } catch (e) {
+          console.warn('[handleAuth] accept_invitation error:', e);
+        }
+        // Re-query for the member row that accept_invitation just created/updated
+        const { data: newMemberRow } = await supabase!
+          .from('family_members')
+          .select('family_id')
+          .eq('auth_user_id', userId)
+          .maybeSingle();
+        if (newMemberRow?.family_id) {
+          const data = await dbLoadFamily(newMemberRow.family_id as string);
+          if (data) {
+            setFamily(data.family);
+            setMembers(data.members);
+            setEvents(data.events);
+            setChores(data.chores);
+            setCompletions(data.completions);
+            setLists(data.lists);
+            setListItems(data.listItems);
+            setHabits(data.habits);
+            setCheckIns(data.checkIns);
+            setGoals(data.goals);
+            setRedemptions(data.redemptions);
+            setDayPlanBlocks(data.dayPlanBlocks);
+            setActivityPool(data.activityPool);
+            setRecipes(data.recipes);
+            setMealPlans(data.mealPlans);
+            const mine = data.members.find((m) => m.auth_user_id === userId);
+            if (mine) {
+              const sess: ActiveSession = { member_id: mine.id, authenticated_at: Date.now() };
+              storage.set(SESSION_KEY, sess);
+              setSession(sess);
+              // Flag that this user should be prompted to set a password
+              sessionStorage.setItem('needs_password_setup', '1');
+            }
+          }
+          return;
+        }
+      }
+
+      // 4. No Supabase family yet — check localStorage for data created before sync
       const localMembers = storage.get<FamilyMember[]>(MEMBERS_KEY, []);
       const localFamily = storage.get<Family>(FAMILY_KEY, DEMO_FAMILY);
 
