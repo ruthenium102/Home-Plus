@@ -98,7 +98,7 @@ export const DEMO_MEMBERS: FamilyMember[] = [
     current_location: 'Home',
     location_until: null,
     reward_balances: {},
-    my_day_enabled: false, chores_enabled: true, habits_enabled: true, kitchen_enabled: false, email: null,
+    my_day_enabled: false, chores_enabled: true, habits_enabled: true, kitchen_enabled: false, pet_enabled: false, email: null,
     created_at: new Date().toISOString()
   },
   {
@@ -113,7 +113,7 @@ export const DEMO_MEMBERS: FamilyMember[] = [
     current_location: 'Home',
     location_until: null,
     reward_balances: {},
-    my_day_enabled: false, chores_enabled: true, habits_enabled: true, kitchen_enabled: false, email: null,
+    my_day_enabled: false, chores_enabled: true, habits_enabled: true, kitchen_enabled: false, pet_enabled: false, email: null,
     created_at: new Date().toISOString()
   },
   {
@@ -128,7 +128,7 @@ export const DEMO_MEMBERS: FamilyMember[] = [
     current_location: 'School',
     location_until: null,
     reward_balances: { stars: 184, screen_minutes: 60, savings_cents: 4200 },
-    my_day_enabled: false, chores_enabled: true, habits_enabled: true, kitchen_enabled: false, email: null,
+    my_day_enabled: false, chores_enabled: true, habits_enabled: true, kitchen_enabled: false, pet_enabled: false, email: null,
     created_at: new Date().toISOString()
   },
   {
@@ -143,7 +143,7 @@ export const DEMO_MEMBERS: FamilyMember[] = [
     current_location: 'School',
     location_until: null,
     reward_balances: { stars: 132, screen_minutes: 30, savings_cents: 1850 },
-    my_day_enabled: true, chores_enabled: true, habits_enabled: true, kitchen_enabled: false, email: null,
+    my_day_enabled: true, chores_enabled: true, habits_enabled: true, kitchen_enabled: false, pet_enabled: false, email: null,
     created_at: new Date().toISOString()
   },
   {
@@ -158,7 +158,7 @@ export const DEMO_MEMBERS: FamilyMember[] = [
     current_location: 'School',
     location_until: null,
     reward_balances: { stars: 96, screen_minutes: 45, savings_cents: 750 },
-    my_day_enabled: false, chores_enabled: true, habits_enabled: true, kitchen_enabled: false, email: null,
+    my_day_enabled: false, chores_enabled: true, habits_enabled: true, kitchen_enabled: false, pet_enabled: false, email: null,
     created_at: new Date().toISOString()
   }
 ];
@@ -710,6 +710,8 @@ export const DEMO_HABITS: Habit[] = [
     visibility: 'shared',
     streak_rewards: true,
     archived: false,
+    count_mode: false,
+    daily_target: 1,
     created_at: new Date().toISOString()
   },
   {
@@ -722,6 +724,8 @@ export const DEMO_HABITS: Habit[] = [
     visibility: 'shared',
     streak_rewards: true,
     archived: false,
+    count_mode: false,
+    daily_target: 1,
     created_at: new Date().toISOString()
   },
   {
@@ -734,6 +738,8 @@ export const DEMO_HABITS: Habit[] = [
     visibility: 'shared',
     streak_rewards: false,
     archived: false,
+    count_mode: false,
+    daily_target: 1,
     created_at: new Date().toISOString()
   },
   {
@@ -746,6 +752,8 @@ export const DEMO_HABITS: Habit[] = [
     visibility: 'private',
     streak_rewards: false,
     archived: false,
+    count_mode: false,
+    daily_target: 1,
     created_at: new Date().toISOString()
   },
   {
@@ -758,6 +766,22 @@ export const DEMO_HABITS: Habit[] = [
     visibility: 'shared',
     streak_rewards: false,
     archived: false,
+    count_mode: false,
+    daily_target: 1,
+    created_at: new Date().toISOString()
+  },
+  {
+    id: 'h-6',
+    family_id: 'fam-ellis',
+    member_id: 'm-sophie',
+    title: 'Glasses of water',
+    description: null,
+    cadence: 'daily',
+    visibility: 'shared',
+    streak_rewards: false,
+    archived: false,
+    count_mode: true,
+    daily_target: 8,
     created_at: new Date().toISOString()
   }
 ];

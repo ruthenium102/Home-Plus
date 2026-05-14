@@ -97,3 +97,14 @@ button, [role="button"] {
 .input {
   @apply px-3 py-2 bg-surface-2 border border-border rounded-lg text-text text-sm placeholder:text-text-faint focus:outline-none focus:border-accent transition;
 }
+
+/* Virtual Pet animations */
+@keyframes pet-breathe { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
+@keyframes pet-bounce  { 0%,100% { transform: translateY(0); } 40% { transform: translateY(-12px); } }
+@keyframes pet-sparkle { 0%,100% { opacity: 0; transform: scale(0.5); } 50% { opacity: 1; transform: scale(1); } }
+.pet-idle    { animation: pet-breathe 3s ease-in-out infinite; }
+.pet-happy   { animation: pet-bounce 0.8s ease-in-out infinite; }
+.pet-eating  { animation: pet-breathe 1.5s ease-in-out infinite; }
+.pet-drinking { animation: pet-breathe 1.5s ease-in-out infinite; }
+.pet-sleeping { animation: pet-breathe 5s ease-in-out infinite; }
+.pet-sad     { animation: pet-breathe 4s ease-in-out infinite; }

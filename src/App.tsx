@@ -45,6 +45,9 @@ const SettingsPage = lazy(() =>
 const MyDayPage = lazy(() =>
   import('@/pages/MyDayPage').then((m) => ({ default: m.MyDayPage }))
 );
+const PetPage = lazy(() =>
+  import('@/pages/PetPage').then((m) => ({ default: m.PetPage }))
+);
 const AuthPage = lazy(() =>
   import('@/pages/AuthPage').then((m) => ({ default: m.AuthPage }))
 );
@@ -55,6 +58,7 @@ function AppShell() {
   const showChores = activeMember?.chores_enabled ?? true;
   const showHabits = activeMember?.habits_enabled ?? true;
   const showKitchen = activeMember?.kitchen_enabled ?? false;
+  const showPet = activeMember?.pet_enabled ?? false;
   const [tab, setTab] = useState<TabKey>('home');
   const [switcherOpen, setSwitcherOpen] = useState(false);
   const [showSetPassword, setShowSetPassword] = useState(
@@ -90,6 +94,7 @@ function AppShell() {
               {tab === 'habits' && <HabitsPage />}
               {tab === 'kitchen' && <KitchenPage />}
               {tab === 'my-day' && <MyDayPage />}
+              {tab === 'pet' && <PetPage />}
               {tab === 'settings' && <SettingsPage />}
             </Suspense>
           )}
@@ -105,6 +110,7 @@ function AppShell() {
             showMyDay={showMyDay}
             showChores={showChores}
             showHabits={showHabits}
+            showPet={showPet}
             showKitchen={showKitchen}
           />
         </div>

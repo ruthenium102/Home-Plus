@@ -88,8 +88,8 @@ export function getAusPublicHolidays(year?: number): ImportableEvent[] {
   return filtered.map((h) => ({
     source_id: 'wa-holiday-' + h.date,
     title: '🎉 ' + h.name,
-    start_at: h.date + 'T00:00:00.000Z',
-    end_at: h.date + 'T23:59:00.000Z',
+    start_at: h.date + 'T12:00:00.000Z',
+    end_at: h.date + 'T12:00:00.000Z',
     all_day: true,
     description: 'Public holiday — ' + (h.state === 'NAT' ? 'national' : 'Western Australia'),
     location: null,
@@ -109,8 +109,8 @@ export function getWASchoolTerms(year?: number): ImportableEvent[] {
     events.push({
       source_id: 'wa-school-' + term.name.toLowerCase().replace(/\s+/g, '-') + '-start',
       title: '📚 ' + term.name + ' starts',
-      start_at: term.start + 'T00:00:00.000Z',
-      end_at: term.start + 'T23:59:00.000Z',
+      start_at: term.start + 'T12:00:00.000Z',
+      end_at: term.start + 'T12:00:00.000Z',
       all_day: true,
       description: 'WA school term starts',
       location: null,
@@ -120,8 +120,8 @@ export function getWASchoolTerms(year?: number): ImportableEvent[] {
     events.push({
       source_id: 'wa-school-' + term.name.toLowerCase().replace(/\s+/g, '-') + '-end',
       title: '🏖️ ' + term.name + ' ends',
-      start_at: term.end + 'T00:00:00.000Z',
-      end_at: term.end + 'T23:59:00.000Z',
+      start_at: term.end + 'T12:00:00.000Z',
+      end_at: term.end + 'T12:00:00.000Z',
       all_day: true,
       description: 'WA school term ends',
       location: null,

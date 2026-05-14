@@ -26,7 +26,7 @@ import {
 import type { Habit } from '@/types';
 
 export function HabitsPage() {
-  const { habits, checkIns, members, activeMember, toggleCheckIn, deleteHabit, addHabit } =
+  const { habits, checkIns, members, activeMember, toggleCheckIn, incrementCheckIn, decrementCheckIn, deleteHabit, addHabit } =
     useFamily();
   const { resolved } = useTheme();
   const { show } = useToast();
@@ -49,7 +49,9 @@ export function HabitsPage() {
           cadence: snapshot.cadence,
           visibility: snapshot.visibility,
           streak_rewards: snapshot.streak_rewards,
-          archived: snapshot.archived
+          archived: snapshot.archived,
+          count_mode: snapshot.count_mode ?? false,
+          daily_target: snapshot.daily_target ?? 1
         });
       }
     });
@@ -133,6 +135,22 @@ export function HabitsPage() {
               </div>
               <div className="space-y-2">
                 {list.map((habit) => {
+                  const todayCheckIn = checkIns.find(
+                    (c) => c.habit_id === habit.id && c.member_id === member.id && c.for_date === todayISO
+                  );
+                  const todayCount = todayCheckIn ? (todayCheckIn.count ?? 1) : 0;
+                  const target = habit.daily_target ?? 1;
+
+                  // For count-mode heatmap: a day is "checked" when count >= target
+                  const last7Data = lastNDays(checkIns, habit.id, member.id, 7).map((d) => {
+                    if (!habit.count_mode) return d;
+                    const ci = checkIns.find(
+                      (c) => c.habit_id === habit.id && c.member_id === member.id && c.for_date === d.date
+                    );
+                    const dayCount = ci ? (ci.count ?? 1) : 0;
+                    return { date: d.date, checked: dayCount >= target };
+                  });
+
                   const row = (
                     <HabitRow
                       key={habit.id}
@@ -143,9 +161,12 @@ export function HabitsPage() {
                       todayISO={todayISO}
                       isCheckedToday={isCheckedIn(checkIns, habit.id, member.id, today)}
                       streak={computeHabitStreak(checkIns, habit.id, member.id)}
-                      last7={lastNDays(checkIns, habit.id, member.id, 7)}
+                      last7={last7Data}
+                      todayCount={todayCount}
                       onToggle={() => toggleCheckIn(habit.id, member.id, todayISO)}
                       onToggleDate={(iso) => toggleCheckIn(habit.id, member.id, iso)}
+                      onIncrement={() => incrementCheckIn(habit.id, member.id, todayISO)}
+                      onDecrement={() => decrementCheckIn(habit.id, member.id, todayISO)}
                       onEdit={() => {
                         setEditing(habit);
                         setEditorOpen(true);
@@ -192,8 +213,11 @@ interface HabitRowProps {
   isCheckedToday: boolean;
   streak: number;
   last7: { date: string; checked: boolean }[];
+  todayCount: number;
   onToggle: () => void;
   onToggleDate: (iso: string) => void;
+  onIncrement: () => void;
+  onDecrement: () => void;
   onEdit: () => void;
 }
 
@@ -206,8 +230,11 @@ function HabitRow({
   isCheckedToday,
   streak,
   last7,
+  todayCount,
   onToggle,
   onToggleDate,
+  onIncrement,
+  onDecrement,
   onEdit
 }: HabitRowProps) {
   const milestone = nextStreakMilestone(streak);
@@ -215,32 +242,78 @@ function HabitRow({
 
   return (
     <div className="flex items-center gap-3 p-3 rounded-md bg-surface-2/40 hover:bg-surface-2/70 transition-colors">
-      {/* Tick / status circle */}
-      <button
-        onClick={canCheck ? onToggle : undefined}
-        disabled={!canCheck}
-        className={
-          'w-11 h-11 rounded-full shrink-0 flex items-center justify-center transition-all ' +
-          (canCheck ? 'cursor-pointer active:scale-95' : 'cursor-default')
-        }
-        style={{
-          background: isCheckedToday ? color.base : color.soft,
-          border: isCheckedToday ? 'none' : `2px solid ${color.base}40`
-        }}
-        title={
-          canCheck
-            ? isCheckedToday
-              ? 'Tap to undo'
-              : 'Tap to check in'
-            : 'View only'
-        }
-      >
-        {isCheckedToday && (
-          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-            <polyline points="20 6 9 17 4 12" />
-          </svg>
-        )}
-      </button>
+      {/* Tick / status circle — or counter row for count-mode habits */}
+      {habit.count_mode ? (
+        <div className="flex items-center gap-1 shrink-0">
+          <button
+            onClick={canCheck ? onDecrement : undefined}
+            disabled={!canCheck || todayCount === 0}
+            className={
+              'w-8 h-8 rounded-full flex items-center justify-center text-base font-bold transition-all border ' +
+              (canCheck && todayCount > 0
+                ? 'cursor-pointer active:scale-95 hover:bg-surface-2 border-border text-text-muted'
+                : 'cursor-default border-border/40 text-text-faint opacity-40')
+            }
+            title="Decrease count"
+          >
+            −
+          </button>
+          <div
+            className="min-w-[3rem] text-center"
+            style={{ color: todayCount >= (habit.daily_target ?? 1) ? color.base : undefined }}
+          >
+            <span className={
+              'text-sm font-bold tabular-nums ' +
+              (todayCount >= (habit.daily_target ?? 1) ? '' : 'text-text-muted')
+            }>
+              {todayCount}
+            </span>
+            <span className="text-[10px] text-text-faint">
+              /{habit.daily_target ?? 1}
+            </span>
+          </div>
+          <button
+            onClick={canCheck ? onIncrement : undefined}
+            disabled={!canCheck}
+            className={
+              'w-8 h-8 rounded-full flex items-center justify-center text-base font-bold transition-all border ' +
+              (canCheck
+                ? 'cursor-pointer active:scale-95 hover:bg-surface-2 border-border text-text-muted'
+                : 'cursor-default border-border/40 text-text-faint opacity-40')
+            }
+            style={canCheck ? { background: todayCount >= (habit.daily_target ?? 1) ? color.soft : undefined } : undefined}
+            title="Increase count"
+          >
+            +
+          </button>
+        </div>
+      ) : (
+        <button
+          onClick={canCheck ? onToggle : undefined}
+          disabled={!canCheck}
+          className={
+            'w-11 h-11 rounded-full shrink-0 flex items-center justify-center transition-all ' +
+            (canCheck ? 'cursor-pointer active:scale-95' : 'cursor-default')
+          }
+          style={{
+            background: isCheckedToday ? color.base : color.soft,
+            border: isCheckedToday ? 'none' : `2px solid ${color.base}40`
+          }}
+          title={
+            canCheck
+              ? isCheckedToday
+                ? 'Tap to undo'
+                : 'Tap to check in'
+              : 'View only'
+          }
+        >
+          {isCheckedToday && (
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="20 6 9 17 4 12" />
+            </svg>
+          )}
+        </button>
+      )}
 
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">

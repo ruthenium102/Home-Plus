@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Sun, Moon, Monitor, Lock, LockOpen, MapPin, Search, X, UserPlus, LogOut, Pencil, Home, Calendar, ListChecks, Trophy, Sparkles, ChefHat } from 'lucide-react';
+import { Sun, Moon, Monitor, Lock, LockOpen, MapPin, Search, X, UserPlus, LogOut, Pencil, Home, Calendar, ListChecks, Trophy, Sparkles, ChefHat, PawPrint } from 'lucide-react';
 import { useFamily } from '@/context/FamilyContext';
 import { useTheme } from '@/context/ThemeContext';
 import { useWeather } from '@/hooks/useWeather';
@@ -172,6 +172,7 @@ export function SettingsPage() {
                   { icon: Sun, label: 'My Day', locked: false, field: 'my_day_enabled' as const },
                   { icon: Trophy, label: 'Chores', locked: false, field: 'chores_enabled' as const },
                   { icon: Sparkles, label: 'Habits', locked: false, field: 'habits_enabled' as const },
+                  { icon: PawPrint, label: 'Pet', locked: false, field: 'pet_enabled' as const },
                   { icon: ChefHat, label: 'Kitchen+', locked: false, field: 'kitchen_enabled' as const },
                 ].map(({ icon: Icon, label }) => (
                   <th key={label} className="text-center pb-2 px-1 text-text-faint font-medium min-w-[52px]">
@@ -199,6 +200,7 @@ export function SettingsPage() {
                     { locked: false, field: 'my_day_enabled' as keyof typeof m, value: m.my_day_enabled },
                     { locked: false, field: 'chores_enabled' as keyof typeof m, value: m.chores_enabled },
                     { locked: false, field: 'habits_enabled' as keyof typeof m, value: m.habits_enabled },
+                    { locked: false, field: 'pet_enabled' as keyof typeof m, value: m.pet_enabled },
                     { locked: false, field: 'kitchen_enabled' as keyof typeof m, value: m.kitchen_enabled },
                   ].map((col, idx) => (
                     <td key={idx} className="text-center py-2 px-1">
@@ -260,7 +262,7 @@ export function SettingsPage() {
             )}
           </div>
           {cityResults.length > 0 && (
-            <div className="absolute left-0 right-0 top-full mt-1 z-20 card overflow-hidden shadow-lg border border-border">
+            <div className="absolute left-0 right-0 top-full mt-1 z-40 card overflow-hidden shadow-lg border border-border">
               {cityResults.map((r) => (
                 <button
                   key={r.id}

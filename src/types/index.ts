@@ -30,6 +30,7 @@ export interface FamilyMember {
   chores_enabled: boolean;
   habits_enabled: boolean;
   kitchen_enabled: boolean;
+  pet_enabled: boolean;
   email: string | null;
   auth_user_id?: string | null; // links this profile to a Supabase auth user
   created_at: string;
@@ -289,6 +290,8 @@ export interface Habit {
   // Optional: pay X stars when streak hits 7, 30, 100. Only relevant for kids.
   streak_rewards: boolean;
   archived: boolean;
+  count_mode: boolean;     // if true, track quantity instead of done/not-done
+  daily_target: number;    // target count per day (default 1)
   created_at: string;
 }
 
@@ -298,6 +301,7 @@ export interface HabitCheckIn {
   family_id: string;
   member_id: string;
   for_date: string; // YYYY-MM-DD
+  count?: number;  // default 1; used to store the quantity checked in
   created_at: string;
 }
 
@@ -384,4 +388,27 @@ export interface KitchenSettings {
   primary_shop_day: number | null; // 0=Sun..6=Sat
   mid_week_shop_enabled: boolean;
   mid_week_shop_day: number | null;
+}
+
+// ============================================================================
+// Virtual Pet (Phase 6)
+// ============================================================================
+
+export type PetAnimal = 'cat' | 'dog' | 'bunny' | 'hamster' | 'axolotl' | 'dragon';
+
+export interface VirtualPet {
+  id: string;
+  family_id: string;
+  member_id: string;
+  animal: PetAnimal;
+  name: string;
+  hunger: number;
+  thirst: number;
+  happiness: number;
+  xp: number;
+  unlocked_actions: string[];
+  last_fed_at: string | null;
+  last_watered_at: string | null;
+  last_interacted_at: string | null;
+  created_at: string;
 }

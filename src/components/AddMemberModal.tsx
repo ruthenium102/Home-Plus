@@ -26,6 +26,7 @@ const BLANK: Omit<FamilyMember, 'id' | 'created_at' | 'family_id'> = {
   chores_enabled: true,
   habits_enabled: true,
   kitchen_enabled: false,
+  pet_enabled: false,
   email: null,
 };
 

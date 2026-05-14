@@ -44,13 +44,15 @@ import type {
   KitchenSettings,
   MealPlan,
   MealType,
+  PetAnimal,
   Redemption,
   Recipe,
   RewardCategory,
   RewardCategoryKey,
   RewardGoal,
   TodoItem,
-  TodoList
+  TodoList,
+  VirtualPet
 } from '@/types';
 
 interface FamilyContextValue {
@@ -121,6 +123,8 @@ interface FamilyContextValue {
   updateHabit: (id: string, patch: Partial<Habit>) => void;
   deleteHabit: (id: string) => void;
   toggleCheckIn: (habitId: string, memberId: string, forDate: string) => void;
+  incrementCheckIn: (habitId: string, memberId: string, forDate: string) => void;
+  decrementCheckIn: (habitId: string, memberId: string, forDate: string) => void;
 
   // My Day
   dayPlanBlocks: DayPlanBlock[];
@@ -145,6 +149,15 @@ interface FamilyContextValue {
   addMealPlan: (mp: Omit<MealPlan, 'id' | 'created_at' | 'family_id'>) => void;
   removeMealPlan: (id: string) => void;
   updateKitchenSettings: (patch: Partial<KitchenSettings>) => void;
+
+  // Virtual Pet
+  pets: VirtualPet[];
+  getPet: (memberId: string) => VirtualPet | null;
+  createPet: (memberId: string, animal: PetAnimal, name: string) => void;
+  feedPet: (memberId: string) => void;
+  waterPet: (memberId: string) => void;
+  patPet: (memberId: string) => void;
+  playWithPet: (memberId: string) => void;
 }
 
 const FamilyContext = createContext<FamilyContextValue | null>(null);
@@ -166,6 +179,7 @@ const ACTIVITY_POOL_KEY = 'demo:activity_pool';
 const RECIPES_KEY = 'demo:recipes';
 const MEAL_PLANS_KEY = 'demo:meal_plans';
 const KITCHEN_SETTINGS_KEY = 'kitchen:settings';
+const PETS_KEY = 'demo:pets';
 
 const DEFAULT_KITCHEN_SETTINGS: KitchenSettings = {
   cupboard: [],
@@ -265,6 +279,9 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
   );
   const [kitchenSettings, setKitchenSettings] = useState<KitchenSettings>(() =>
     storage.get<KitchenSettings>(KITCHEN_SETTINGS_KEY, DEFAULT_KITCHEN_SETTINGS)
+  );
+  const [pets, setPets] = useState<VirtualPet[]>(() =>
+    storage.get<VirtualPet[]>(PETS_KEY, [])
   );
 
   // On auth, load data from Supabase. On first login, create the initial family.
@@ -406,7 +423,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
         avatar_url: null, pin_hash: null, birthday: null,
         current_location: null, location_until: null,
         reward_balances: {}, my_day_enabled: false,
-        chores_enabled: true, habits_enabled: true, kitchen_enabled: false, email: null,
+        chores_enabled: true, habits_enabled: true, kitchen_enabled: false, pet_enabled: false, email: null,
         auth_user_id: userId,
         created_at: now,
       };
@@ -538,6 +555,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
   useEffect(() => storage.set(RECIPES_KEY, recipes), [recipes]);
   useEffect(() => storage.set(MEAL_PLANS_KEY, mealPlans), [mealPlans]);
   useEffect(() => storage.set(KITCHEN_SETTINGS_KEY, kitchenSettings), [kitchenSettings]);
+  useEffect(() => storage.set(PETS_KEY, pets), [pets]);
   useEffect(() => {
     if (session) storage.set(SESSION_KEY, session);
     else storage.remove(SESSION_KEY);
@@ -565,6 +583,56 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
     // Run only on mount and when members count changes
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // ---- Virtual Pet helpers -------------------------------------------------
+
+  function computePetStats(pet: VirtualPet): { hunger: number; thirst: number; happiness: number } {
+    const now = Date.now();
+    const hoursSince = (ts: string | null) => ts ? (now - new Date(ts).getTime()) / 3600000 : null;
+
+    const hungerElapsed = hoursSince(pet.last_fed_at);
+    const hunger = hungerElapsed !== null
+      ? Math.max(0, Math.min(100, pet.hunger - hungerElapsed * 8))
+      : pet.hunger;
+
+    const thirstElapsed = hoursSince(pet.last_watered_at);
+    const thirst = thirstElapsed !== null
+      ? Math.max(0, Math.min(100, pet.thirst - thirstElapsed * 12))
+      : pet.thirst;
+
+    const happinessElapsed = hoursSince(pet.last_interacted_at);
+    const happiness = happinessElapsed !== null
+      ? Math.max(0, Math.min(100, pet.happiness - happinessElapsed * 3))
+      : pet.happiness;
+
+    return { hunger, thirst, happiness };
+  }
+
+  function deriveUnlockedActions(xp: number): string[] {
+    const actions: string[] = [];
+    if (xp >= 50) actions.push('play');
+    if (xp >= 150) actions.push('super_pat');
+    if (xp >= 300) actions.push('trick');
+    return actions;
+  }
+
+  // Sync pet XP whenever completions or checkIns change
+  useEffect(() => {
+    if (pets.length === 0) return;
+    setPets((prev) =>
+      prev.map((pet) => {
+        const memberCompletions = completions.filter(
+          (c) => c.member_id === pet.member_id && c.status === 'approved'
+        ).length;
+        const memberCheckIns = checkIns.filter((c) => c.member_id === pet.member_id).length;
+        const newXp = memberCompletions * 10 + memberCheckIns * 5;
+        if (newXp === pet.xp) return pet;
+        const unlocked_actions = deriveUnlockedActions(newXp);
+        return { ...pet, xp: newXp, unlocked_actions };
+      })
+    );
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [completions, checkIns]);
 
   // ---- Auth ----------------------------------------------------------------
 
@@ -970,7 +1038,14 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
 
   const addHabit = useCallback(
     (h: Omit<Habit, 'id' | 'created_at' | 'family_id'>) => {
-      const newHabit: Habit = { ...h, id: uid('h'), created_at: new Date().toISOString(), family_id: family.id };
+      const newHabit: Habit = {
+        ...h,
+        count_mode: h.count_mode ?? false,
+        daily_target: h.daily_target ?? 1,
+        id: uid('h'),
+        created_at: new Date().toISOString(),
+        family_id: family.id
+      };
       setHabits((prev) => [...prev, newHabit]);
       dbUpsert('habits', newHabit as unknown as Record<string, unknown>);
     },
@@ -1047,6 +1122,53 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
       }
     },
     [habits, checkIns, members, family.id]
+  );
+
+  const incrementCheckIn = useCallback(
+    (habitId: string, memberId: string, forDate: string) => {
+      setCheckIns((prev) => {
+        const existing = prev.find(
+          (c) => c.habit_id === habitId && c.member_id === memberId && c.for_date === forDate
+        );
+        if (existing) {
+          const updated = { ...existing, count: (existing.count ?? 1) + 1 };
+          dbUpsert('habit_check_ins', updated as unknown as Record<string, unknown>);
+          return prev.map((c) => (c.id === existing.id ? updated : c));
+        }
+        const newCheckIn: HabitCheckIn = {
+          id: uid('hc'),
+          habit_id: habitId,
+          family_id: family.id,
+          member_id: memberId,
+          for_date: forDate,
+          count: 1,
+          created_at: new Date().toISOString()
+        };
+        dbUpsert('habit_check_ins', newCheckIn as unknown as Record<string, unknown>);
+        return [...prev, newCheckIn];
+      });
+    },
+    [family.id]
+  );
+
+  const decrementCheckIn = useCallback(
+    (habitId: string, memberId: string, forDate: string) => {
+      setCheckIns((prev) => {
+        const existing = prev.find(
+          (c) => c.habit_id === habitId && c.member_id === memberId && c.for_date === forDate
+        );
+        if (!existing) return prev;
+        const currentCount = existing.count ?? 1;
+        if (currentCount <= 1) {
+          dbDelete('habit_check_ins', existing.id);
+          return prev.filter((c) => c.id !== existing.id);
+        }
+        const updated = { ...existing, count: currentCount - 1 };
+        dbUpsert('habit_check_ins', updated as unknown as Record<string, unknown>);
+        return prev.map((c) => (c.id === existing.id ? updated : c));
+      });
+    },
+    []
   );
 
   // ---- My Day ----------------------------------------------------------------
@@ -1267,6 +1389,91 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
     []
   );
 
+  // ---- Virtual Pet ---------------------------------------------------------
+
+  const getPet = useCallback(
+    (memberId: string): VirtualPet | null =>
+      pets.find((p) => p.member_id === memberId) ?? null,
+    [pets]
+  );
+
+  const createPet = useCallback(
+    (memberId: string, animal: PetAnimal, name: string) => {
+      const member = members.find((m) => m.id === memberId);
+      if (!member) return;
+      const memberCompletions = completions.filter(
+        (c) => c.member_id === memberId && c.status === 'approved'
+      ).length;
+      const memberCheckIns = checkIns.filter((c) => c.member_id === memberId).length;
+      const xp = memberCompletions * 10 + memberCheckIns * 5;
+      const unlocked_actions = deriveUnlockedActions(xp);
+      const newPet: VirtualPet = {
+        id: uid('pet'),
+        family_id: member.family_id,
+        member_id: memberId,
+        animal,
+        name,
+        hunger: 80,
+        thirst: 80,
+        happiness: 80,
+        xp,
+        unlocked_actions,
+        last_fed_at: null,
+        last_watered_at: null,
+        last_interacted_at: null,
+        created_at: new Date().toISOString(),
+      };
+      setPets((prev) => [...prev.filter((p) => p.member_id !== memberId), newPet]);
+    },
+    [members, completions, checkIns]
+  );
+
+  const feedPet = useCallback((memberId: string) => {
+    setPets((prev) =>
+      prev.map((p) => {
+        if (p.member_id !== memberId) return p;
+        return { ...p, hunger: 100, last_fed_at: new Date().toISOString() };
+      })
+    );
+  }, []);
+
+  const waterPet = useCallback((memberId: string) => {
+    setPets((prev) =>
+      prev.map((p) => {
+        if (p.member_id !== memberId) return p;
+        return { ...p, thirst: 100, last_watered_at: new Date().toISOString() };
+      })
+    );
+  }, []);
+
+  const patPet = useCallback((memberId: string) => {
+    setPets((prev) =>
+      prev.map((p) => {
+        if (p.member_id !== memberId) return p;
+        const current = computePetStats(p);
+        return {
+          ...p,
+          happiness: Math.min(100, current.happiness + 20),
+          last_interacted_at: new Date().toISOString(),
+        };
+      })
+    );
+  }, []);
+
+  const playWithPet = useCallback((memberId: string) => {
+    setPets((prev) =>
+      prev.map((p) => {
+        if (p.member_id !== memberId) return p;
+        const current = computePetStats(p);
+        return {
+          ...p,
+          happiness: Math.min(100, current.happiness + 35),
+          last_interacted_at: new Date().toISOString(),
+        };
+      })
+    );
+  }, []);
+
   const value: FamilyContextValue = {
     family,
     members,
@@ -1314,6 +1521,8 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
     updateHabit,
     deleteHabit,
     toggleCheckIn,
+    incrementCheckIn,
+    decrementCheckIn,
     dayPlanBlocks,
     activityPool,
     addDayPlanBlock,
@@ -1334,6 +1543,13 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
     addMealPlan,
     removeMealPlan,
     updateKitchenSettings,
+    pets,
+    getPet,
+    createPet,
+    feedPet,
+    waterPet,
+    patPet,
+    playWithPet,
   };
 
   return <FamilyContext.Provider value={value}>{children}</FamilyContext.Provider>;

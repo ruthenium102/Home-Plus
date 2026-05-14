@@ -23,9 +23,15 @@ export function EventChip({ event, onClick, variant = 'list' }: Props) {
     ? members.find((m) => m.id === event.member_ids[0])
     : null;
 
-  const tokens = owner
+  const memberTokens = owner
     ? getColorTokens(owner.color, isDark)
     : { base: 'rgb(var(--accent))', soft: 'rgb(var(--accent-soft))', text: '#fff' };
+
+  const mealTokens = isDark
+    ? { base: '#60a5fa', soft: '#1e3a5f', text: '#fff' }
+    : { base: '#3b82f6', soft: '#dbeafe', text: '#fff' };
+
+  const tokens = event.category === 'meal' ? mealTokens : memberTokens;
 
   const start = new Date(event.occurrence_start);
   const end = new Date(event.occurrence_end);

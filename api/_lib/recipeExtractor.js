@@ -90,8 +90,22 @@ const KNOWN_UNITS = new Set([
 
 const FRACTION_MAP = { '½': 0.5, '⅓': 1/3, '⅔': 2/3, '¼': 0.25, '¾': 0.75, '⅛': 0.125, '⅜': 0.375, '⅝': 0.625, '⅞': 0.875 };
 
+// When a recipe lists both metric and imperial (e.g. "50g (1¾oz) flour" or "1¾oz (50g) flour"),
+// normalise to metric-first by extracting the metric value.
+function preferMetricFormat(raw) {
+  // Pattern: IMPERIAL (METRIC) — extract metric from parens and put it first
+  const metricFromParens = raw.match(
+    /^([\d\s½⅓⅔¼¾⅛⅜⅝⅞\/.]+)\s*(?:fl\.?\s*oz|oz|lbs?|pounds?)\s*\(([^)]+(?:kg|ml|g|l)(?:[^)]*)?)\)(.*)/i
+  );
+  if (metricFromParens) {
+    return (metricFromParens[2] + metricFromParens[3]).trim();
+  }
+  // Pattern: METRIC (IMPERIAL) — strip the imperial parenthetical
+  return raw.replace(/\(\s*[\d\s½⅓⅔¼¾⅛⅜⅝⅞\/.]+\s*(?:fl\.?\s*oz|oz|lbs?|pounds?)[^)]*\)/gi, '').trim();
+}
+
 export function parseIngredientString(raw) {
-  const trimmed = (raw || '').trim();
+  const trimmed = preferMetricFormat((raw || '').trim());
   if (!trimmed) return { quantity: null, unit: '', item: '' };
 
   const numericPattern = /^(\d+\s+\d+\/\d+|\d+\/\d+|[½⅓⅔¼¾⅛⅜⅝⅞]|\d+(?:[.,]\d+)?)\s*/;

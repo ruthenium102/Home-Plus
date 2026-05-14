@@ -45,7 +45,7 @@ export function ImportModal({ onImport, onClose }: Props) {
   }
 
   return (
-    <div className="fixed inset-0 bg-black/50 z-30 flex items-center justify-center p-4" onClick={onClose}>
+    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={onClose}>
       <div className="card max-w-md w-full p-5" onClick={(e) => e.stopPropagation()}>
         <div className="flex justify-between items-center mb-4">
           <h2 className="font-display text-xl text-text">Import from URL</h2>

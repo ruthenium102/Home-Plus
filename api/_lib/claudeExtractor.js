@@ -34,12 +34,14 @@ const RECIPE_TOOL = {
 const SYSTEM_PROMPT =
   'You extract recipes from web pages. Return ONLY structured data via the save_recipe tool. ' +
   'For ingredients: split each into quantity (number or null), unit, and item (the food itself). ' +
-  'CRITICAL UNIT RULES: Use the EXACT unit the recipe author wrote. NEVER convert between unit categories. ' +
+  'CRITICAL UNIT RULES: When BOTH metric and imperial measurements appear for the same ingredient ' +
+  "(e.g. '50g (1¾oz)', '1¾oz/50g', '400g (14oz)'), ALWAYS use the metric measurement (g, kg, ml, L) " +
+  'and discard the imperial equivalent. ' +
+  'If only one system is given, use it as-is. NEVER convert between unit categories. ' +
   "If the recipe says '1 tbsp olive oil' output quantity=1, unit='tbsp', item='olive oil'. " +
   'If no unit is stated, leave the unit field as an empty string. ' +
   "Recognize 'gm', 'gms', 'grm' as grams — output 'g'. " +
   "For whole items like '2 eggs', leave unit empty and put 'eggs' in item. " +
-  'Preserve the original measurement system entirely. ' +
   'If quantity is a fraction like 1/2, convert to decimal (0.5). ' +
   'Ignore navigation, ads, comments, and unrelated content.';
 

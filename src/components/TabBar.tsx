@@ -6,6 +6,7 @@ import {
   Trophy,
   ChefHat,
   Sun,
+  PawPrint,
   Settings as SettingsIcon,
   type LucideIcon
 } from 'lucide-react';
@@ -16,6 +17,7 @@ export type TabKey =
   | 'chores'
   | 'lists'
   | 'habits'
+  | 'pet'
   | 'kitchen'
   | 'my-day'
   | 'settings';
@@ -32,6 +34,7 @@ interface Props {
   showMyDay?: boolean;
   showChores?: boolean;
   showHabits?: boolean;
+  showPet?: boolean;
   showKitchen?: boolean;
 }
 
@@ -41,6 +44,7 @@ export function TabBar({
   showMyDay = false,
   showChores = true,
   showHabits = true,
+  showPet = false,
   showKitchen = false
 }: Props) {
   const tabs: Tab[] = [
@@ -50,6 +54,7 @@ export function TabBar({
     ...(showChores ? [{ key: 'chores' as TabKey, label: 'Chores', icon: Trophy }] : []),
     { key: 'lists', label: 'Lists', icon: ListChecks },
     ...(showHabits ? [{ key: 'habits' as TabKey, label: 'Habits', icon: Sparkles }] : []),
+    ...(showPet ? [{ key: 'pet' as TabKey, label: 'Pet', icon: PawPrint }] : []),
     ...(showKitchen ? [{ key: 'kitchen' as TabKey, label: 'Kitchen+', icon: ChefHat }] : []),
     { key: 'settings', label: 'Settings', icon: SettingsIcon }
   ];
