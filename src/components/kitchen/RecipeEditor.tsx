@@ -100,7 +100,7 @@ export function RecipeEditor({ recipe, onSave, onDelete, onClose }: Props) {
 
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={onClose}>
-      <div className="card max-w-2xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+      <div className="card max-w-2xl w-full max-h-[85vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
         {/* Header */}
         <div className="p-5 border-b border-border flex justify-between items-center sticky top-0 bg-surface z-10">
           <h2 className="font-display text-xl text-text">{recipe.id ? 'Edit Recipe' : 'New Recipe'}</h2>

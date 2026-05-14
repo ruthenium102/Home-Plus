@@ -383,7 +383,7 @@ function HabitRow({
               />
               <span
                 className={
-                  'text-[9px] tabular-nums ' +
+                  'text-[10px] tabular-nums ' +
                   (isToday ? 'text-text-muted font-medium' : 'text-text-faint')
                 }
               >

@@ -280,7 +280,7 @@ export function EventEditor({ open, onClose, editing, initialStart }: Props) {
       onClick={onClose}
     >
       <div
-        className="card w-full max-w-2xl max-h-[88vh] flex flex-col"
+        className="card w-full max-w-2xl max-h-[85vh] flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}

@@ -81,7 +81,7 @@ function AppShell() {
 
   return (
     <div className="min-h-screen bg-bg">
-      <div className="max-w-6xl mx-auto p-4 sm:p-6 pb-28">
+      <div className="max-w-6xl mx-auto p-4 sm:p-6 pb-36" style={{ paddingBottom: 'max(9rem, calc(7rem + env(safe-area-inset-bottom)))' }}>
         <TopBar onSwitchUser={() => setSwitcherOpen(true)} />
 
         <main>
@@ -101,8 +101,8 @@ function AppShell() {
         </main>
       </div>
 
-      {/* Sticky bottom tab bar */}
-      <div className="fixed bottom-3 left-3 right-3 sm:left-6 sm:right-6 z-30">
+      {/* Sticky bottom tab bar — bottom-0 + safe-area padding so it sits above iPhone home indicator */}
+      <div className="fixed bottom-0 left-0 right-0 z-30 px-3 sm:px-6" style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}>
         <div className="max-w-6xl mx-auto">
           <TabBar
             active={tab}

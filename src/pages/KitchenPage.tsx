@@ -22,7 +22,7 @@ export function KitchenPage() {
   return (
     <div>
       {/* Sub-navigation */}
-      <div className="flex gap-1 mb-6 overflow-x-auto pb-1">
+      <div className="flex gap-1 mb-6 overflow-x-auto pb-1 scroll-x-clean">
         {TABS.map(({ id, label, icon }) => (
           <button
             key={id}

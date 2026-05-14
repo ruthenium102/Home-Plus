@@ -57,7 +57,7 @@ export function MemberStrip() {
                 {(roleMap.get(m.id) ?? []).map((role) => (
                   <span
                     key={role}
-                    className="inline-block mt-0.5 mr-1 text-[9px] uppercase tracking-wider bg-accent/10 text-accent px-1.5 py-0.5 rounded-full font-semibold"
+                    className="inline-block mt-0.5 mr-1 text-[10px] uppercase tracking-wider bg-accent/10 text-accent px-1.5 py-0.5 rounded-full font-semibold"
                   >
                     {role}
                   </span>

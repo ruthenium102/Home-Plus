@@ -83,7 +83,7 @@ export function RedemptionModal({ open, member, onClose }: Props) {
 
         <div className="p-4 space-y-4">
           {/* Category picker */}
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
             {rewardCategories.map((c) => {
               const Icon = ICON[c.key];
               const memberBal = member.reward_balances[c.key] || 0;
@@ -124,7 +124,7 @@ export function RedemptionModal({ open, member, onClose }: Props) {
             <div className="text-xs uppercase tracking-wider text-text-faint mb-2">
               Quick picks
             </div>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
               {PRESETS[category].map((p) => (
                 <button
                   key={p.amount}

@@ -177,7 +177,7 @@ export function ImportEventsModal({ open, onClose }: Props) {
       onClick={onClose}
     >
       <div
-        className="card w-full max-w-2xl max-h-[88vh] flex flex-col"
+        className="card w-full max-w-2xl max-h-[85vh] flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between p-4 border-b border-border shrink-0">

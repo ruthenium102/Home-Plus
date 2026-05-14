@@ -105,7 +105,7 @@ function KidView({ member }: { member: FamilyMember }) {
         </div>
 
         {/* Balances */}
-        <div className="grid grid-cols-3 gap-3 mb-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
           {rewardCategories.map((c) => {
             const Icon = c.key === 'stars' ? Sparkles : c.key === 'screen_minutes' ? Clock : PiggyBank;
             const bal = member.reward_balances[c.key] || 0;
@@ -350,7 +350,7 @@ function ParentOverview() {
               <div className="grid grid-cols-3 gap-1.5 mb-3 text-center">
                 {rewardCategories.map((c) => (
                   <div key={c.key} className="bg-surface-2 rounded-md p-2">
-                    <div className="text-[9px] uppercase tracking-wider text-text-faint mb-0.5">
+                    <div className="text-[10px] uppercase tracking-wider text-text-faint mb-0.5">
                       {c.label}
                     </div>
                     <div

@@ -79,7 +79,7 @@ export function ListItemEditor({ open, list, editing, onClose }: Props) {
       onClick={onClose}
     >
       <div
-        className="card w-full max-w-md sm:max-w-lg max-h-[88vh] flex flex-col"
+        className="card w-full max-w-md sm:max-w-lg max-h-[85vh] flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between p-4 border-b border-border shrink-0">
