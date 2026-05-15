@@ -83,6 +83,7 @@ interface FamilyContextValue {
   // Members
   addMember: (m: Omit<FamilyMember, 'id' | 'created_at' | 'family_id'>) => void;
   updateMember: (id: string, patch: Partial<FamilyMember>) => void;
+  deleteMember: (id: string) => void;
   setMemberPin: (id: string, pin: string | null) => void;
   setMemberLocation: (id: string, location: string | null, until: string | null) => void;
 
@@ -342,6 +343,12 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
             const sess: ActiveSession = { member_id: mine.id, authenticated_at: Date.now() };
             storage.set(SESSION_KEY, sess);
             setSession(sess);
+            // Backfill the email onto the member row if missing — covers users
+            // (esp. the family owner) created before email was being saved.
+            if (userEmail && !mine.email) {
+              await supabase!.from('family_members').update({ email: userEmail }).eq('id', mine.id);
+              setMembers((prev) => prev.map((m) => (m.id === mine.id ? { ...m, email: userEmail } : m)));
+            }
           }
           return;
         }
@@ -438,7 +445,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
         avatar_url: null, pin_hash: null, birthday: null,
         current_location: null, location_until: null,
         reward_balances: {}, my_day_enabled: false,
-        chores_enabled: true, habits_enabled: true, kitchen_enabled: false, pet_enabled: false, email: null,
+        chores_enabled: true, habits_enabled: true, kitchen_enabled: false, pet_enabled: false, email: userEmail,
         auth_user_id: userId,
         created_at: now,
       };
@@ -733,6 +740,11 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
       })),
     []
   );
+
+  const deleteMember = useCallback((id: string) => {
+    setMembers((prev) => prev.filter((m) => m.id !== id));
+    dbDelete('family_members', id);
+  }, []);
 
   const setMemberPin = useCallback((id: string, pin: string | null) => {
     setMembers((prev) =>
@@ -1568,6 +1580,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
     updateEvent,
     deleteEvent,
     updateMember,
+    deleteMember,
     setMemberPin,
     setMemberLocation,
     addChore,
