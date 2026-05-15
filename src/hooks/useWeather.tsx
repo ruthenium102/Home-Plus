@@ -10,12 +10,15 @@ import {
 
 const LOCATION_KEY = 'hp:location';
 const PERTH = { lat: -31.9505, lng: 115.8605, name: 'Perth' };
-const REFRESH_MS = 30 * 60 * 1000; // 30 min
+const REFRESH_MS = 30 * 60 * 1000; // 30 min between weather refreshes
+const GPS_STALE_MS = 7 * 24 * 60 * 60 * 1000; // re-request GPS once a week
 
 interface StoredLocation {
   lat: number;
   lng: number;
-  name?: string; // present when user set a manual city
+  name?: string;     // present when user set a manual city
+  ts?: number;       // ms epoch when last GPS-resolved
+  manual?: boolean;  // true if user picked a city (don't auto-update)
 }
 
 export type LocationStatus = 'idle' | 'requesting' | 'ready' | 'denied';
@@ -162,9 +165,13 @@ export function WeatherProvider({ children }: { children: ReactNode }) {
     setLocationStatus('requesting');
     navigator.geolocation.getCurrentPosition(
       (pos) => {
-        const c = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        const c: StoredLocation = {
+          lat: pos.coords.latitude,
+          lng: pos.coords.longitude,
+          ts: Date.now(),
+        };
         localStorage.setItem(LOCATION_KEY, JSON.stringify(c));
-        setCoords(c);
+        setCoords({ lat: c.lat, lng: c.lng });
         setLocationStatus('ready');
       },
       () => {
@@ -177,9 +184,29 @@ export function WeatherProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const requestLocation = useCallback(() => {
-    if (locationStatus !== 'idle') return;
+    // Allow refresh from a stale or denied state; idempotent if already requesting
+    if (locationStatus === 'requesting') return;
     doGeoRequest();
   }, [locationStatus, doGeoRequest]);
+
+  // Auto-refresh GPS once a week if we have a non-manual cached location
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(LOCATION_KEY);
+      if (!raw) {
+        // No cached location at all → request once on first load
+        doGeoRequest();
+        return;
+      }
+      const parsed = JSON.parse(raw) as StoredLocation;
+      if (parsed.manual) return; // user picked manually — never auto-refresh
+      const age = Date.now() - (parsed.ts ?? 0);
+      if (age > GPS_STALE_MS) doGeoRequest();
+    } catch {
+      // Ignore — leave cached coords in place
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const resetLocation = useCallback(() => {
     localStorage.removeItem(LOCATION_KEY);
@@ -194,7 +221,7 @@ export function WeatherProvider({ children }: { children: ReactNode }) {
   }, [doGeoRequest]);
 
   const setManualLocation = useCallback((lat: number, lng: number, name: string) => {
-    const stored: StoredLocation = { lat, lng, name };
+    const stored: StoredLocation = { lat, lng, name, manual: true, ts: Date.now() };
     localStorage.setItem(LOCATION_KEY, JSON.stringify(stored));
     setManualName(name);
     setCoords({ lat, lng });

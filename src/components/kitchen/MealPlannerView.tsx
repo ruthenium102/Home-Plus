@@ -35,15 +35,29 @@ export function MealPlannerView() {
     [mealPlans, weekStart, weekEnd]
   );
 
-  const sidebarRecipes = useMemo(() => {
-    const q = query.toLowerCase();
+  // Top 6 most-recently-used recipes (based on most recent meal plan date per recipe)
+  const recentRecipes = useMemo(() => {
+    const lastUsed = new Map<string, string>();
+    for (const mp of mealPlans) {
+      const cur = lastUsed.get(mp.recipe_id);
+      if (!cur || mp.date > cur) lastUsed.set(mp.recipe_id, mp.date);
+    }
     return recipes
-      .filter((r) => !q || r.title.toLowerCase().includes(q) || r.ingredients.some((i) => i.item.toLowerCase().includes(q)))
+      .filter((r) => lastUsed.has(r.id))
+      .sort((a, b) => (lastUsed.get(b.id) ?? '').localeCompare(lastUsed.get(a.id) ?? ''))
+      .slice(0, 6);
+  }, [recipes, mealPlans]);
+
+  const sidebarRecipes = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return recentRecipes;
+    return recipes
+      .filter((r) => r.title.toLowerCase().includes(q) || r.ingredients.some((i) => i.item.toLowerCase().includes(q)))
       .sort((a, b) => {
         if (a.favorite !== b.favorite) return a.favorite ? -1 : 1;
         return a.title.localeCompare(b.title);
       });
-  }, [recipes, query]);
+  }, [recipes, query, recentRecipes]);
 
   function plansForDay(date: string) {
     return plansThisWeek.filter((m) => m.date === date);
@@ -147,33 +161,35 @@ export function MealPlannerView() {
 
         {/* Recipe sidebar */}
         <aside className="lg:w-52 flex-shrink-0 order-2 lg:order-2">
-          <div className="card p-3 lg:sticky lg:top-20">
-            <div className="flex items-center gap-2 mb-2">
-              <Search size={13} className="text-text-faint" />
+          <div className="card p-3 lg:sticky lg:top-20 overflow-hidden">
+            <div className="flex items-center gap-2 mb-2 min-w-0">
+              <Search size={13} className="text-text-faint shrink-0" />
               <input
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Search…"
-                className="input text-sm py-1 flex-1"
+                className="input text-sm py-1 flex-1 min-w-0"
               />
             </div>
             <p className="text-xs text-text-faint mb-2">
-              Drag to a day, or click + Add
+              {query.trim() ? 'Drag to a day, or click + Add' : 'Recently used — search for more'}
             </p>
             <div className="space-y-1 max-h-[50vh] overflow-y-auto">
               {sidebarRecipes.length === 0 ? (
-                <p className="text-xs text-text-faint p-2">No recipes found.</p>
+                <p className="text-xs text-text-faint p-2">
+                  {query.trim() ? 'No recipes found.' : 'No recent meals yet — search to find recipes.'}
+                </p>
               ) : sidebarRecipes.map((r) => (
                 <div
                   key={r.id}
                   draggable
                   onDragStart={(e) => handleDragStart(e, r.id)}
-                  className="flex items-center gap-1.5 px-2 py-1.5 rounded-md text-sm bg-surface-2 hover:bg-surface-3 cursor-grab active:cursor-grabbing transition"
+                  className="flex items-center gap-1.5 px-2 py-1.5 rounded-md text-sm bg-surface-2 hover:bg-surface-3 cursor-grab active:cursor-grabbing transition min-w-0"
                   onClick={() => selectedDay && handleAdd(r.id, selectedDay)}
                 >
-                  <span className="text-base">{r.icon || '🍽️'}</span>
-                  <span className="flex-1 truncate text-text">{r.title}</span>
-                  {r.favorite && <Heart size={11} className="text-red-500 flex-shrink-0" fill="currentColor" />}
+                  <span className="text-base shrink-0">{r.icon || '🍽️'}</span>
+                  <span className="flex-1 truncate text-text min-w-0">{r.title}</span>
+                  {r.favorite && <Heart size={11} className="text-red-500 shrink-0" fill="currentColor" />}
                 </div>
               ))}
             </div>

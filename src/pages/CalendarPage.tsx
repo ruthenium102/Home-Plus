@@ -227,7 +227,7 @@ export function CalendarPage() {
             'flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border whitespace-nowrap transition-colors ' +
             (showMeals
               ? 'bg-surface border-border text-text-muted'
-              : 'bg-surface-2 border-border-strong text-text-muted line-through opacity-60')
+              : 'bg-surface border-border text-text-faint/60')
           }
         >
           <UtensilsCrossed size={12} /> Meals

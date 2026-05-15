@@ -158,6 +158,9 @@ interface FamilyContextValue {
   waterPet: (memberId: string) => void;
   patPet: (memberId: string) => void;
   playWithPet: (memberId: string) => void;
+  wearAccessory: (memberId: string, accessoryId: string) => void;
+  removeAccessory: (memberId: string, accessoryId: string) => void;
+  gainXp: (memberId: string, amount: number) => void;
 
   // Invite flow
   needsPasswordSetup: boolean;
@@ -628,7 +631,9 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
     return actions;
   }
 
-  // Sync pet XP whenever completions or checkIns change
+  // Sync pet XP whenever completions or checkIns change.
+  // Note: only ADDS missing XP from chores/habits — won't subtract bonus XP
+  // earned via mini-games (gainXp). We track a baseline-derived floor.
   useEffect(() => {
     if (pets.length === 0) return;
     setPets((prev) =>
@@ -637,7 +642,10 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
           (c) => c.member_id === pet.member_id && c.status === 'approved'
         ).length;
         const memberCheckIns = checkIns.filter((c) => c.member_id === pet.member_id).length;
-        const newXp = memberCompletions * 10 + memberCheckIns * 5;
+        const baselineXp = memberCompletions * 10 + memberCheckIns * 5;
+        // Pet keeps the max of (baseline derived from chores/habits) and (current xp,
+        // which may include mini-game bonuses).
+        const newXp = Math.max(pet.xp, baselineXp);
         if (newXp === pet.xp) return pet;
         const unlocked_actions = deriveUnlockedActions(newXp);
         return { ...pet, xp: newXp, unlocked_actions };
@@ -645,6 +653,16 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
     );
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [completions, checkIns]);
+
+  // Backfill `accessories` on pets created before the field existed.
+  useEffect(() => {
+    if (pets.length === 0) return;
+    if (pets.every((p) => Array.isArray(p.accessories))) return;
+    setPets((prev) =>
+      prev.map((p) => (Array.isArray(p.accessories) ? p : { ...p, accessories: [] }))
+    );
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // ---- Auth ----------------------------------------------------------------
 
@@ -1434,6 +1452,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
         last_watered_at: null,
         last_interacted_at: null,
         created_at: new Date().toISOString(),
+        accessories: [],
       };
       setPets((prev) => [...prev.filter((p) => p.member_id !== memberId), newPet]);
     },
@@ -1481,6 +1500,42 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
           ...p,
           happiness: Math.min(100, current.happiness + 35),
           last_interacted_at: new Date().toISOString(),
+        };
+      })
+    );
+  }, []);
+
+  const wearAccessory = useCallback((memberId: string, accessoryId: string) => {
+    setPets((prev) =>
+      prev.map((p) => {
+        if (p.member_id !== memberId) return p;
+        const current = Array.isArray(p.accessories) ? p.accessories : [];
+        if (current.includes(accessoryId)) return p;
+        return { ...p, accessories: [...current, accessoryId] };
+      })
+    );
+  }, []);
+
+  const removeAccessory = useCallback((memberId: string, accessoryId: string) => {
+    setPets((prev) =>
+      prev.map((p) => {
+        if (p.member_id !== memberId) return p;
+        const current = Array.isArray(p.accessories) ? p.accessories : [];
+        return { ...p, accessories: current.filter((a) => a !== accessoryId) };
+      })
+    );
+  }, []);
+
+  const gainXp = useCallback((memberId: string, amount: number) => {
+    if (amount <= 0) return;
+    setPets((prev) =>
+      prev.map((p) => {
+        if (p.member_id !== memberId) return p;
+        const newXp = Math.max(0, p.xp + amount);
+        return {
+          ...p,
+          xp: newXp,
+          unlocked_actions: deriveUnlockedActions(newXp),
         };
       })
     );
@@ -1567,6 +1622,9 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
     waterPet,
     patPet,
     playWithPet,
+    wearAccessory,
+    removeAccessory,
+    gainXp,
     needsPasswordSetup,
     clearNeedsPasswordSetup,
   };

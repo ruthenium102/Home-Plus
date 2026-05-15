@@ -1,318 +1,533 @@
-import type { ReactNode } from 'react';
+import {
+  forwardRef,
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import type { PetAnimal } from '@/types';
+import { PetEyes, type PetEyesHandle } from './PetEyes';
+import { AccessoryLayer } from './AccessoryLayer';
 
 export type PetMood = 'idle' | 'eating' | 'drinking' | 'happy' | 'sad' | 'sleeping';
+export type PetStage = 'baby' | 'child' | 'adult';
+
+export interface PetCanvasHandle {
+  /** Trigger a one-shot squash+bounce reaction animation. */
+  reactSquash: () => void;
+  /** Trigger an "eating" squish. */
+  reactSquish: () => void;
+  /** Force a single blink. */
+  blink: () => void;
+}
 
 interface Props {
   animal: PetAnimal;
   mood: PetMood;
   size?: number;
+  /** Pet xp; controls growth stage and tail wag speed. */
+  xp?: number;
+  /** Currently-worn accessory ids. */
+  accessories?: string[];
+  /** When true, the pet is interactive (eye tracking, click-to-pat). */
+  interactive?: boolean;
+  /** Called when the SVG itself is clicked. */
+  onPetClick?: (e: React.MouseEvent<HTMLDivElement>) => void;
+  /** Called whenever a drag enters / leaves / drops on the pet drop zone. */
+  onTreatDrop?: () => void;
+  onTreatDragOver?: (over: boolean) => void;
+  /** Triggers an "attention" idle behavior 1-shot key. */
+  attentionTrigger?: number;
+  /** Soft floor shadow shown beneath. Defaults to true. */
+  showShadow?: boolean;
+  /** Pause animations (e.g. when page is hidden). */
+  paused?: boolean;
 }
 
-function KawaiiBase({
-  cx, cy, r,
-  earLeft, earRight,
-  tail,
-  extras,
-  mood,
-}: {
-  cx: number; cy: number; r: number;
-  earLeft: ReactNode;
-  earRight: ReactNode;
-  tail?: ReactNode;
-  extras?: ReactNode;
-  mood: PetMood;
-}) {
-  const eyeY = cy - r * 0.12;
-  const eyeSpacing = r * 0.3;
+export function xpToStage(xp: number): PetStage {
+  // Map XP → level → stage:
+  //   levels 1-3 (xp 0-299)  -> baby
+  //   levels 4-7 (xp 300-699) -> child
+  //   levels 8+  (xp 700+)   -> adult
+  // We base it on level so it lines up with the existing UI's level meter.
+  const level = Math.floor(xp / 100) + 1;
+  if (level <= 3) return 'baby';
+  if (level <= 7) return 'child';
+  return 'adult';
+}
 
-  const leftEyeX = cx - eyeSpacing;
-  const rightEyeX = cx + eyeSpacing;
+function stageScale(stage: PetStage): number {
+  return stage === 'baby' ? 0.85 : stage === 'child' ? 1.0 : 1.15;
+}
 
-  const eyeR = r * 0.14;
-  const pupilR = eyeR * 0.6;
-  const shineR = pupilR * 0.38;
+export const PetCanvas = forwardRef<PetCanvasHandle, Props>(function PetCanvas(
+  {
+    animal,
+    mood,
+    size = 160,
+    xp = 0,
+    accessories = [],
+    interactive = false,
+    onPetClick,
+    onTreatDrop,
+    onTreatDragOver,
+    attentionTrigger = 0,
+    showShadow = true,
+    paused = false,
+  },
+  ref,
+) {
+  const rootRef = useRef<HTMLDivElement>(null);
+  const figureRef = useRef<HTMLDivElement>(null);
+  const eyesRef = useRef<PetEyesHandle>(null);
+  const stage = xpToStage(xp);
+  const scale = stageScale(stage);
 
-  const isSleeping = mood === 'sleeping';
-  const isSad = mood === 'sad';
-  const isHappy = mood === 'happy';
+  // ---- Imperative reactions (squash/squish/blink) ----
 
-  const mouthY = cy + r * 0.22;
+  const reactSquash = useCallback(() => {
+    const el = figureRef.current;
+    if (!el) return;
+    el.classList.remove('pet-squash');
+    void el.getBoundingClientRect();
+    el.classList.add('pet-squash');
+    window.setTimeout(() => el.classList.remove('pet-squash'), 700);
+  }, []);
+
+  const reactSquish = useCallback(() => {
+    const el = figureRef.current;
+    if (!el) return;
+    el.classList.remove('pet-squish');
+    void el.getBoundingClientRect();
+    el.classList.add('pet-squish');
+    window.setTimeout(() => el.classList.remove('pet-squish'), 800);
+  }, []);
+
+  useImperativeHandle(ref, () => ({
+    reactSquash,
+    reactSquish,
+    blink: () => eyesRef.current?.blink(),
+  }), [reactSquash, reactSquish]);
+
+  // ---- Cursor tracking (window mousemove → imperatively update iris cx/cy) ----
+
+  useEffect(() => {
+    if (!interactive || paused) return;
+    let raf = 0;
+    let lastX = 0;
+    let lastY = 0;
+    let pending = false;
+    const flush = () => {
+      pending = false;
+      eyesRef.current?.lookAt(lastX, lastY);
+    };
+    const onMove = (e: MouseEvent) => {
+      lastX = e.clientX;
+      lastY = e.clientY;
+      if (!pending) {
+        pending = true;
+        raf = requestAnimationFrame(flush);
+      }
+    };
+    window.addEventListener('mousemove', onMove);
+    return () => {
+      window.removeEventListener('mousemove', onMove);
+      if (raf) cancelAnimationFrame(raf);
+    };
+  }, [interactive, paused]);
+
+  // ---- Random blink loop (every 3-5s) ----
+
+  useEffect(() => {
+    if (paused || mood === 'sleeping' || mood === 'sad') return;
+    let cancelled = false;
+    const schedule = () => {
+      const delay = 3000 + Math.random() * 2000;
+      window.setTimeout(() => {
+        if (cancelled) return;
+        eyesRef.current?.blink();
+        schedule();
+      }, delay);
+    };
+    schedule();
+    return () => { cancelled = true; };
+  }, [paused, mood]);
+
+  // ---- Attention behavior on cue ----
+
+  const [attentionAnim, setAttentionAnim] = useState<'yawn' | 'look-around' | null>(null);
+  useEffect(() => {
+    if (attentionTrigger === 0) return;
+    const pick = Math.random();
+    const next = pick < 0.5 ? 'yawn' : 'look-around';
+    setAttentionAnim(next);
+    const t = window.setTimeout(() => setAttentionAnim(null), 2000);
+    return () => clearTimeout(t);
+  }, [attentionTrigger]);
+
+  // ---- Compute mood class for breathe/bounce ----
+
+  const moodCls = useMemo(() => {
+    if (mood === 'idle') return 'pet-idle';
+    if (mood === 'happy') return 'pet-happy';
+    if (mood === 'eating') return 'pet-eating';
+    if (mood === 'drinking') return 'pet-drinking';
+    if (mood === 'sleeping') return 'pet-sleeping';
+    return 'pet-sad';
+  }, [mood]);
+
+  // Tail wag speed scales with mood
+  const tailWagCls =
+    mood === 'happy' ? 'tail-wag-fast' :
+    mood === 'sad' || mood === 'sleeping' ? '' :
+    'tail-wag-slow';
+
+  const attentionCls =
+    attentionAnim === 'yawn' ? 'pet-yawn' :
+    attentionAnim === 'look-around' ? 'pet-look-around' :
+    '';
+
+  // ---- Drop-zone handlers ----
+
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    onTreatDragOver?.(true);
+  };
+  const handleDragLeave = () => {
+    onTreatDragOver?.(false);
+  };
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    onTreatDragOver?.(false);
+    onTreatDrop?.();
+  };
+
+  // ---- Render ----
+
+  const cx = 100, cy = 95, r = 60;
 
   return (
+    <div
+      ref={rootRef}
+      style={{ width: size, height: size, display: 'inline-block', lineHeight: 0, position: 'relative' }}
+      className={paused ? 'pet-paused' : undefined}
+    >
+      {/* Floor shadow — sits behind the pet, scales subtly on bounce */}
+      {showShadow && (
+        <svg
+          viewBox="0 0 200 30"
+          width={size}
+          height={size * 0.18}
+          style={{ position: 'absolute', bottom: -size * 0.02, left: 0, zIndex: 0, overflow: 'visible' }}
+          aria-hidden
+        >
+          <ellipse
+            cx={100}
+            cy={15}
+            rx={64 * scale}
+            ry={8}
+            fill="#000"
+            className={mood === 'happy' ? 'floor-bounce' : 'floor-still'}
+          />
+        </svg>
+      )}
+
+      {/* Figure wrapper — handles breathe/bounce/squash/squish/attention */}
+      <div
+        ref={figureRef}
+        className={[moodCls, attentionCls].filter(Boolean).join(' ')}
+        style={{
+          position: 'relative',
+          zIndex: 1,
+          width: size,
+          height: size,
+          cursor: interactive && onPetClick ? 'pointer' : undefined,
+          transition: 'transform 320ms cubic-bezier(0.34, 1.56, 0.64, 1)',
+        }}
+        onClick={onPetClick}
+        onDragOver={interactive ? handleDragOver : undefined}
+        onDragLeave={interactive ? handleDragLeave : undefined}
+        onDrop={interactive ? handleDrop : undefined}
+      >
+        <svg
+          viewBox="0 0 200 200"
+          width={size}
+          height={size}
+          style={{ overflow: 'visible' }}
+        >
+          {/* Gradients & filters — shared by all animals */}
+          <defs>
+            <radialGradient id="head-grad" cx="35%" cy="30%" r="75%">
+              <stop offset="0%" stopColor="#fff8f0" />
+              <stop offset="60%" stopColor="#f5e9d8" />
+              <stop offset="100%" stopColor="#dfc9a6" />
+            </radialGradient>
+            <radialGradient id="body-grad" cx="35%" cy="20%" r="80%">
+              <stop offset="0%" stopColor="#f9e4c8" />
+              <stop offset="65%" stopColor="#e8cfa6" />
+              <stop offset="100%" stopColor="#c8a575" />
+            </radialGradient>
+            <radialGradient id="ear-grad" cx="40%" cy="30%" r="80%">
+              <stop offset="0%" stopColor="#fff8f0" />
+              <stop offset="100%" stopColor="#d8bf94" />
+            </radialGradient>
+            <radialGradient id="green-grad" cx="35%" cy="20%" r="80%">
+              <stop offset="0%" stopColor="#cce8c0" />
+              <stop offset="100%" stopColor="#7fa874" />
+            </radialGradient>
+            <radialGradient id="pink-grad" cx="40%" cy="25%" r="80%">
+              <stop offset="0%" stopColor="#ffe0ed" />
+              <stop offset="100%" stopColor="#e88fa0" />
+            </radialGradient>
+          </defs>
+
+          {/* Stage scaling applied to the whole pet */}
+          <g style={{
+            transformBox: 'fill-box',
+            transformOrigin: '100px 160px',
+            transform: `scale(${scale})`,
+            transition: 'transform 600ms cubic-bezier(0.34, 1.56, 0.64, 1)',
+          }}>
+            <AnimalLayers animal={animal} mood={mood} tailWagCls={tailWagCls} />
+
+            {/* Eyes — independent layer with iris tracking */}
+            <PetEyes
+              ref={eyesRef}
+              cx={cx} cy={cy} r={r}
+              mood={mood}
+              rootRef={rootRef}
+            />
+
+            {/* Cheeks */}
+            <ellipse cx={cx - r * 0.42} cy={cy + r * 0.12} rx={r * 0.16} ry={r * 0.1} fill="#ffb3c1" opacity="0.55" />
+            <ellipse cx={cx + r * 0.42} cy={cy + r * 0.12} rx={r * 0.16} ry={r * 0.1} fill="#ffb3c1" opacity="0.55" />
+
+            {/* Nose */}
+            <ellipse cx={cx} cy={cy + r * 0.04} rx={r * 0.05} ry={r * 0.034} fill="#e88fa0" />
+
+            {/* Mouth — mood-driven */}
+            <Mouth mood={mood} cx={cx} cy={cy} r={r} />
+
+            {/* Accessory layers */}
+            <AccessoryLayer accessories={accessories} cx={cx} cy={cy} r={r} animal={animal} />
+
+            {/* Mood overlays */}
+            {mood === 'eating' && (
+              <text x={cx + r * 0.85} y={cy + r * 0.25} fontSize={r * 0.4} textAnchor="middle">🍎</text>
+            )}
+            {mood === 'drinking' && (
+              <text x={cx + r * 0.85} y={cy + r * 0.25} fontSize={r * 0.4} textAnchor="middle">💧</text>
+            )}
+            {mood === 'happy' && (
+              <>
+                <text x={cx - r * 0.9} y={cy - r * 0.6} fontSize={r * 0.3} className="pet-sparkle" style={{ animationDelay: '0s' }}>⭐</text>
+                <text x={cx + r * 0.85} y={cy - r * 0.7} fontSize={r * 0.25} className="pet-sparkle" style={{ animationDelay: '0.4s' }}>⭐</text>
+              </>
+            )}
+            {attentionAnim === 'yawn' && (
+              <text x={cx + r * 0.7} y={cy - r * 0.6} fontSize={r * 0.3}>💤</text>
+            )}
+          </g>
+        </svg>
+      </div>
+    </div>
+  );
+});
+
+// ---- Mouth subcomponent ----
+
+function Mouth({ mood, cx, cy, r }: { mood: PetMood; cx: number; cy: number; r: number }) {
+  const mouthY = cy + r * 0.22;
+  if (mood === 'sad') {
+    return (
+      <path d={`M ${cx - r * 0.14} ${mouthY + r * 0.04} Q ${cx} ${mouthY - r * 0.06} ${cx + r * 0.14} ${mouthY + r * 0.04}`}
+        fill="none" stroke="#e88fa0" strokeWidth="2" strokeLinecap="round" />
+    );
+  }
+  const happyMouth = mood === 'happy' || mood === 'eating';
+  return (
+    <path d={`M ${cx - r * 0.14} ${mouthY} Q ${cx} ${mouthY + r * (happyMouth ? 0.16 : 0.08)} ${cx + r * 0.14} ${mouthY}`}
+      fill="none" stroke="#e88fa0" strokeWidth="2" strokeLinecap="round" />
+  );
+}
+
+// ---- Per-animal layered SVG body parts ----
+
+function AnimalLayers({
+  animal, mood, tailWagCls,
+}: { animal: PetAnimal; mood: PetMood; tailWagCls: string }) {
+  switch (animal) {
+    case 'cat':    return <CatLayers mood={mood} tailWagCls={tailWagCls} />;
+    case 'dog':    return <DogLayers mood={mood} tailWagCls={tailWagCls} />;
+    case 'bunny':  return <BunnyLayers mood={mood} tailWagCls={tailWagCls} />;
+    case 'hamster':return <HamsterLayers mood={mood} tailWagCls={tailWagCls} />;
+    case 'axolotl':return <AxolotlLayers mood={mood} tailWagCls={tailWagCls} />;
+    case 'dragon': return <DragonLayers mood={mood} tailWagCls={tailWagCls} />;
+  }
+}
+
+// Common geometry
+const CX = 100, CY = 95, R = 60;
+
+interface LayerProps {
+  mood: PetMood;
+  tailWagCls: string;
+}
+
+function Body({ fill = 'url(#body-grad)' }: { fill?: string }) {
+  return <ellipse cx={CX} cy={CY + R * 0.72} rx={R * 0.6} ry={R * 0.45} fill={fill} />;
+}
+
+function Head({ fill = 'url(#head-grad)' }: { fill?: string }) {
+  return <circle cx={CX} cy={CY} r={R} fill={fill} />;
+}
+
+function CatLayers({ mood, tailWagCls }: LayerProps) {
+  void mood;
+  return (
     <>
-      {tail}
-      {/* Body */}
-      <ellipse cx={cx} cy={cy + r * 0.72} rx={r * 0.6} ry={r * 0.45} fill="#f9e4c8" />
-      {/* Head */}
-      <circle cx={cx} cy={cy} r={r} fill="#fff8f0" />
-      {earLeft}
-      {earRight}
-      {/* Eyes */}
-      {isSleeping ? (
-        <>
-          {/* Closed eyes — ZZZ arcs */}
-          <path d={`M ${leftEyeX - eyeR} ${eyeY} Q ${leftEyeX} ${eyeY - eyeR * 1.2} ${leftEyeX + eyeR} ${eyeY}`}
-            fill="none" stroke="#201c18" strokeWidth="2.5" strokeLinecap="round" />
-          <path d={`M ${rightEyeX - eyeR} ${eyeY} Q ${rightEyeX} ${eyeY - eyeR * 1.2} ${rightEyeX + eyeR} ${eyeY}`}
-            fill="none" stroke="#201c18" strokeWidth="2.5" strokeLinecap="round" />
-          <text x={cx + r * 0.55} y={cy - r * 0.5} fontSize={r * 0.32} fill="#b8a8e8" textAnchor="middle">z</text>
-          <text x={cx + r * 0.72} y={cy - r * 0.72} fontSize={r * 0.24} fill="#c8b8f8" textAnchor="middle">z</text>
-        </>
-      ) : isSad ? (
-        <>
-          {/* Droopy eyes — half-closed */}
-          <circle cx={leftEyeX} cy={eyeY} r={eyeR} fill="#201c18" />
-          <circle cx={rightEyeX} cy={eyeY} r={eyeR} fill="#201c18" />
-          <rect x={leftEyeX - eyeR} y={eyeY - eyeR} width={eyeR * 2} height={eyeR} fill="#fff8f0" />
-          <rect x={rightEyeX - eyeR} y={eyeY - eyeR} width={eyeR * 2} height={eyeR} fill="#fff8f0" />
-          <circle cx={leftEyeX + shineR} cy={eyeY - pupilR + shineR} r={shineR} fill="white" />
-          <circle cx={rightEyeX + shineR} cy={eyeY - pupilR + shineR} r={shineR} fill="white" />
-        </>
-      ) : (
-        <>
-          <circle cx={leftEyeX} cy={eyeY} r={eyeR} fill="white" />
-          <circle cx={rightEyeX} cy={eyeY} r={eyeR} fill="white" />
-          <circle cx={leftEyeX} cy={eyeY} r={pupilR} fill="#201c18" />
-          <circle cx={rightEyeX} cy={eyeY} r={pupilR} fill="#201c18" />
-          <circle cx={leftEyeX + shineR} cy={eyeY - pupilR + shineR} r={shineR} fill="white" />
-          <circle cx={rightEyeX + shineR} cy={eyeY - pupilR + shineR} r={shineR} fill="white" />
-          {isHappy && (
-            <>
-              <circle cx={leftEyeX + shineR * 0.5} cy={eyeY + pupilR - shineR * 0.5} r={shineR * 0.7} fill="white" />
-              <circle cx={rightEyeX + shineR * 0.5} cy={eyeY + pupilR - shineR * 0.5} r={shineR * 0.7} fill="white" />
-            </>
-          )}
-        </>
-      )}
-      {/* Rosy cheeks */}
-      <ellipse cx={cx - r * 0.42} cy={cy + r * 0.12} rx={r * 0.16} ry={r * 0.1} fill="#ffb3c1" opacity="0.55" />
-      <ellipse cx={cx + r * 0.42} cy={cy + r * 0.12} rx={r * 0.16} ry={r * 0.1} fill="#ffb3c1" opacity="0.55" />
-      {/* Nose */}
-      <ellipse cx={cx} cy={cy + r * 0.04} rx={r * 0.045} ry={r * 0.032} fill="#e88fa0" />
-      {/* Mouth */}
-      {isSad ? (
-        <path d={`M ${cx - r * 0.14} ${mouthY + r * 0.04} Q ${cx} ${mouthY - r * 0.06} ${cx + r * 0.14} ${mouthY + r * 0.04}`}
-          fill="none" stroke="#e88fa0" strokeWidth="2" strokeLinecap="round" />
-      ) : (
-        <path d={`M ${cx - r * 0.14} ${mouthY} Q ${cx} ${mouthY + r * (isHappy ? 0.14 : 0.08)} ${cx + r * 0.14} ${mouthY}`}
-          fill="none" stroke="#e88fa0" strokeWidth="2" strokeLinecap="round" />
-      )}
-      {extras}
-      {/* Mood overlays */}
-      {mood === 'eating' && (
-        <text x={cx + r * 0.75} y={cy + r * 0.2} fontSize={r * 0.4} textAnchor="middle">🍎</text>
-      )}
-      {mood === 'drinking' && (
-        <text x={cx + r * 0.75} y={cy + r * 0.2} fontSize={r * 0.4} textAnchor="middle">💧</text>
-      )}
-      {mood === 'happy' && (
-        <>
-          <text x={cx - r * 0.9} y={cy - r * 0.6} fontSize={r * 0.3} className="pet-sparkle" style={{ animationDelay: '0s' }}>⭐</text>
-          <text x={cx + r * 0.85} y={cy - r * 0.7} fontSize={r * 0.25} className="pet-sparkle" style={{ animationDelay: '0.4s' }}>⭐</text>
-        </>
+      {/* Tail — wraps in its own <g> for wag */}
+      <g className={tailWagCls} style={{ transformOrigin: '155px 155px' }}>
+        <path d="M 145 155 Q 175 170 170 140 Q 165 120 155 130"
+          fill="none" stroke="url(#body-grad)" strokeWidth="9" strokeLinecap="round" />
+      </g>
+      <Body />
+      <Head />
+      {/* Ears — twitch on left */}
+      <g className="ear-twitch" style={{ animationDelay: '2s' }}>
+        <polygon points={`${CX - R * 0.65},${CY - R * 0.78} ${CX - R * 0.85},${CY - R * 1.18} ${CX - R * 0.35},${CY - R * 0.98}`} fill="url(#ear-grad)" />
+        <polygon points={`${CX - R * 0.65},${CY - R * 0.82} ${CX - R * 0.8},${CY - R * 1.1} ${CX - R * 0.42},${CY - R * 0.98}`} fill="#ffc0cb" />
+      </g>
+      <g className="ear-twitch" style={{ animationDelay: '7s' }}>
+        <polygon points={`${CX + R * 0.65},${CY - R * 0.78} ${CX + R * 0.85},${CY - R * 1.18} ${CX + R * 0.35},${CY - R * 0.98}`} fill="url(#ear-grad)" />
+        <polygon points={`${CX + R * 0.65},${CY - R * 0.82} ${CX + R * 0.8},${CY - R * 1.1} ${CX + R * 0.42},${CY - R * 0.98}`} fill="#ffc0cb" />
+      </g>
+      {/* Whiskers */}
+      <g>
+        <line x1={CX - R * 0.08} y1={CY + R * 0.06} x2={CX - R * 0.6} y2={CY + R * 0.01} stroke="#c8bfb0" strokeWidth="1.2" strokeLinecap="round" />
+        <line x1={CX - R * 0.08} y1={CY + R * 0.1} x2={CX - R * 0.62} y2={CY + R * 0.12} stroke="#c8bfb0" strokeWidth="1.2" strokeLinecap="round" />
+        <line x1={CX - R * 0.08} y1={CY + R * 0.14} x2={CX - R * 0.58} y2={CY + R * 0.22} stroke="#c8bfb0" strokeWidth="1.2" strokeLinecap="round" />
+        <line x1={CX + R * 0.08} y1={CY + R * 0.06} x2={CX + R * 0.6} y2={CY + R * 0.01} stroke="#c8bfb0" strokeWidth="1.2" strokeLinecap="round" />
+        <line x1={CX + R * 0.08} y1={CY + R * 0.1} x2={CX + R * 0.62} y2={CY + R * 0.12} stroke="#c8bfb0" strokeWidth="1.2" strokeLinecap="round" />
+        <line x1={CX + R * 0.08} y1={CY + R * 0.14} x2={CX + R * 0.58} y2={CY + R * 0.22} stroke="#c8bfb0" strokeWidth="1.2" strokeLinecap="round" />
+      </g>
+    </>
+  );
+}
+
+function DogLayers({ mood, tailWagCls }: LayerProps) {
+  return (
+    <>
+      <g className={tailWagCls} style={{ transformOrigin: '155px 148px' }}>
+        <ellipse cx={155} cy={148} rx={10} ry={7} fill="url(#body-grad)" transform="rotate(-30 155 148)" />
+      </g>
+      <Body />
+      <Head />
+      {/* Floppy ears with twitch */}
+      <g className="ear-twitch" style={{ animationDelay: '3s' }}>
+        <ellipse cx={CX - R * 0.72} cy={CY - R * 0.55} rx={R * 0.26} ry={R * 0.38} fill="url(#ear-grad)" />
+      </g>
+      <g className="ear-twitch" style={{ animationDelay: '9s' }}>
+        <ellipse cx={CX + R * 0.72} cy={CY - R * 0.55} rx={R * 0.26} ry={R * 0.38} fill="url(#ear-grad)" />
+      </g>
+      {/* Tongue (only when not sleeping/sad) */}
+      {mood !== 'sleeping' && mood !== 'sad' && (
+        <ellipse cx={CX} cy={CY + R * 0.33} rx={R * 0.1} ry={R * 0.08} fill="#ff9eb5" />
       )}
     </>
   );
 }
 
-function CatSVG({ mood, size }: { mood: PetMood; size: number }) {
-  const cx = 100, cy = 95, r = 60;
+function BunnyLayers({ mood, tailWagCls }: LayerProps) {
+  void mood;
   return (
-    <svg viewBox="0 0 200 200" width={size} height={size}>
-      {/* Tail */}
-      <path d="M 145 155 Q 175 170 170 140 Q 165 120 155 130"
-        fill="none" stroke="#f9e4c8" strokeWidth="8" strokeLinecap="round" />
-      <KawaiiBase cx={cx} cy={cy} r={r} mood={mood}
-        earLeft={
-          <>
-            <polygon points={`${cx - r * 0.65},${cy - r * 0.78} ${cx - r * 0.85},${cy - r * 1.18} ${cx - r * 0.35},${cy - r * 0.98}`} fill="#fff8f0" />
-            <polygon points={`${cx - r * 0.65},${cy - r * 0.82} ${cx - r * 0.8},${cy - r * 1.1} ${cx - r * 0.42},${cy - r * 0.98}`} fill="#ffc0cb" />
-          </>
-        }
-        earRight={
-          <>
-            <polygon points={`${cx + r * 0.65},${cy - r * 0.78} ${cx + r * 0.85},${cy - r * 1.18} ${cx + r * 0.35},${cy - r * 0.98}`} fill="#fff8f0" />
-            <polygon points={`${cx + r * 0.65},${cy - r * 0.82} ${cx + r * 0.8},${cy - r * 1.1} ${cx + r * 0.42},${cy - r * 0.98}`} fill="#ffc0cb" />
-          </>
-        }
-        extras={
-          <>
-            {/* Whiskers */}
-            <line x1={cx - r * 0.08} y1={cy + r * 0.06} x2={cx - r * 0.6} y2={cy + r * 0.01} stroke="#c8bfb0" strokeWidth="1.2" strokeLinecap="round" />
-            <line x1={cx - r * 0.08} y1={cy + r * 0.1} x2={cx - r * 0.62} y2={cy + r * 0.12} stroke="#c8bfb0" strokeWidth="1.2" strokeLinecap="round" />
-            <line x1={cx - r * 0.08} y1={cy + r * 0.14} x2={cx - r * 0.58} y2={cy + r * 0.22} stroke="#c8bfb0" strokeWidth="1.2" strokeLinecap="round" />
-            <line x1={cx + r * 0.08} y1={cy + r * 0.06} x2={cx + r * 0.6} y2={cy + r * 0.01} stroke="#c8bfb0" strokeWidth="1.2" strokeLinecap="round" />
-            <line x1={cx + r * 0.08} y1={cy + r * 0.1} x2={cx + r * 0.62} y2={cy + r * 0.12} stroke="#c8bfb0" strokeWidth="1.2" strokeLinecap="round" />
-            <line x1={cx + r * 0.08} y1={cy + r * 0.14} x2={cx + r * 0.58} y2={cy + r * 0.22} stroke="#c8bfb0" strokeWidth="1.2" strokeLinecap="round" />
-          </>
-        }
-      />
-    </svg>
+    <>
+      <g className={tailWagCls} style={{ transformOrigin: '155px 155px' }}>
+        <circle cx={155} cy={155} r={7} fill="#fff0f4" />
+      </g>
+      <Body />
+      <Head />
+      <g className="ear-twitch" style={{ animationDelay: '4s' }}>
+        <ellipse cx={CX - R * 0.42} cy={CY - R * 1.15} rx={R * 0.2} ry={R * 0.5} fill="url(#ear-grad)" />
+        <ellipse cx={CX - R * 0.42} cy={CY - R * 1.15} rx={R * 0.11} ry={R * 0.38} fill="#ffc0cb" />
+      </g>
+      <g className="ear-twitch" style={{ animationDelay: '11s' }}>
+        <ellipse cx={CX + R * 0.42} cy={CY - R * 1.15} rx={R * 0.2} ry={R * 0.5} fill="url(#ear-grad)" />
+        <ellipse cx={CX + R * 0.42} cy={CY - R * 1.15} rx={R * 0.11} ry={R * 0.38} fill="#ffc0cb" />
+      </g>
+    </>
   );
 }
 
-function DogSVG({ mood, size }: { mood: PetMood; size: number }) {
-  const cx = 100, cy = 95, r = 60;
+function HamsterLayers({ mood, tailWagCls }: LayerProps) {
+  void mood; void tailWagCls;
   return (
-    <svg viewBox="0 0 200 200" width={size} height={size}>
-      {/* Stubby tail */}
-      <ellipse cx={155} cy={148} rx={10} ry={7} fill="#f9e4c8" transform="rotate(-30 155 148)" />
-      <KawaiiBase cx={cx} cy={cy} r={r} mood={mood}
-        earLeft={
-          <ellipse cx={cx - r * 0.72} cy={cy - r * 0.55} rx={r * 0.26} ry={r * 0.38} fill="#f0dfc0" />
-        }
-        earRight={
-          <ellipse cx={cx + r * 0.72} cy={cy - r * 0.55} rx={r * 0.26} ry={r * 0.38} fill="#f0dfc0" />
-        }
-        extras={
-          /* Tongue */
-          mood !== 'sleeping' && mood !== 'sad' ? (
-            <ellipse cx={cx} cy={cy + r * 0.33} rx={r * 0.1} ry={r * 0.08} fill="#ff9eb5" />
-          ) : undefined
-        }
-      />
-    </svg>
+    <>
+      <Body />
+      <Head />
+      <g className="ear-twitch" style={{ animationDelay: '5s' }}>
+        <circle cx={CX - R * 0.78} cy={CY - R * 0.7} r={R * 0.22} fill="url(#ear-grad)" />
+        <circle cx={CX - R * 0.78} cy={CY - R * 0.7} r={R * 0.14} fill="#ffc0cb" />
+      </g>
+      <g className="ear-twitch" style={{ animationDelay: '12s' }}>
+        <circle cx={CX + R * 0.78} cy={CY - R * 0.7} r={R * 0.22} fill="url(#ear-grad)" />
+        <circle cx={CX + R * 0.78} cy={CY - R * 0.7} r={R * 0.14} fill="#ffc0cb" />
+      </g>
+      {/* Chubby cheek pouches */}
+      <ellipse cx={CX - R * 0.7} cy={CY + R * 0.15} rx={R * 0.26} ry={R * 0.22} fill="#ffd8b0" opacity="0.7" />
+      <ellipse cx={CX + R * 0.7} cy={CY + R * 0.15} rx={R * 0.26} ry={R * 0.22} fill="#ffd8b0" opacity="0.7" />
+    </>
   );
 }
 
-function BunnySVG({ mood, size }: { mood: PetMood; size: number }) {
-  const cx = 100, cy = 100, r = 56;
+function AxolotlLayers({ mood, tailWagCls }: LayerProps) {
+  void mood; void tailWagCls;
   return (
-    <svg viewBox="0 0 200 200" width={size} height={size}>
-      {/* Pom tail */}
-      <circle cx={155} cy={155} r={7} fill="#fff0f4" />
-      <KawaiiBase cx={cx} cy={cy} r={r} mood={mood}
-        earLeft={
-          <>
-            <ellipse cx={cx - r * 0.42} cy={cy - r * 1.15} rx={r * 0.2} ry={r * 0.5} fill="#fff8f0" />
-            <ellipse cx={cx - r * 0.42} cy={cy - r * 1.15} rx={r * 0.11} ry={r * 0.38} fill="#ffc0cb" />
-          </>
-        }
-        earRight={
-          <>
-            <ellipse cx={cx + r * 0.42} cy={cy - r * 1.15} rx={r * 0.2} ry={r * 0.5} fill="#fff8f0" />
-            <ellipse cx={cx + r * 0.42} cy={cy - r * 1.15} rx={r * 0.11} ry={r * 0.38} fill="#ffc0cb" />
-          </>
-        }
-      />
-    </svg>
-  );
-}
-
-function HamsterSVG({ mood, size }: { mood: PetMood; size: number }) {
-  const cx = 100, cy = 98, r = 58;
-  return (
-    <svg viewBox="0 0 200 200" width={size} height={size}>
-      <KawaiiBase cx={cx} cy={cy} r={r} mood={mood}
-        earLeft={
-          <>
-            <circle cx={cx - r * 0.78} cy={cy - r * 0.7} r={r * 0.22} fill="#fff8f0" />
-            <circle cx={cx - r * 0.78} cy={cy - r * 0.7} r={r * 0.14} fill="#ffc0cb" />
-          </>
-        }
-        earRight={
-          <>
-            <circle cx={cx + r * 0.78} cy={cy - r * 0.7} r={r * 0.22} fill="#fff8f0" />
-            <circle cx={cx + r * 0.78} cy={cy - r * 0.7} r={r * 0.14} fill="#ffc0cb" />
-          </>
-        }
-        extras={
-          <>
-            {/* Chubby cheek pouches */}
-            <ellipse cx={cx - r * 0.7} cy={cy + r * 0.15} rx={r * 0.26} ry={r * 0.22} fill="#ffd8b0" opacity="0.7" />
-            <ellipse cx={cx + r * 0.7} cy={cy + r * 0.15} rx={r * 0.26} ry={r * 0.22} fill="#ffd8b0" opacity="0.7" />
-          </>
-        }
-      />
-    </svg>
-  );
-}
-
-function AxolotlSVG({ mood, size }: { mood: PetMood; size: number }) {
-  const cx = 100, cy = 95, r = 56;
-  return (
-    <svg viewBox="0 0 200 200" width={size} height={size}>
+    <>
       {/* Body fins */}
-      <ellipse cx={cx - r * 0.85} cy={cy + r * 0.65} rx={r * 0.12} ry={r * 0.25} fill="#ffb3c6" transform={`rotate(-20 ${cx - r * 0.85} ${cy + r * 0.65})`} />
-      <ellipse cx={cx + r * 0.85} cy={cy + r * 0.65} rx={r * 0.12} ry={r * 0.25} fill="#ffb3c6" transform={`rotate(20 ${cx + r * 0.85} ${cy + r * 0.65})`} />
-      <KawaiiBase cx={cx} cy={cy} r={r} mood={mood}
-        earLeft={
-          /* External gills — 3 branching lines left */
-          <>
-            <line x1={cx - r * 0.72} y1={cy - r * 0.55} x2={cx - r * 0.95} y2={cy - r * 1.05} stroke="#ff9eb5" strokeWidth="3" strokeLinecap="round" />
-            <line x1={cx - r * 0.84} y1={cy - r * 0.8} x2={cx - r * 1.1} y2={cy - r * 1.0} stroke="#ff9eb5" strokeWidth="2" strokeLinecap="round" />
-            <line x1={cx - r * 0.84} y1={cy - r * 0.8} x2={cx - r * 0.82} y2={cy - r * 1.08} stroke="#ff9eb5" strokeWidth="2" strokeLinecap="round" />
-            <line x1={cx - r * 0.88} y1={cy - r * 0.95} x2={cx - r * 1.05} y2={cy - r * 1.15} stroke="#ff9eb5" strokeWidth="1.5" strokeLinecap="round" />
-            <line x1={cx - r * 0.9} y1={cy - r * 0.98} x2={cx - r * 0.78} y2={cy - r * 1.18} stroke="#ff9eb5" strokeWidth="1.5" strokeLinecap="round" />
-          </>
-        }
-        earRight={
-          <>
-            <line x1={cx + r * 0.72} y1={cy - r * 0.55} x2={cx + r * 0.95} y2={cy - r * 1.05} stroke="#ff9eb5" strokeWidth="3" strokeLinecap="round" />
-            <line x1={cx + r * 0.84} y1={cy - r * 0.8} x2={cx + r * 1.1} y2={cy - r * 1.0} stroke="#ff9eb5" strokeWidth="2" strokeLinecap="round" />
-            <line x1={cx + r * 0.84} y1={cy - r * 0.8} x2={cx + r * 0.82} y2={cy - r * 1.08} stroke="#ff9eb5" strokeWidth="2" strokeLinecap="round" />
-            <line x1={cx + r * 0.88} y1={cy - r * 0.95} x2={cx + r * 1.05} y2={cy - r * 1.15} stroke="#ff9eb5" strokeWidth="1.5" strokeLinecap="round" />
-            <line x1={cx + r * 0.9} y1={cy - r * 0.98} x2={cx + r * 0.78} y2={cy - r * 1.18} stroke="#ff9eb5" strokeWidth="1.5" strokeLinecap="round" />
-          </>
-        }
-        extras={
-          /* Wide smile */
-          <path d={`M ${cx - r * 0.18} ${cy + r * 0.22} Q ${cx} ${cy + r * 0.36} ${cx + r * 0.18} ${cy + r * 0.22}`}
-            fill="none" stroke="#e88fa0" strokeWidth="2.5" strokeLinecap="round" />
-        }
-      />
-    </svg>
+      <ellipse cx={CX - R * 0.85} cy={CY + R * 0.65} rx={R * 0.12} ry={R * 0.25} fill="url(#pink-grad)" transform={`rotate(-20 ${CX - R * 0.85} ${CY + R * 0.65})`} />
+      <ellipse cx={CX + R * 0.85} cy={CY + R * 0.65} rx={R * 0.12} ry={R * 0.25} fill="url(#pink-grad)" transform={`rotate(20 ${CX + R * 0.85} ${CY + R * 0.65})`} />
+      <Body fill="url(#pink-grad)" />
+      <Head fill="url(#pink-grad)" />
+      {/* External gills, left */}
+      <g className="ear-twitch" style={{ animationDelay: '6s' }}>
+        <line x1={CX - R * 0.72} y1={CY - R * 0.55} x2={CX - R * 0.95} y2={CY - R * 1.05} stroke="#ff9eb5" strokeWidth="3" strokeLinecap="round" />
+        <line x1={CX - R * 0.84} y1={CY - R * 0.8} x2={CX - R * 1.1} y2={CY - R * 1.0} stroke="#ff9eb5" strokeWidth="2" strokeLinecap="round" />
+        <line x1={CX - R * 0.84} y1={CY - R * 0.8} x2={CX - R * 0.82} y2={CY - R * 1.08} stroke="#ff9eb5" strokeWidth="2" strokeLinecap="round" />
+        <line x1={CX - R * 0.88} y1={CY - R * 0.95} x2={CX - R * 1.05} y2={CY - R * 1.15} stroke="#ff9eb5" strokeWidth="1.5" strokeLinecap="round" />
+        <line x1={CX - R * 0.9} y1={CY - R * 0.98} x2={CX - R * 0.78} y2={CY - R * 1.18} stroke="#ff9eb5" strokeWidth="1.5" strokeLinecap="round" />
+      </g>
+      <g className="ear-twitch" style={{ animationDelay: '13s' }}>
+        <line x1={CX + R * 0.72} y1={CY - R * 0.55} x2={CX + R * 0.95} y2={CY - R * 1.05} stroke="#ff9eb5" strokeWidth="3" strokeLinecap="round" />
+        <line x1={CX + R * 0.84} y1={CY - R * 0.8} x2={CX + R * 1.1} y2={CY - R * 1.0} stroke="#ff9eb5" strokeWidth="2" strokeLinecap="round" />
+        <line x1={CX + R * 0.84} y1={CY - R * 0.8} x2={CX + R * 0.82} y2={CY - R * 1.08} stroke="#ff9eb5" strokeWidth="2" strokeLinecap="round" />
+        <line x1={CX + R * 0.88} y1={CY - R * 0.95} x2={CX + R * 1.05} y2={CY - R * 1.15} stroke="#ff9eb5" strokeWidth="1.5" strokeLinecap="round" />
+        <line x1={CX + R * 0.9} y1={CY - R * 0.98} x2={CX + R * 0.78} y2={CY - R * 1.18} stroke="#ff9eb5" strokeWidth="1.5" strokeLinecap="round" />
+      </g>
+      {/* Wide smile */}
+      <path d={`M ${CX - R * 0.18} ${CY + R * 0.22} Q ${CX} ${CY + R * 0.36} ${CX + R * 0.18} ${CY + R * 0.22}`}
+        fill="none" stroke="#e88fa0" strokeWidth="2.5" strokeLinecap="round" />
+    </>
   );
 }
 
-function DragonSVG({ mood, size }: { mood: PetMood; size: number }) {
-  const cx = 100, cy = 95, r = 58;
+function DragonLayers({ mood, tailWagCls }: LayerProps) {
+  void mood; void tailWagCls;
   return (
-    <svg viewBox="0 0 200 200" width={size} height={size}>
+    <>
       {/* Wings */}
-      <polygon points={`${cx - r * 0.6},${cy + r * 0.2} ${cx - r * 1.2},${cy - r * 0.4} ${cx - r * 0.3},${cy - r * 0.1}`} fill="#b8e8b0" opacity="0.8" />
-      <polygon points={`${cx + r * 0.6},${cy + r * 0.2} ${cx + r * 1.2},${cy - r * 0.4} ${cx + r * 0.3},${cy - r * 0.1}`} fill="#b8e8b0" opacity="0.8" />
-      <KawaiiBase cx={cx} cy={cy} r={r} mood={mood}
-        earLeft={<></>}
-        earRight={<></>}
-        extras={
-          <>
-            {/* Head spikes */}
-            <polygon points={`${cx - r * 0.3},${cy - r * 0.98} ${cx - r * 0.22},${cy - r * 1.3} ${cx - r * 0.14},${cy - r * 0.98}`} fill="#a8d8a0" />
-            <polygon points={`${cx - r * 0.06},${cy - r * 1.0} ${cx},${cy - r * 1.38} ${cx + r * 0.06},${cy - r * 1.0}`} fill="#a8d8a0" />
-            <polygon points={`${cx + r * 0.14},${cy - r * 0.98} ${cx + r * 0.22},${cy - r * 1.3} ${cx + r * 0.3},${cy - r * 0.98}`} fill="#a8d8a0" />
-            {/* Slightly narrowed eyes for cute-fierce — done via the base with no extras needed */}
-          </>
-        }
-      />
-    </svg>
+      <polygon points={`${CX - R * 0.6},${CY + R * 0.2} ${CX - R * 1.2},${CY - R * 0.4} ${CX - R * 0.3},${CY - R * 0.1}`} fill="url(#green-grad)" opacity="0.85" />
+      <polygon points={`${CX + R * 0.6},${CY + R * 0.2} ${CX + R * 1.2},${CY - R * 0.4} ${CX + R * 0.3},${CY - R * 0.1}`} fill="url(#green-grad)" opacity="0.85" />
+      <Body fill="url(#green-grad)" />
+      <Head fill="url(#green-grad)" />
+      {/* Head spikes */}
+      <polygon points={`${CX - R * 0.3},${CY - R * 0.98} ${CX - R * 0.22},${CY - R * 1.3} ${CX - R * 0.14},${CY - R * 0.98}`} fill="#a8d8a0" />
+      <polygon points={`${CX - R * 0.06},${CY - R * 1.0} ${CX},${CY - R * 1.38} ${CX + R * 0.06},${CY - R * 1.0}`} fill="#a8d8a0" />
+      <polygon points={`${CX + R * 0.14},${CY - R * 0.98} ${CX + R * 0.22},${CY - R * 1.3} ${CX + R * 0.3},${CY - R * 0.98}`} fill="#a8d8a0" />
+    </>
   );
 }
 
-const moodClass: Record<PetMood, string> = {
-  idle: 'pet-idle',
-  happy: 'pet-happy',
-  eating: 'pet-eating',
-  drinking: 'pet-drinking',
-  sad: 'pet-sad',
-  sleeping: 'pet-sleeping',
-};
-
-export function PetCanvas({ animal, mood, size = 160 }: Props) {
-  const cls = moodClass[mood];
-  const Animal = {
-    cat: CatSVG,
-    dog: DogSVG,
-    bunny: BunnySVG,
-    hamster: HamsterSVG,
-    axolotl: AxolotlSVG,
-    dragon: DragonSVG,
-  }[animal];
-
-  return (
-    <div className={cls} style={{ display: 'inline-block', lineHeight: 0 }}>
-      <Animal mood={mood} size={size} />
-    </div>
-  );
-}

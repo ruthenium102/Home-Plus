@@ -140,6 +140,28 @@ export function SettingsPage() {
         </section>
       )}
 
+      {/* Kitchen+ */}
+      {isParent && (
+        <section className="card p-5">
+          <h2 className="font-display text-lg text-text mb-1">Kitchen+</h2>
+          <p className="text-xs text-text-faint mb-4">Cupboard staples and shopping days.</p>
+
+          <div className="mb-5">
+            <h3 className="text-sm font-medium text-text mb-1">Cupboard staples</h3>
+            <p className="text-xs text-text-faint mb-2">
+              Ingredients you always have — excluded from the shopping list.
+            </p>
+            <CupboardEditor />
+          </div>
+
+          <div>
+            <h3 className="text-sm font-medium text-text mb-1">Shopping days</h3>
+            <p className="text-xs text-text-faint mb-3">Used to split the shopping list into two shops.</p>
+            <ShopDaysEditor />
+          </div>
+        </section>
+      )}
+
       {/* Members */}
       <section className="card p-5">
         <div className="flex items-center justify-between mb-4">
@@ -178,24 +200,9 @@ export function SettingsPage() {
 
       {/* Pages */}
       <section className="card p-5">
-        <div className="flex items-center justify-between mb-1">
-          <h2 className="font-display text-lg text-text">Pages</h2>
-          {isParent && activeMember && members.length > 1 && (
-            <button
-              onClick={() => {
-                const fields = ['my_day_enabled', 'chores_enabled', 'habits_enabled', 'kitchen_enabled', 'pet_enabled'] as const;
-                const patch = Object.fromEntries(fields.map((f) => [f, activeMember[f]]));
-                members.filter((m) => m.id !== activeMember.id).forEach((m) => updateMember(m.id, patch as Partial<typeof m>));
-              }}
-              className="text-xs text-accent hover:underline"
-              title="Copy your page settings to all other members"
-            >
-              Apply my settings to all
-            </button>
-          )}
-        </div>
+        <h2 className="font-display text-lg text-text mb-1">Pages</h2>
         <p className="text-xs text-text-faint mb-4">
-          Control which pages each family member can access.
+          Control which pages each family member can access. Tick the "All users" row to apply to everyone.
         </p>
         <div className="overflow-x-auto">
           <table className="w-full text-xs">
@@ -222,6 +229,50 @@ export function SettingsPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
+              {isParent && members.length > 1 && (
+                <tr className="bg-surface-2/30">
+                  <td className="py-2 pr-3">
+                    <div className="flex items-center gap-2">
+                      <div className="w-7 h-7 rounded-full bg-surface-2 flex items-center justify-center">
+                        <UserPlus size={13} className="text-text-faint" />
+                      </div>
+                      <span className="text-sm text-text font-medium">All users</span>
+                    </div>
+                  </td>
+                  {[
+                    { locked: true },
+                    { locked: true },
+                    { locked: true },
+                    { locked: false, field: 'my_day_enabled' as const },
+                    { locked: false, field: 'chores_enabled' as const },
+                    { locked: false, field: 'habits_enabled' as const },
+                    { locked: false, field: 'pet_enabled' as const },
+                    { locked: false, field: 'kitchen_enabled' as const },
+                  ].map((col, idx) => (
+                    <td key={idx} className="text-center py-2 px-1">
+                      {col.locked ? (
+                        <Lock size={13} className="mx-auto text-text-faint/40" />
+                      ) : (
+                        (() => {
+                          const allOn = members.every((m) => m[col.field!] === true);
+                          return (
+                            <input
+                              type="checkbox"
+                              checked={allOn}
+                              onChange={(e) => {
+                                const next = e.target.checked;
+                                members.forEach((m) => updateMember(m.id, { [col.field!]: next }));
+                              }}
+                              className="accent-accent w-4 h-4 cursor-pointer"
+                              title="Toggle for all members"
+                            />
+                          );
+                        })()
+                      )}
+                    </td>
+                  ))}
+                </tr>
+              )}
               {members.map((m) => (
                 <tr key={m.id}>
                   <td className="py-2 pr-3">
@@ -382,25 +433,37 @@ function MemberRow({
   onEdit: () => void;
   onSetPin: () => void;
 }) {
+  const hasLogin = !!member.auth_user_id;
   return (
     <div className="flex items-center gap-3 p-3 rounded-md bg-surface-2/40 hover:bg-surface-2/70 transition-colors">
       <Avatar member={member} size={44} />
       <div className="flex-1 min-w-0">
-        <div className="flex items-baseline gap-2 mb-0.5">
+        <div className="flex items-baseline gap-2 mb-0.5 flex-wrap">
           <span className="text-sm font-medium text-text">{member.name}</span>
           {isActive && (
             <span className="text-[10px] uppercase tracking-wider text-accent font-semibold">
               You
             </span>
           )}
+          {hasLogin ? (
+            <span className="text-[10px] uppercase tracking-wider text-green-600 dark:text-green-400 font-semibold bg-green-500/10 px-1.5 py-0.5 rounded">
+              Login
+            </span>
+          ) : (
+            <span className="text-[10px] uppercase tracking-wider text-text-faint font-semibold bg-surface-2 px-1.5 py-0.5 rounded">
+              PIN only
+            </span>
+          )}
         </div>
+        {member.email ? (
+          <div className="text-xs text-text-muted truncate font-mono">{member.email}</div>
+        ) : null}
         <div className="text-xs text-text-faint capitalize flex items-center gap-1.5">
           <span
             className="inline-block w-2 h-2 rounded-full shrink-0"
             style={{ background: MEMBER_COLORS[member.color].base }}
           />
           {member.role}
-          {member.email && <span className="lowercase normal-case truncate">· {member.email}</span>}
         </div>
       </div>
       <button
@@ -421,6 +484,103 @@ function MemberRow({
       >
         <Pencil size={12} />
       </button>
+    </div>
+  );
+}
+
+function CupboardEditor() {
+  const { kitchenSettings, updateKitchenSettings } = useFamily();
+  const [newItem, setNewItem] = useState('');
+
+  const add = () => {
+    const item = newItem.trim().toLowerCase();
+    if (!item || kitchenSettings.cupboard.includes(item)) { setNewItem(''); return; }
+    updateKitchenSettings({ cupboard: [...kitchenSettings.cupboard, item] });
+    setNewItem('');
+  };
+  const remove = (item: string) =>
+    updateKitchenSettings({ cupboard: kitchenSettings.cupboard.filter((c) => c !== item) });
+
+  return (
+    <>
+      <div className="flex gap-2 mb-3">
+        <input
+          value={newItem}
+          onChange={(e) => setNewItem(e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Enter') add(); }}
+          placeholder="e.g. olive oil, salt, garlic"
+          className="flex-1 min-w-0 px-3 py-2 bg-surface-2 border border-border rounded-md text-text text-sm focus:outline-none focus:border-accent"
+        />
+        <button
+          onClick={add}
+          className="px-3 py-2 bg-accent text-white text-sm font-medium rounded-md hover:opacity-90 shrink-0"
+        >
+          Add
+        </button>
+      </div>
+      <div className="flex flex-wrap gap-1.5">
+        {kitchenSettings.cupboard.length === 0 ? (
+          <span className="text-xs text-text-faint">No cupboard items yet.</span>
+        ) : (
+          kitchenSettings.cupboard.map((item) => (
+            <span
+              key={item}
+              className="flex items-center gap-1 px-2 py-0.5 bg-surface-2 rounded-full text-xs text-text"
+            >
+              {item}
+              <button
+                onClick={() => remove(item)}
+                className="text-text-faint hover:text-red-500 transition"
+              >
+                <X size={10} />
+              </button>
+            </span>
+          ))
+        )}
+      </div>
+    </>
+  );
+}
+
+function ShopDaysEditor() {
+  const { kitchenSettings, updateKitchenSettings } = useFamily();
+  const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+  return (
+    <div className="space-y-3">
+      <div>
+        <label className="text-xs text-text-faint block mb-1">Main shop day</label>
+        <select
+          value={kitchenSettings.primary_shop_day ?? ''}
+          onChange={(e) => updateKitchenSettings({ primary_shop_day: e.target.value === '' ? null : Number(e.target.value) })}
+          className="w-full px-3 py-2 bg-surface-2 border border-border rounded-md text-text text-sm focus:outline-none focus:border-accent"
+        >
+          <option value="">None</option>
+          {DAYS.map((d, i) => <option key={i} value={i}>{d}</option>)}
+        </select>
+      </div>
+      <label className="flex items-center gap-2 cursor-pointer text-sm text-text">
+        <input
+          type="checkbox"
+          checked={kitchenSettings.mid_week_shop_enabled}
+          onChange={(e) => updateKitchenSettings({ mid_week_shop_enabled: e.target.checked })}
+          className="accent-accent w-4 h-4"
+        />
+        Enable mid-week shop
+      </label>
+      {kitchenSettings.mid_week_shop_enabled && (
+        <div>
+          <label className="text-xs text-text-faint block mb-1">Mid-week shop day</label>
+          <select
+            value={kitchenSettings.mid_week_shop_day ?? ''}
+            onChange={(e) => updateKitchenSettings({ mid_week_shop_day: e.target.value === '' ? null : Number(e.target.value) })}
+            className="w-full px-3 py-2 bg-surface-2 border border-border rounded-md text-text text-sm focus:outline-none focus:border-accent"
+          >
+            <option value="">None</option>
+            {DAYS.map((d, i) => <option key={i} value={i}>{d}</option>)}
+          </select>
+        </div>
+      )}
     </div>
   );
 }

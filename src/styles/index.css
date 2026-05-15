@@ -98,7 +98,7 @@ button, [role="button"] {
   @apply px-3 py-2 bg-surface-2 border border-border rounded-lg text-text text-sm placeholder:text-text-faint focus:outline-none focus:border-accent transition;
 }
 
-/* Virtual Pet animations */
+/* ---- Virtual Pet animations ---- */
 @keyframes pet-breathe { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
 @keyframes pet-bounce  { 0%,100% { transform: translateY(0); } 40% { transform: translateY(-12px); } }
 @keyframes pet-sparkle { 0%,100% { opacity: 0; transform: scale(0.5); } 50% { opacity: 1; transform: scale(1); } }
@@ -108,3 +108,133 @@ button, [role="button"] {
 .pet-drinking { animation: pet-breathe 1.5s ease-in-out infinite; }
 .pet-sleeping { animation: pet-breathe 5s ease-in-out infinite; }
 .pet-sad     { animation: pet-breathe 4s ease-in-out infinite; }
+
+/* Pause every pet animation when the page is hidden — saves CPU */
+.pet-paused, .pet-paused * { animation-play-state: paused !important; }
+
+/* Springy click reaction — squash down then bounce back with overshoot */
+@keyframes pet-squash {
+  0%   { transform: scale(1, 1) translateY(0); }
+  18%  { transform: scale(1.15, 0.78) translateY(6px); }
+  46%  { transform: scale(0.88, 1.18) translateY(-14px); }
+  72%  { transform: scale(1.04, 0.96) translateY(0); }
+  100% { transform: scale(1, 1) translateY(0); }
+}
+.pet-squash { animation: pet-squash 600ms cubic-bezier(0.34, 1.56, 0.64, 1); }
+
+/* Squish (eating reaction): chompy compress */
+@keyframes pet-squish {
+  0%, 100% { transform: scale(1, 1); }
+  20% { transform: scale(1.08, 0.92); }
+  40% { transform: scale(0.96, 1.05); }
+  60% { transform: scale(1.05, 0.97); }
+}
+.pet-squish { animation: pet-squish 700ms cubic-bezier(0.34, 1.56, 0.64, 1); }
+
+/* Heart particle burst */
+@keyframes heart-float {
+  0%   { transform: translate(0, 0) scale(0.5) rotate(0deg); opacity: 0; }
+  15%  { opacity: 1; transform: translate(var(--hx, 0px), -6px) scale(1) rotate(0deg); }
+  100% { transform: translate(var(--hx, 0px), -64px) scale(0.6) rotate(var(--hr, 0deg)); opacity: 0; }
+}
+.heart-particle { animation: heart-float 900ms cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+
+/* Speech bubble pop */
+@keyframes bubble-pop {
+  0%   { transform: scale(0.5) translateY(8px); opacity: 0; }
+  35%  { transform: scale(1.06) translateY(-2px); opacity: 1; }
+  70%  { transform: scale(1) translateY(0); opacity: 1; }
+  100% { transform: scale(1) translateY(0); opacity: 1; }
+}
+@keyframes bubble-fade {
+  0% { opacity: 1; transform: scale(1); }
+  100% { opacity: 0; transform: scale(0.85) translateY(-4px); }
+}
+.bubble-in  { animation: bubble-pop 280ms cubic-bezier(0.34, 1.56, 0.64, 1) both; }
+.bubble-out { animation: bubble-fade 240ms ease-in forwards; }
+
+/* Treat falling for mini-game */
+@keyframes treat-fall {
+  from { transform: translateY(-16px) rotate(0deg); }
+  to   { transform: translateY(var(--fall-distance, 320px)) rotate(var(--spin, 200deg)); }
+}
+.treat-fall { animation: treat-fall var(--fall-duration, 3s) linear forwards; }
+
+/* Treat caught — pop & vanish */
+@keyframes treat-caught {
+  0% { transform: scale(1); opacity: 1; }
+  100% { transform: scale(1.7); opacity: 0; }
+}
+.treat-caught { animation: treat-caught 220ms ease-out forwards; }
+
+/* Drag-treat ghost while being dragged */
+.treat-drag {
+  cursor: grab;
+  transition: transform 180ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.treat-drag:active { cursor: grabbing; transform: scale(1.12); }
+
+/* Pet container — used as drop target highlight */
+.pet-drop-hot {
+  filter: drop-shadow(0 0 18px rgba(245, 158, 11, 0.55));
+  transition: filter 200ms ease;
+}
+
+/* Attention idle behaviours */
+@keyframes pet-yawn {
+  0%, 100% { transform: scale(1, 1); }
+  30% { transform: scale(1.05, 0.95); }
+  55% { transform: scale(0.95, 1.08); }
+  80% { transform: scale(1.02, 0.98); }
+}
+.pet-yawn { animation: pet-yawn 1.4s ease-in-out; }
+
+@keyframes pet-look-around {
+  0%, 100% { transform: rotate(0deg); }
+  25% { transform: rotate(-3deg); }
+  60% { transform: rotate(3deg); }
+}
+.pet-look-around { animation: pet-look-around 1.8s ease-in-out; }
+
+/* Tail wag — used by inline transform via React on tail layer */
+@keyframes tail-wag-slow { 0%,100% { transform: rotate(-6deg); } 50% { transform: rotate(6deg); } }
+@keyframes tail-wag-fast { 0%,100% { transform: rotate(-14deg); } 50% { transform: rotate(14deg); } }
+.tail-wag-slow { animation: tail-wag-slow 1.4s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+.tail-wag-fast { animation: tail-wag-fast 0.5s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+
+/* Ear/whisker twitch */
+@keyframes ear-twitch {
+  0%, 88%, 100% { transform: rotate(0deg); }
+  92% { transform: rotate(-8deg); }
+  96% { transform: rotate(4deg); }
+}
+.ear-twitch { animation: ear-twitch 10s ease-in-out infinite; transform-box: fill-box; transform-origin: bottom center; }
+
+/* Eye blink — eyelid is scaleY(0) at rest; momentarily expands to cover eye */
+@keyframes pet-blink-h {
+  0%, 100% { transform: scaleY(0); }
+  35%, 65% { transform: scaleY(1); }
+}
+.pet-blink { animation: pet-blink-h 180ms ease-in-out; transform-origin: center; transform-box: fill-box; }
+
+/* Floor shadow — gently scales with bounce */
+@keyframes floor-pulse {
+  0%, 100% { transform: scaleX(1); opacity: 0.28; }
+  40% { transform: scaleX(0.78); opacity: 0.18; }
+}
+.floor-bounce { animation: floor-pulse 0.8s ease-in-out infinite; transform-origin: center; }
+.floor-still  { transform-origin: center; opacity: 0.28; }
+
+/* Mini-game stage */
+.minigame-stage {
+  position: relative;
+  overflow: hidden;
+  height: 320px;
+  background: linear-gradient(180deg,
+    rgb(var(--accent-soft)) 0%,
+    rgb(var(--surface)) 70%,
+    rgb(var(--surface-2)) 100%);
+  border-radius: 16px;
+  border: 1px solid rgb(var(--border));
+  user-select: none;
+}

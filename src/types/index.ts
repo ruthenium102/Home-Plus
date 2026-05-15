@@ -412,4 +412,7 @@ export interface VirtualPet {
   last_watered_at: string | null;
   last_interacted_at: string | null;
   created_at: string;
+  // Currently-worn accessory ids (e.g. 'top_hat', 'red_collar'). Defaults to [].
+  // Stored in-memory + localStorage only; not synced to Supabase schema.
+  accessories: string[];
 }

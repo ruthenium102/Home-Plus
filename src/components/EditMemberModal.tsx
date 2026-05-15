@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
-import { X, Mail, CheckCircle2 } from 'lucide-react';
+import { X, Mail, CheckCircle2, KeyRound, Loader2 } from 'lucide-react';
 import { useFamily } from '@/context/FamilyContext';
+import { useAuth } from '@/context/AuthContext';
+import { useToast } from '@/context/ToastContext';
 import { Avatar } from '@/components/Avatar';
 import { BirthdayPicker } from '@/components/BirthdayPicker';
 import { COLOR_OPTIONS, MEMBER_COLORS } from '@/lib/colors';
@@ -16,12 +18,15 @@ interface Props {
 
 export function EditMemberModal({ open, member, onClose }: Props) {
   const { updateMember } = useFamily();
+  const { forgotPassword } = useAuth();
+  const { show } = useToast();
 
   const [name, setName] = useState('');
   const [role, setRole] = useState<Role>('child');
   const [color, setColor] = useState<MemberColor>('dusty-blue');
   const [birthday, setBirthday] = useState('');
   const [inviteOpen, setInviteOpen] = useState(false);
+  const [resettingPw, setResettingPw] = useState(false);
 
   useEffect(() => {
     if (!open || !member) return;
@@ -135,9 +140,32 @@ export function EditMemberModal({ open, member, onClose }: Props) {
             <div>
               <label className="block text-xs text-text-muted mb-1.5 font-medium">Account</label>
               {member.auth_user_id ? (
-                <div className="flex items-center gap-2 text-sm text-text-muted">
-                  <CheckCircle2 size={15} className="text-green-500 shrink-0" />
-                  Account linked
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 text-sm text-text-muted">
+                    <CheckCircle2 size={15} className="text-green-500 shrink-0" />
+                    <span className="truncate">{member.email || 'Account linked'}</span>
+                  </div>
+                  {member.email && (
+                    <button
+                      type="button"
+                      disabled={resettingPw}
+                      onClick={async () => {
+                        if (!member.email) return;
+                        setResettingPw(true);
+                        const { error } = await forgotPassword(member.email);
+                        setResettingPw(false);
+                        show({
+                          message: error
+                            ? `Could not send reset email: ${error}`
+                            : `Password reset email sent to ${member.email}`,
+                        });
+                      }}
+                      className="flex items-center gap-2 px-3 py-2 bg-surface-2 border border-border rounded-md text-sm text-text-muted hover:border-accent hover:text-accent transition-colors disabled:opacity-50"
+                    >
+                      {resettingPw ? <Loader2 size={14} className="animate-spin" /> : <KeyRound size={14} />}
+                      Send password reset email
+                    </button>
+                  )}
                 </div>
               ) : (
                 <button

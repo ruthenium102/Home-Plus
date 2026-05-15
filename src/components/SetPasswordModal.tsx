@@ -89,14 +89,6 @@ export function SetPasswordModal({ onDone }: Props) {
               {loading && <Loader2 size={16} className="animate-spin" />}
               Set password & continue
             </button>
-
-            <button
-              type="button"
-              onClick={onDone}
-              className="w-full text-center text-xs text-text-faint hover:text-text-muted py-1"
-            >
-              Skip for now
-            </button>
           </form>
         </div>
       </div>
