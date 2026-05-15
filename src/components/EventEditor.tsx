@@ -492,7 +492,13 @@ export function EventEditor({ open, onClose, editing, initialStart }: Props) {
               {(['none', 'daily', 'weekly', 'monthly', 'yearly'] as const).map((f) => (
                 <button
                   key={f}
-                  onClick={() => setRecurFreq(f)}
+                  onClick={() => {
+                    setRecurFreq(f);
+                    // Pre-populate the day from the event's start date when switching to weekly
+                    if (f === 'weekly' && byweekday.length === 0 && startDate) {
+                      setByweekday([new Date(startDate + 'T00:00:00').getDay()]);
+                    }
+                  }}
                   className={
                     'px-3 py-1.5 rounded-full text-xs capitalize border transition-colors ' +
                     (recurFreq === f

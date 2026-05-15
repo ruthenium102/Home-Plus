@@ -23,7 +23,7 @@ interface GeoResult {
 }
 
 export function SettingsPage() {
-  const { members, family, isDemoMode, updateMember, signOut, activeMember } =
+  const { members, family, isDemoMode, updateMember, signOut, activeMember, kitchenSettings, updateKitchenSettings } =
     useFamily();
   const { mode, setMode } = useTheme();
   const { temp, locationName, locationStatus, resetLocation, setManualLocation } = useWeather();
@@ -118,6 +118,28 @@ export function SettingsPage() {
         </div>
       </section>
 
+      {/* Calendar — meal colour */}
+      {isParent && (
+        <section className="card p-5">
+          <h2 className="font-display text-lg text-text mb-1">Calendar</h2>
+          <p className="text-xs text-text-faint mb-3">Colour used for meal plan events.</p>
+          <div className="flex flex-wrap gap-2">
+            {['#3b82f6','#8b5cf6','#ec4899','#f97316','#22c55e','#14b8a6','#f59e0b','#ef4444'].map((hex) => {
+              const active = (kitchenSettings.meal_color ?? '#3b82f6') === hex;
+              return (
+                <button
+                  key={hex}
+                  onClick={() => updateKitchenSettings({ meal_color: hex })}
+                  className={'w-8 h-8 rounded-full border-2 transition-all ' + (active ? 'border-text scale-110' : 'border-transparent hover:scale-105')}
+                  style={{ background: hex }}
+                  title={hex}
+                />
+              );
+            })}
+          </div>
+        </section>
+      )}
+
       {/* Members */}
       <section className="card p-5">
         <div className="flex items-center justify-between mb-4">
@@ -156,7 +178,22 @@ export function SettingsPage() {
 
       {/* Pages */}
       <section className="card p-5">
-        <h2 className="font-display text-lg text-text mb-1">Pages</h2>
+        <div className="flex items-center justify-between mb-1">
+          <h2 className="font-display text-lg text-text">Pages</h2>
+          {isParent && activeMember && members.length > 1 && (
+            <button
+              onClick={() => {
+                const fields = ['my_day_enabled', 'chores_enabled', 'habits_enabled', 'kitchen_enabled', 'pet_enabled'] as const;
+                const patch = Object.fromEntries(fields.map((f) => [f, activeMember[f]]));
+                members.filter((m) => m.id !== activeMember.id).forEach((m) => updateMember(m.id, patch as Partial<typeof m>));
+              }}
+              className="text-xs text-accent hover:underline"
+              title="Copy your page settings to all other members"
+            >
+              Apply my settings to all
+            </button>
+          )}
+        </div>
         <p className="text-xs text-text-faint mb-4">
           Control which pages each family member can access.
         </p>

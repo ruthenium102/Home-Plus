@@ -17,7 +17,7 @@ import {
 function eventSpansDay(occurrenceStart: string, occurrenceEnd: string, day: Date): boolean {
   return new Date(occurrenceStart) < endOfDay(day) && new Date(occurrenceEnd) > startOfDay(day);
 }
-import { ChevronLeft, ChevronRight, Plus, Sparkles } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, Sparkles, UtensilsCrossed } from 'lucide-react';
 import { useFamily } from '@/context/FamilyContext';
 import { expandEvents, type ExpandedEvent } from '@/lib/recurrence';
 import { EventChip } from '@/components/EventChip';
@@ -35,6 +35,7 @@ export function CalendarPage() {
   const [view, setView] = useState<ViewMode>('week');
   const [cursor, setCursor] = useState<Date>(new Date());
   const [memberFilter, setMemberFilter] = useState<string | null>(null);
+  const [showMeals, setShowMeals] = useState(true);
   const [editorOpen, setEditorOpen] = useState(false);
   const [editing, setEditing] = useState<CalendarEvent | null>(null);
   const [createInitial, setCreateInitial] = useState<Date | undefined>();
@@ -65,8 +66,11 @@ export function CalendarPage() {
         (e) => e.member_ids.length === 0 || e.member_ids.includes(memberFilter)
       );
     }
+    if (!showMeals) {
+      list = list.filter((e) => e.category !== 'meal');
+    }
     return list;
-  }, [events, range, memberFilter]);
+  }, [events, range, memberFilter, showMeals]);
 
   const goPrev = () => {
     if (view === 'day') setCursor(addDays(cursor, -1));
@@ -195,7 +199,7 @@ export function CalendarPage() {
         </button>
       </div>
 
-      {/* Member filter chips */}
+      {/* Member + meal filter chips */}
       <div className="flex items-center gap-2 overflow-x-auto scroll-x-clean -mx-1 px-1">
         <button
           onClick={() => setMemberFilter(null)}
@@ -216,6 +220,18 @@ export function CalendarPage() {
             onClick={() => setMemberFilter(memberFilter === m.id ? null : m.id)}
           />
         ))}
+        <div className="w-px h-5 bg-border shrink-0" />
+        <button
+          onClick={() => setShowMeals((v) => !v)}
+          className={
+            'flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border whitespace-nowrap transition-colors ' +
+            (showMeals
+              ? 'bg-surface border-border text-text-muted'
+              : 'bg-surface-2 border-border-strong text-text-muted line-through opacity-60')
+          }
+        >
+          <UtensilsCrossed size={12} /> Meals
+        </button>
       </div>
 
       {/* View */}

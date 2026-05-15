@@ -16,7 +16,7 @@ interface Props {
  */
 export function EventChip({ event, onClick, variant = 'list' }: Props) {
   const { resolved } = useTheme();
-  const { members } = useFamily();
+  const { members, kitchenSettings } = useFamily();
   const isDark = resolved === 'dark';
 
   const owner = event.member_ids[0]
@@ -27,9 +27,8 @@ export function EventChip({ event, onClick, variant = 'list' }: Props) {
     ? getColorTokens(owner.color, isDark)
     : { base: 'rgb(var(--accent))', soft: 'rgb(var(--accent-soft))', text: '#fff' };
 
-  const mealTokens = isDark
-    ? { base: '#60a5fa', soft: '#1e3a5f', text: '#fff' }
-    : { base: '#3b82f6', soft: '#dbeafe', text: '#fff' };
+  const mealBase = kitchenSettings.meal_color ?? (isDark ? '#60a5fa' : '#3b82f6');
+  const mealTokens = { base: mealBase, soft: mealBase + '28', text: '#fff' };
 
   const tokens = event.category === 'meal' ? mealTokens : memberTokens;
 

@@ -388,6 +388,7 @@ export interface KitchenSettings {
   primary_shop_day: number | null; // 0=Sun..6=Sat
   mid_week_shop_enabled: boolean;
   mid_week_shop_day: number | null;
+  meal_color?: string; // hex colour for meal events in calendar
 }
 
 // ============================================================================

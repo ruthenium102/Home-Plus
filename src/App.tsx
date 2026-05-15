@@ -53,7 +53,7 @@ const AuthPage = lazy(() =>
 );
 
 function AppShell() {
-  const { activeMember } = useFamily();
+  const { activeMember, needsPasswordSetup, clearNeedsPasswordSetup } = useFamily();
   const showMyDay = activeMember?.my_day_enabled ?? false;
   const showChores = activeMember?.chores_enabled ?? true;
   const showHabits = activeMember?.habits_enabled ?? true;
@@ -61,9 +61,6 @@ function AppShell() {
   const showPet = activeMember?.pet_enabled ?? false;
   const [tab, setTab] = useState<TabKey>('home');
   const [switcherOpen, setSwitcherOpen] = useState(false);
-  const [showSetPassword, setShowSetPassword] = useState(
-    () => sessionStorage.getItem('needs_password_setup') === '1'
-  );
 
   // Reset to home when switching members so hidden tabs aren't left active
   const prevMemberId = useRef(activeMember?.id);
@@ -118,11 +115,8 @@ function AppShell() {
 
       {switcherOpen && <UserSwitcher onClose={() => setSwitcherOpen(false)} />}
 
-      {showSetPassword && (
-        <SetPasswordModal onDone={() => {
-          sessionStorage.removeItem('needs_password_setup');
-          setShowSetPassword(false);
-        }} />
+      {needsPasswordSetup && (
+        <SetPasswordModal onDone={clearNeedsPasswordSetup} />
       )}
     </div>
   );

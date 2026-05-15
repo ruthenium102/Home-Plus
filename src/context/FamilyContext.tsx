@@ -158,6 +158,10 @@ interface FamilyContextValue {
   waterPet: (memberId: string) => void;
   patPet: (memberId: string) => void;
   playWithPet: (memberId: string) => void;
+
+  // Invite flow
+  needsPasswordSetup: boolean;
+  clearNeedsPasswordSetup: () => void;
 }
 
 const FamilyContext = createContext<FamilyContextValue | null>(null);
@@ -283,6 +287,9 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
   const [pets, setPets] = useState<VirtualPet[]>(() =>
     storage.get<VirtualPet[]>(PETS_KEY, [])
   );
+  const [needsPasswordSetup, setNeedsPasswordSetup] = useState(
+    () => sessionStorage.getItem('needs_password_setup') === '1'
+  );
 
   // On auth, load data from Supabase. On first login, create the initial family.
   const handled = useRef(false);
@@ -377,8 +384,13 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
               const sess: ActiveSession = { member_id: mine.id, authenticated_at: Date.now() };
               storage.set(SESSION_KEY, sess);
               setSession(sess);
+              // Save email to the member row if not already set
+              if (userEmail && !mine.email) {
+                await supabase!.from('family_members').update({ email: userEmail }).eq('id', mine.id);
+              }
               // Flag that this user should be prompted to set a password
               sessionStorage.setItem('needs_password_setup', '1');
+              setNeedsPasswordSetup(true);
             }
           }
           return;
@@ -1474,6 +1486,11 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
     );
   }, []);
 
+  const clearNeedsPasswordSetup = useCallback(() => {
+    sessionStorage.removeItem('needs_password_setup');
+    setNeedsPasswordSetup(false);
+  }, []);
+
   const value: FamilyContextValue = {
     family,
     members,
@@ -1550,6 +1567,8 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
     waterPet,
     patPet,
     playWithPet,
+    needsPasswordSetup,
+    clearNeedsPasswordSetup,
   };
 
   return <FamilyContext.Provider value={value}>{children}</FamilyContext.Provider>;
