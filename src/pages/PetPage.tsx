@@ -1,16 +1,24 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useFamily } from '@/context/FamilyContext';
-import { PetCanvas, type PetMood } from '@/components/pet/PetCanvas';
+import { PetCanvas, xpToStage, type PetMood, type PetCanvasHandle } from '@/components/pet/PetCanvas';
+import { SpeechBubble } from '@/components/pet/SpeechBubble';
+import { HeartBurst } from '@/components/pet/HeartBurst';
+import { MiniGame } from '@/components/pet/MiniGame';
+import { ACCESSORIES, nextUnlock, wornForSlot, type Accessory } from '@/components/pet/petAccessories';
 import type { PetAnimal, VirtualPet } from '@/types';
 
-const ANIMALS: { animal: PetAnimal; label: string; emoji: string }[] = [
-  { animal: 'cat', label: 'Cat', emoji: '🐱' },
-  { animal: 'dog', label: 'Dog', emoji: '🐶' },
-  { animal: 'bunny', label: 'Bunny', emoji: '🐰' },
-  { animal: 'hamster', label: 'Hamster', emoji: '🐹' },
-  { animal: 'axolotl', label: 'Axolotl', emoji: '🦎' },
-  { animal: 'dragon', label: 'Dragon', emoji: '🐲' },
+const ANIMALS: { animal: PetAnimal; label: string; emoji: string; treat: string }[] = [
+  { animal: 'cat',     label: 'Cat',     emoji: '🐱', treat: '🐟' },
+  { animal: 'dog',     label: 'Dog',     emoji: '🐶', treat: '🍖' },
+  { animal: 'bunny',   label: 'Bunny',   emoji: '🐰', treat: '🥕' },
+  { animal: 'hamster', label: 'Hamster', emoji: '🐹', treat: '🌰' },
+  { animal: 'axolotl', label: 'Axolotl', emoji: '🦎', treat: '🦐' },
+  { animal: 'dragon',  label: 'Dragon',  emoji: '🐲', treat: '🔥' },
 ];
+
+function getAnimalMeta(animal: PetAnimal) {
+  return ANIMALS.find((a) => a.animal === animal) ?? ANIMALS[0];
+}
 
 function computeLiveStats(pet: VirtualPet) {
   const now = Date.now();
@@ -155,47 +163,197 @@ interface PetViewProps {
   memberId: string;
 }
 
+const ATTENTION_TIMEOUT_MS = 30_000;
+
+const FEEDING_LINES = ['Yum!', 'So tasty!', 'Mmm!', 'Nom nom!', 'More please!'];
+const WATER_LINES = ['Refreshing!', 'Ahh~', 'So thirsty.', 'Glug glug!'];
+const PAT_LINES = ['I love you!', '<3', 'Tee-hee!', 'Pet me more!', 'Best human!'];
+const PLAY_LINES = ["Let's go!", 'Wheee!', "I'm so happy!", 'Again!'];
+const SLEEP_LINES = ['Zzz…', '*snore*', 'mmm…sleepy'];
+const ATTENTION_LINES = ['Hello?', '...bored', "Look at me!", 'play with me?'];
+
+function pick<T>(arr: T[]): T {
+  return arr[Math.floor(Math.random() * arr.length)];
+}
+
 function PetView({ pet, memberId }: PetViewProps) {
-  const { feedPet, waterPet, patPet, playWithPet } = useFamily();
+  const { feedPet, waterPet, patPet, playWithPet, wearAccessory, removeAccessory, gainXp } = useFamily();
   const [activeMood, setActiveMood] = useState<PetMood | null>(null);
   const [tick, setTick] = useState(0);
+  const [showMiniGame, setShowMiniGame] = useState(false);
+  const [showAccessories, setShowAccessories] = useState(false);
+  const [bubbleMessage, setBubbleMessage] = useState<string | null>(null);
+  const [bubbleKey, setBubbleKey] = useState(0);
+  const [heartBurstTrigger, setHeartBurstTrigger] = useState(0);
+  const [heartOrigin, setHeartOrigin] = useState<{ x: number; y: number } | null>(null);
+  const [dropHot, setDropHot] = useState(false);
+  const [attentionTrigger, setAttentionTrigger] = useState(0);
+  const [pagePaused, setPagePaused] = useState(false);
+  const canvasRef = useRef<PetCanvasHandle>(null);
+  const lastInteractionRef = useRef<number>(Date.now());
 
-  // Re-compute live stats every 30 seconds
+  // Re-compute live stats every 30 seconds so bars decay
   useEffect(() => {
     const id = setInterval(() => setTick((t) => t + 1), 30000);
     return () => clearInterval(id);
+  }, []);
+  void tick;
+
+  // Pause animations when document is hidden — Page Visibility API
+  useEffect(() => {
+    const onVis = () => setPagePaused(document.hidden);
+    document.addEventListener('visibilitychange', onVis);
+    setPagePaused(document.hidden);
+    return () => document.removeEventListener('visibilitychange', onVis);
   }, []);
 
   const { hunger, thirst, happiness } = computeLiveStats(pet);
   const baseMood = getMood(hunger, thirst, happiness);
   const mood = activeMood ?? baseMood;
 
-  const triggerMood = useCallback((m: PetMood) => {
+  const triggerMood = useCallback((m: PetMood, ms = 2000) => {
     setActiveMood(m);
-    setTimeout(() => setActiveMood(null), 2000);
+    window.setTimeout(() => setActiveMood(null), ms);
   }, []);
+
+  const speak = useCallback((text: string) => {
+    setBubbleMessage(text);
+    setBubbleKey((k) => k + 1);
+  }, []);
+
+  const noteInteraction = useCallback(() => {
+    lastInteractionRef.current = Date.now();
+  }, []);
+
+  // Attention idle: if no interaction for ATTENTION_TIMEOUT_MS, do something cute
+  useEffect(() => {
+    if (pagePaused) return;
+    const id = window.setInterval(() => {
+      const elapsed = Date.now() - lastInteractionRef.current;
+      if (elapsed >= ATTENTION_TIMEOUT_MS) {
+        setAttentionTrigger((t) => t + 1);
+        speak(pick(ATTENTION_LINES));
+        // Reset so we don't fire again immediately
+        lastInteractionRef.current = Date.now() - ATTENTION_TIMEOUT_MS / 2;
+      }
+    }, 10_000);
+    return () => window.clearInterval(id);
+  }, [pagePaused, speak]);
 
   const level = Math.floor(pet.xp / 100) + 1;
   const xpInLevel = pet.xp % 100;
   const nextLevelXp = 100;
-  const nextUnlockXp = pet.xp < 50 ? 50 : pet.xp < 150 ? 150 : pet.xp < 300 ? 300 : null;
   const hasPlay = pet.unlocked_actions.includes('play');
   const hasSuperPat = pet.unlocked_actions.includes('super_pat');
 
-  const animalEmoji = ANIMALS.find((a) => a.animal === pet.animal)?.emoji ?? '🐾';
+  const animalMeta = getAnimalMeta(pet.animal);
+  const stage = xpToStage(pet.xp);
+  const stageLabel = stage === 'baby' ? 'Baby' : stage === 'child' ? 'Junior' : 'Adult';
 
-  // suppress unused variable warning from tick
-  void tick;
+  const accessoriesWorn = Array.isArray(pet.accessories) ? pet.accessories : [];
+
+  // ---- Click-to-pat ----
+
+  const handlePetClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    // Squash+bounce + heart burst + pat
+    canvasRef.current?.reactSquash();
+    const rect = e.currentTarget.getBoundingClientRect();
+    setHeartOrigin({
+      x: e.clientX - rect.left,
+      y: e.clientY - rect.top,
+    });
+    setHeartBurstTrigger((t) => t + 1);
+    patPet(memberId);
+    triggerMood('happy', 1500);
+    speak(pick(PAT_LINES));
+    noteInteraction();
+  }, [patPet, memberId, triggerMood, speak, noteInteraction]);
+
+  // ---- Treat tray (drag-to-feed) ----
+
+  const onTreatDragStart = (e: React.DragEvent<HTMLDivElement>) => {
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', 'pet-treat');
+  };
+
+  const handleTreatDrop = useCallback(() => {
+    if (hunger >= 95) return;
+    feedPet(memberId);
+    triggerMood('eating', 1800);
+    canvasRef.current?.reactSquish();
+    speak(pick(FEEDING_LINES));
+    noteInteraction();
+  }, [feedPet, memberId, triggerMood, hunger, speak, noteInteraction]);
+
+  // ---- Standard buttons ----
+
+  const handleFeed = () => {
+    if (hunger >= 95) return;
+    feedPet(memberId);
+    triggerMood('eating', 1800);
+    canvasRef.current?.reactSquish();
+    speak(pick(FEEDING_LINES));
+    noteInteraction();
+  };
+  const handleWater = () => {
+    if (thirst >= 95) return;
+    waterPet(memberId);
+    triggerMood('drinking', 1800);
+    canvasRef.current?.reactSquish();
+    speak(pick(WATER_LINES));
+    noteInteraction();
+  };
+  const handlePat = () => {
+    patPet(memberId);
+    triggerMood('happy', 1500);
+    canvasRef.current?.reactSquash();
+    setHeartOrigin({ x: 90, y: 90 });
+    setHeartBurstTrigger((t) => t + 1);
+    speak(pick(PAT_LINES));
+    noteInteraction();
+  };
+  const handlePlay = () => {
+    playWithPet(memberId);
+    triggerMood('happy', 1500);
+    canvasRef.current?.reactSquash();
+    speak(pick(PLAY_LINES));
+    noteInteraction();
+  };
+
+  // ---- Sleeping idle bubble (lightweight: only triggered on mount + on mood change) ----
+
+  useEffect(() => {
+    if (mood === 'sleeping') {
+      speak(pick(SLEEP_LINES));
+    }
+  }, [mood, speak]);
+
+  // ---- Accessory wear/remove ----
+
+  const onToggleAccessory = useCallback((a: Accessory) => {
+    if (accessoriesWorn.includes(a.id)) {
+      removeAccessory(memberId, a.id);
+      return;
+    }
+    // Replace any currently-worn item in the same slot
+    const sameSlot = wornForSlot(accessoriesWorn, a.slot);
+    if (sameSlot) removeAccessory(memberId, sameSlot.id);
+    wearAccessory(memberId, a.id);
+  }, [accessoriesWorn, memberId, removeAccessory, wearAccessory]);
+
+  const upcoming = useMemo(() => nextUnlock(pet.xp), [pet.xp]);
 
   return (
     <div className="max-w-lg mx-auto space-y-5">
       {/* Header */}
       <div className="card p-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <span className="text-3xl">{animalEmoji}</span>
+          <span className="text-3xl">{animalMeta.emoji}</span>
           <div>
             <h2 className="font-display text-xl text-text leading-tight">{pet.name}</h2>
-            <p className="text-xs text-text-muted capitalize">{pet.animal}</p>
+            <p className="text-xs text-text-muted capitalize">
+              {pet.animal} · {stageLabel}
+            </p>
           </div>
         </div>
         <div className="text-right">
@@ -206,13 +364,27 @@ function PetView({ pet, memberId }: PetViewProps) {
         </div>
       </div>
 
-      {/* Pet canvas */}
-      <div className="card p-6 flex flex-col items-center gap-2">
-        <div className="relative">
-          <PetCanvas animal={pet.animal} mood={mood} size={180} />
-          {mood === 'happy' && (
-            <div className="absolute -top-2 -right-2 text-2xl pet-sparkle" style={{ animationDelay: '0.2s' }}>✨</div>
-          )}
+      {/* Pet canvas — interactive */}
+      <div className="card p-6 flex flex-col items-center gap-2 relative">
+        <div className={'relative ' + (dropHot ? 'pet-drop-hot' : '')}>
+          <PetCanvas
+            ref={canvasRef}
+            animal={pet.animal}
+            mood={mood}
+            size={200}
+            xp={pet.xp}
+            accessories={accessoriesWorn}
+            interactive
+            onPetClick={handlePetClick}
+            onTreatDrop={handleTreatDrop}
+            onTreatDragOver={setDropHot}
+            attentionTrigger={attentionTrigger}
+            paused={pagePaused}
+          />
+          {/* Speech bubble — anchored above the pet */}
+          <SpeechBubble messageKey={bubbleKey} text={bubbleMessage} />
+          {/* Heart burst — positioned at the click point */}
+          <HeartBurst trigger={heartBurstTrigger} origin={heartOrigin} />
           {mood === 'sad' && (
             <div className="absolute top-2 left-1/2 -translate-x-1/2 text-lg opacity-70">😢</div>
           )}
@@ -223,8 +395,28 @@ function PetView({ pet, memberId }: PetViewProps) {
            mood === 'eating' ? `${pet.name} is munching away!` :
            mood === 'drinking' ? `${pet.name} is drinking!` :
            mood === 'sleeping' ? `Shh… ${pet.name} is sleeping.` :
-           `${pet.name} is relaxing.`}
+           `${pet.name} is relaxing. Click them or drag a treat!`}
         </p>
+
+        {/* Treat tray — drag onto the pet to feed */}
+        <div className="mt-3 flex items-center gap-2 px-3 py-2 rounded-xl bg-surface-2/70 border border-border">
+          <span className="text-xs font-medium text-text-muted shrink-0">Drag a treat:</span>
+          <div className="flex gap-1.5">
+            {[animalMeta.treat, '🍎', '🍪', '🥩'].map((emoji, i) => (
+              <div
+                key={i}
+                draggable
+                onDragStart={onTreatDragStart}
+                onDragEnd={() => setDropHot(false)}
+                className="treat-drag select-none text-2xl px-2 py-1 rounded-lg bg-surface hover:bg-accent-soft transition-colors"
+                title="Drag onto your pet"
+                aria-label={`Drag ${emoji} onto your pet to feed them`}
+              >
+                {emoji}
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
 
       {/* Stats */}
@@ -239,44 +431,93 @@ function PetView({ pet, memberId }: PetViewProps) {
       <div className="card p-5">
         <h3 className="text-sm font-semibold text-text-muted uppercase tracking-wider mb-4">Actions</h3>
         <div className="flex flex-wrap gap-3 justify-center">
-          <ActionButton
-            emoji="🍎"
-            label="Feed"
-            color="#ef4444"
-            disabled={hunger >= 95}
-            onClick={() => { feedPet(memberId); triggerMood('eating'); }}
-          />
-          <ActionButton
-            emoji="💧"
-            label="Water"
-            color="#3b82f6"
-            disabled={thirst >= 95}
-            onClick={() => { waterPet(memberId); triggerMood('drinking'); }}
-          />
-          <ActionButton
-            emoji="❤️"
-            label="Pat"
-            color="#ec4899"
-            onClick={() => { patPet(memberId); triggerMood('happy'); }}
-          />
+          <ActionButton emoji="🍎" label="Feed" color="#ef4444"
+            disabled={hunger >= 95} onClick={handleFeed} />
+          <ActionButton emoji="💧" label="Water" color="#3b82f6"
+            disabled={thirst >= 95} onClick={handleWater} />
+          <ActionButton emoji="❤️" label="Pat" color="#ec4899" onClick={handlePat} />
           {hasPlay && (
-            <ActionButton
-              emoji="🎮"
-              label="Play"
-              color="#8b5cf6"
-              onClick={() => { playWithPet(memberId); triggerMood('happy'); }}
-            />
+            <ActionButton emoji="🎮" label="Play" color="#8b5cf6" onClick={handlePlay} />
           )}
           {hasSuperPat && (
-            <ActionButton
-              emoji="🌟"
-              label="Super Pat"
-              color="#f59e0b"
-              onClick={() => { patPet(memberId); triggerMood('happy'); }}
-            />
+            <ActionButton emoji="🌟" label="Super Pat" color="#f59e0b" onClick={handlePat} />
           )}
+          <ActionButton
+            emoji="🎯"
+            label="Mini-game"
+            color="#0ea5e9"
+            onClick={() => setShowMiniGame((v) => !v)}
+          />
+          <ActionButton
+            emoji="👒"
+            label="Wardrobe"
+            color="#a855f7"
+            onClick={() => setShowAccessories((v) => !v)}
+          />
         </div>
       </div>
+
+      {/* Mini-game */}
+      {showMiniGame && (
+        <MiniGame
+          xpPerCatch={2}
+          paused={pagePaused}
+          onEnd={(score) => {
+            if (score > 0) {
+              gainXp(memberId, score * 2);
+              speak(`+${score * 2} XP!`);
+              noteInteraction();
+            }
+          }}
+        />
+      )}
+
+      {/* Accessories */}
+      {showAccessories && (
+        <div className="card p-5 space-y-3">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-semibold text-text-muted uppercase tracking-wider">Wardrobe</h3>
+            {upcoming && (
+              <p className="text-xs text-text-faint">
+                Next: <span className="font-medium">{upcoming.emoji} {upcoming.label}</span>
+                {' '}at {upcoming.unlockXp} XP
+              </p>
+            )}
+          </div>
+          <div className="grid grid-cols-3 gap-2">
+            {ACCESSORIES.map((a) => {
+              const locked = pet.xp < a.unlockXp;
+              const worn = accessoriesWorn.includes(a.id);
+              return (
+                <button
+                  key={a.id}
+                  disabled={locked}
+                  onClick={() => onToggleAccessory(a)}
+                  className={
+                    'p-3 rounded-2xl border-2 text-center transition-all active:scale-95 ' +
+                    (worn
+                      ? 'border-accent bg-accent-soft shadow-md'
+                      : locked
+                        ? 'border-border bg-surface-2/40 opacity-50 cursor-not-allowed'
+                        : 'border-border hover:border-border-strong bg-surface-2/50')
+                  }
+                  title={locked ? `Unlocks at ${a.unlockXp} XP` : a.hint}
+                >
+                  <div className="text-2xl mb-1">{locked ? '🔒' : a.emoji}</div>
+                  <div className="text-xs font-medium text-text">{a.label}</div>
+                  <div className="text-[10px] text-text-faint capitalize">{a.slot}</div>
+                  {locked && (
+                    <div className="text-[10px] text-text-faint mt-0.5">{a.unlockXp} XP</div>
+                  )}
+                  {worn && (
+                    <div className="text-[10px] text-accent font-semibold mt-0.5">Wearing</div>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* XP & Level */}
       <div className="card p-5">
@@ -302,36 +543,31 @@ function PetView({ pet, memberId }: PetViewProps) {
             {xpInLevel} / {nextLevelXp} XP to Level {level + 1}
           </p>
         </div>
-        {nextUnlockXp && !hasPlay && (
-          <div className="mt-3 p-3 rounded-xl bg-surface-2/60 text-center">
-            <p className="text-xs text-text-muted">
-              🎮 <span className="font-semibold">Play</span> unlocks at {nextUnlockXp} XP
-              {' '}· {nextUnlockXp - pet.xp} XP to go
-            </p>
-          </div>
-        )}
-        {hasPlay && !hasSuperPat && (
-          <div className="mt-3 p-3 rounded-xl bg-surface-2/60 text-center">
-            <p className="text-xs text-text-muted">
-              🌟 <span className="font-semibold">Super Pat</span> unlocks at 150 XP
-              {' '}· {150 - pet.xp} XP to go
-            </p>
-          </div>
-        )}
-        {pet.xp < 300 && hasSuperPat && (
-          <div className="mt-3 p-3 rounded-xl bg-surface-2/60 text-center">
-            <p className="text-xs text-text-muted">
-              🎪 <span className="font-semibold">Trick</span> unlocks at 300 XP
-              {' '}· {300 - pet.xp} XP to go
-            </p>
-          </div>
-        )}
+        <div className="mt-3 grid grid-cols-3 gap-2">
+          <StageChip label="Baby" active={stage === 'baby'} hint="Lv 1–3" />
+          <StageChip label="Junior" active={stage === 'child'} hint="Lv 4–7" />
+          <StageChip label="Adult" active={stage === 'adult'} hint="Lv 8+" />
+        </div>
         <div className="mt-3 p-3 rounded-xl bg-accent-soft/50 text-center">
           <p className="text-xs text-text-muted">
-            Complete chores (+10 XP) and habits (+5 XP) to level up!
+            Complete chores (+10 XP), habits (+5 XP), or play the mini-game (+2 XP each catch) to grow!
           </p>
         </div>
       </div>
+    </div>
+  );
+}
+
+function StageChip({ label, active, hint }: { label: string; active: boolean; hint: string }) {
+  return (
+    <div className={
+      'text-center rounded-xl py-2 border ' +
+      (active
+        ? 'bg-accent text-white border-accent shadow-sm'
+        : 'bg-surface-2/60 text-text-muted border-border')
+    }>
+      <div className="text-xs font-semibold">{label}</div>
+      <div className={'text-[10px] ' + (active ? 'text-white/80' : 'text-text-faint')}>{hint}</div>
     </div>
   );
 }
