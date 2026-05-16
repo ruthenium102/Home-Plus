@@ -88,7 +88,7 @@ export function ListsPage() {
               (i) => i.list_id === list.id && !i.done
             ).length;
 
-            const { isDragging, isOver, ...rowHandlers } = listDnd.getRowProps(list.id);
+            const { isDragging, dropEdge, ...rowHandlers } = listDnd.getRowProps(list.id);
             return (
               <div
                 key={list.id}
@@ -97,7 +97,8 @@ export function ListsPage() {
                   'flex items-center gap-2 px-2 py-2 rounded-md transition-colors group ' +
                   (isActive ? 'bg-surface-2' : 'hover:bg-surface-2/60') + ' ' +
                   (isDragging ? 'opacity-40 ' : '') +
-                  (isOver ? 'ring-2 ring-accent ' : '')
+                  (dropEdge === 'top' ? 'shadow-[0_-3px_0_0_rgb(var(--accent))] ' : '') +
+                  (dropEdge === 'bottom' ? 'shadow-[0_3px_0_0_rgb(var(--accent))] ' : '')
                 }
               >
                 <DragHandle />
@@ -316,7 +317,7 @@ function ListItemRow({
     });
   };
 
-  const { isDragging, isOver, ...rowHandlers } = dragProps;
+  const { isDragging, dropEdge, ...rowHandlers } = dragProps;
   return (
     <SwipeableRow onDelete={handleDelete} mode={swipeMode}>
       <div
@@ -324,7 +325,8 @@ function ListItemRow({
         className={
           'flex items-center gap-2 p-3 bg-surface-2/40 hover:bg-surface-2/70 transition-colors ' +
           (isDragging ? 'opacity-40 ' : '') +
-          (isOver ? 'ring-2 ring-accent ' : '')
+          (dropEdge === 'top' ? 'shadow-[0_-3px_0_0_rgb(var(--accent))] ' : '') +
+          (dropEdge === 'bottom' ? 'shadow-[0_3px_0_0_rgb(var(--accent))] ' : '')
         }
       >
         <DragHandle />

@@ -263,14 +263,16 @@ function HabitRow({
   const target = habit.daily_target ?? 1;
   const targetMet = todayCount >= target;
 
-  const { isDragging, isOver, ...rowHandlers } = dragProps ?? { isDragging: false, isOver: false };
+  const { isDragging, isOver: _ignoredIsOver, dropEdge, ...rowHandlers } =
+    dragProps ?? { isDragging: false, isOver: false, dropEdge: null as 'top' | 'bottom' | null };
   return (
     <div
       {...(dragProps ? rowHandlers : {})}
       className={
         'flex items-center gap-3 p-3 rounded-md bg-surface-2/40 hover:bg-surface-2/70 transition-colors ' +
         (isDragging ? 'opacity-40 ' : '') +
-        (isOver ? 'ring-2 ring-accent ' : '')
+        (dropEdge === 'top' ? 'shadow-[0_-3px_0_0_rgb(var(--accent))] ' : '') +
+        (dropEdge === 'bottom' ? 'shadow-[0_3px_0_0_rgb(var(--accent))] ' : '')
       }
     >
       {dragProps && <DragHandle />}

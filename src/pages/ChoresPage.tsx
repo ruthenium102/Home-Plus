@@ -467,7 +467,7 @@ function ParentManage() {
 
       <div className="card divide-y divide-border">
         {activeChores.map((c) => {
-            const { isDragging, isOver, ...rowHandlers } = choreDnd.getRowProps(c.id);
+            const { isDragging, dropEdge, ...rowHandlers } = choreDnd.getRowProps(c.id);
             return (
             <SwipeableRow
               key={c.id}
@@ -480,7 +480,8 @@ function ParentManage() {
                 className={
                   'w-full flex items-center gap-3 p-3 bg-surface-2/40 hover:bg-surface-2/70 transition-colors cursor-pointer first:rounded-t-lg last:rounded-b-lg ' +
                   (isDragging ? 'opacity-40 ' : '') +
-                  (isOver ? 'ring-2 ring-accent ' : '')
+                  (dropEdge === 'top' ? 'shadow-[0_-3px_0_0_rgb(var(--accent))] ' : '') +
+                  (dropEdge === 'bottom' ? 'shadow-[0_3px_0_0_rgb(var(--accent))] ' : '')
                 }
               >
                 <DragHandle />

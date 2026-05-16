@@ -30,20 +30,63 @@ import type {
 } from '@/types';
 
 // ---------------------------------------------------------------------------
+// Pending-write tracking
+// ---------------------------------------------------------------------------
+// Writes are fire-and-forget, but reads (poll, visibility refresh, realtime
+// echoes) can race ahead of the network round-trip and overwrite optimistic
+// local state with stale rows. We mark every write as "pending" for a short
+// window, and merge logic upstream skips overwriting these rows.
+//
+// We hold the marker for a brief tail after the server ACK so the next poll
+// (which may have snapshotted just before the commit landed) still treats the
+// row as pending.
+
+const PENDING_TTL_MS = 10_000;
+const PENDING_TAIL_MS = 2_500;
+const pending: Map<string, Map<string, number>> = new Map();
+
+function markPending(table: string, id: string) {
+  let m = pending.get(table);
+  if (!m) { m = new Map(); pending.set(table, m); }
+  m.set(id, Date.now());
+}
+
+function tailPending(table: string, id: string) {
+  // Reset the timestamp so the row stays pending for PENDING_TAIL_MS after ACK.
+  const m = pending.get(table);
+  if (!m || !m.has(id)) return;
+  m.set(id, Date.now() - (PENDING_TTL_MS - PENDING_TAIL_MS));
+}
+
+export function isPendingWrite(table: string, id: string): boolean {
+  const m = pending.get(table);
+  if (!m) return false;
+  const t = m.get(id);
+  if (t === undefined) return false;
+  if (Date.now() - t > PENDING_TTL_MS) { m.delete(id); return false; }
+  return true;
+}
+
+// ---------------------------------------------------------------------------
 // Generic helpers
 // ---------------------------------------------------------------------------
 
 export function dbUpsert(table: string, data: Record<string, unknown>): void {
+  const id = typeof data.id === 'string' ? data.id : null;
+  if (id) markPending(table, id);
   if (!supabase) return;
   supabase.from(table).upsert(data).then(({ error }) => {
     if (error) console.warn(`[db] upsert ${table}:`, error.message);
+    if (id) tailPending(table, id);
   });
 }
 
 export function dbDelete(table: string, id: string): void {
+  markPending(table, id);
   if (!supabase) return;
   supabase.from(table).delete().eq('id', id).then(({ error }) => {
     if (error) console.warn(`[db] delete ${table}:`, error.message);
+    tailPending(table, id);
   });
 }
 

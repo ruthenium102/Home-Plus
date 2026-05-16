@@ -9,7 +9,7 @@ import {
   ReactNode
 } from 'react';
 import { localISO } from '@/lib/dates';
-import { dbUpsert, dbDelete, dbLoadFamily, dbCreateFamily } from '@/lib/db';
+import { dbUpsert, dbDelete, dbLoadFamily, dbCreateFamily, isPendingWrite } from '@/lib/db';
 import {
   storage,
   DEMO_FAMILY,
@@ -534,81 +534,90 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
     if (!LIVE || !supabase || !family.id || family.id === DEMO_FAMILY.id) return;
     const fid = family.id;
 
-    const upsertById = <T extends { id: string }>(setter: React.Dispatch<React.SetStateAction<T[]>>, item: T) =>
-      setter((prev) => prev.some((x) => x.id === item.id) ? prev.map((x) => x.id === item.id ? item : x) : [...prev, item]);
-    const removeById = <T extends { id: string }>(setter: React.Dispatch<React.SetStateAction<T[]>>, id: string) =>
-      setter((prev) => prev.filter((x) => x.id !== id));
+    // Skip applying the remote change if our local write for this row is still
+    // pending — otherwise an echo of stale server state can clobber the just-
+    // made optimistic edit.
+    const upsertById = <T extends { id: string }>(table: string, setter: React.Dispatch<React.SetStateAction<T[]>>, item: T) =>
+      setter((prev) => {
+        if (isPendingWrite(table, item.id)) return prev;
+        return prev.some((x) => x.id === item.id) ? prev.map((x) => x.id === item.id ? item : x) : [...prev, item];
+      });
+    const removeById = <T extends { id: string }>(table: string, setter: React.Dispatch<React.SetStateAction<T[]>>, id: string) =>
+      setter((prev) => {
+        if (isPendingWrite(table, id)) return prev;
+        return prev.filter((x) => x.id !== id);
+      });
 
     const channel = supabase.channel(`hp-${fid}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'family_members', filter: `family_id=eq.${fid}` },
         ({ eventType, new: n, old: o }) => {
-          if (eventType === 'DELETE') removeById(setMembers, (o as FamilyMember).id);
-          else upsertById(setMembers, n as FamilyMember);
+          if (eventType === 'DELETE') removeById('family_members', setMembers, (o as FamilyMember).id);
+          else upsertById('family_members', setMembers, n as FamilyMember);
         })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'events', filter: `family_id=eq.${fid}` },
         ({ eventType, new: n, old: o }) => {
-          if (eventType === 'DELETE') removeById(setEvents, (o as CalendarEvent).id);
-          else upsertById(setEvents, n as CalendarEvent);
+          if (eventType === 'DELETE') removeById('events', setEvents, (o as CalendarEvent).id);
+          else upsertById('events', setEvents, n as CalendarEvent);
         })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'chores', filter: `family_id=eq.${fid}` },
         ({ eventType, new: n, old: o }) => {
-          if (eventType === 'DELETE') removeById(setChores, (o as Chore).id);
-          else upsertById(setChores, n as Chore);
+          if (eventType === 'DELETE') removeById('chores', setChores, (o as Chore).id);
+          else upsertById('chores', setChores, n as Chore);
         })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'chore_completions', filter: `family_id=eq.${fid}` },
         ({ eventType, new: n, old: o }) => {
-          if (eventType === 'DELETE') removeById(setCompletions, (o as ChoreCompletion).id);
-          else upsertById(setCompletions, n as ChoreCompletion);
+          if (eventType === 'DELETE') removeById('chore_completions', setCompletions, (o as ChoreCompletion).id);
+          else upsertById('chore_completions', setCompletions, n as ChoreCompletion);
         })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'todo_lists', filter: `family_id=eq.${fid}` },
         ({ eventType, new: n, old: o }) => {
-          if (eventType === 'DELETE') removeById(setLists, (o as TodoList).id);
-          else upsertById(setLists, n as TodoList);
+          if (eventType === 'DELETE') removeById('todo_lists', setLists, (o as TodoList).id);
+          else upsertById('todo_lists', setLists, n as TodoList);
         })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'todo_items', filter: `family_id=eq.${fid}` },
         ({ eventType, new: n, old: o }) => {
-          if (eventType === 'DELETE') removeById(setListItems, (o as TodoItem).id);
-          else upsertById(setListItems, n as TodoItem);
+          if (eventType === 'DELETE') removeById('todo_items', setListItems, (o as TodoItem).id);
+          else upsertById('todo_items', setListItems, n as TodoItem);
         })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'habits', filter: `family_id=eq.${fid}` },
         ({ eventType, new: n, old: o }) => {
-          if (eventType === 'DELETE') removeById(setHabits, (o as Habit).id);
-          else upsertById(setHabits, n as Habit);
+          if (eventType === 'DELETE') removeById('habits', setHabits, (o as Habit).id);
+          else upsertById('habits', setHabits, n as Habit);
         })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'habit_check_ins', filter: `family_id=eq.${fid}` },
         ({ eventType, new: n, old: o }) => {
-          if (eventType === 'DELETE') removeById(setCheckIns, (o as HabitCheckIn).id);
-          else upsertById(setCheckIns, n as HabitCheckIn);
+          if (eventType === 'DELETE') removeById('habit_check_ins', setCheckIns, (o as HabitCheckIn).id);
+          else upsertById('habit_check_ins', setCheckIns, n as HabitCheckIn);
         })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'reward_goals', filter: `family_id=eq.${fid}` },
         ({ eventType, new: n, old: o }) => {
-          if (eventType === 'DELETE') removeById(setGoals, (o as RewardGoal).id);
-          else upsertById(setGoals, n as RewardGoal);
+          if (eventType === 'DELETE') removeById('reward_goals', setGoals, (o as RewardGoal).id);
+          else upsertById('reward_goals', setGoals, n as RewardGoal);
         })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'redemptions', filter: `family_id=eq.${fid}` },
         ({ eventType, new: n, old: o }) => {
-          if (eventType === 'DELETE') removeById(setRedemptions, (o as Redemption).id);
-          else upsertById(setRedemptions, n as Redemption);
+          if (eventType === 'DELETE') removeById('redemptions', setRedemptions, (o as Redemption).id);
+          else upsertById('redemptions', setRedemptions, n as Redemption);
         })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'day_plan_blocks', filter: `family_id=eq.${fid}` },
         ({ eventType, new: n, old: o }) => {
-          if (eventType === 'DELETE') removeById(setDayPlanBlocks, (o as DayPlanBlock).id);
-          else upsertById(setDayPlanBlocks, n as DayPlanBlock);
+          if (eventType === 'DELETE') removeById('day_plan_blocks', setDayPlanBlocks, (o as DayPlanBlock).id);
+          else upsertById('day_plan_blocks', setDayPlanBlocks, n as DayPlanBlock);
         })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'activity_pool_items', filter: `family_id=eq.${fid}` },
         ({ eventType, new: n, old: o }) => {
-          if (eventType === 'DELETE') removeById(setActivityPool, (o as ActivityPoolItem).id);
-          else upsertById(setActivityPool, n as ActivityPoolItem);
+          if (eventType === 'DELETE') removeById('activity_pool_items', setActivityPool, (o as ActivityPoolItem).id);
+          else upsertById('activity_pool_items', setActivityPool, n as ActivityPoolItem);
         })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'recipes', filter: `family_id=eq.${fid}` },
         ({ eventType, new: n, old: o }) => {
-          if (eventType === 'DELETE') removeById(setRecipes, (o as Recipe).id);
-          else upsertById(setRecipes, n as Recipe);
+          if (eventType === 'DELETE') removeById('recipes', setRecipes, (o as Recipe).id);
+          else upsertById('recipes', setRecipes, n as Recipe);
         })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'meal_plans', filter: `family_id=eq.${fid}` },
         ({ eventType, new: n, old: o }) => {
-          if (eventType === 'DELETE') removeById(setMealPlans, (o as MealPlan).id);
-          else upsertById(setMealPlans, n as MealPlan);
+          if (eventType === 'DELETE') removeById('meal_plans', setMealPlans, (o as MealPlan).id);
+          else upsertById('meal_plans', setMealPlans, n as MealPlan);
         })
       .subscribe();
 
@@ -753,6 +762,31 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
   const [reloading, setReloading] = useState(false);
   const [lastReloadAt, setLastReloadAt] = useState(0);
 
+  // Returns a functional state updater that merges polled cloud data with
+  // local state, preserving rows that have pending local writes (so an in-
+  // flight optimistic edit isn't clobbered by a poll snapshot from before
+  // the write landed). Locally-deleted rows that are pending stay deleted;
+  // locally-created rows that haven't propagated yet are preserved.
+  const mergePolled = <T extends { id: string }>(table: string, polled: T[]) =>
+    (prev: T[]): T[] => {
+      const prevById = new Map(prev.map((p) => [p.id, p]));
+      const polledIds = new Set(polled.map((p) => p.id));
+      const out: T[] = [];
+      for (const p of polled) {
+        if (isPendingWrite(table, p.id)) {
+          const local = prevById.get(p.id);
+          if (local) out.push(local); // local update still in flight — keep ours
+          // else: locally deleted, in-flight — skip this polled row
+        } else {
+          out.push(p);
+        }
+      }
+      for (const l of prev) {
+        if (!polledIds.has(l.id) && isPendingWrite(table, l.id)) out.push(l);
+      }
+      return out;
+    };
+
   const reloadFromCloud = useCallback(async (): Promise<{ ok: boolean; error?: string }> => {
     if (!LIVE || !supabase) return { ok: false, error: 'Supabase not configured (demo mode)' };
     if (!family.id || family.id === DEMO_FAMILY.id) return { ok: false, error: 'No real family loaded' };
@@ -762,20 +796,20 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
       const data = await dbLoadFamily(family.id);
       if (data) {
         setFamily(data.family);
-        setMembers(data.members);
-        setEvents(data.events);
-        setChores(data.chores);
-        setCompletions(data.completions);
-        setLists(data.lists);
-        setListItems(data.listItems);
-        setHabits(data.habits);
-        setCheckIns(data.checkIns);
-        setGoals(data.goals);
-        setRedemptions(data.redemptions);
-        setDayPlanBlocks(data.dayPlanBlocks);
-        setActivityPool(data.activityPool);
-        setRecipes(data.recipes);
-        setMealPlans(data.mealPlans);
+        setMembers(mergePolled('family_members', data.members));
+        setEvents(mergePolled('events', data.events));
+        setChores(mergePolled('chores', data.chores));
+        setCompletions(mergePolled('chore_completions', data.completions));
+        setLists(mergePolled('todo_lists', data.lists));
+        setListItems(mergePolled('todo_items', data.listItems));
+        setHabits(mergePolled('habits', data.habits));
+        setCheckIns(mergePolled('habit_check_ins', data.checkIns));
+        setGoals(mergePolled('reward_goals', data.goals));
+        setRedemptions(mergePolled('redemptions', data.redemptions));
+        setDayPlanBlocks(mergePolled('day_plan_blocks', data.dayPlanBlocks));
+        setActivityPool(mergePolled('activity_pool_items', data.activityPool));
+        setRecipes(mergePolled('recipes', data.recipes));
+        setMealPlans(mergePolled('meal_plans', data.mealPlans));
         setLastReloadAt(Date.now());
         return { ok: true };
       }
@@ -809,20 +843,20 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
         supabase!.from('meal_plans').select('*').eq('family_id', family.id),
       ]);
       const [mems, evs, ch, cc, tl, ti, hb, hci, rg, rd, dpb, api, rec, mp] = probes;
-      setMembers((mems.data ?? []) as unknown as FamilyMember[]);
-      setEvents((evs.data ?? []) as unknown as CalendarEvent[]);
-      setChores((ch.data ?? []) as unknown as Chore[]);
-      setCompletions((cc.data ?? []) as unknown as ChoreCompletion[]);
-      setLists((tl.data ?? []) as unknown as TodoList[]);
-      setListItems((ti.data ?? []) as unknown as TodoItem[]);
-      setHabits((hb.data ?? []) as unknown as Habit[]);
-      setCheckIns((hci.data ?? []) as unknown as HabitCheckIn[]);
-      setGoals((rg.data ?? []) as unknown as RewardGoal[]);
-      setRedemptions((rd.data ?? []) as unknown as Redemption[]);
-      setDayPlanBlocks((dpb.data ?? []) as unknown as DayPlanBlock[]);
-      setActivityPool((api.data ?? []) as unknown as ActivityPoolItem[]);
-      setRecipes((rec.data ?? []) as unknown as Recipe[]);
-      setMealPlans((mp.data ?? []) as unknown as MealPlan[]);
+      setMembers(mergePolled('family_members', (mems.data ?? []) as unknown as FamilyMember[]));
+      setEvents(mergePolled('events', (evs.data ?? []) as unknown as CalendarEvent[]));
+      setChores(mergePolled('chores', (ch.data ?? []) as unknown as Chore[]));
+      setCompletions(mergePolled('chore_completions', (cc.data ?? []) as unknown as ChoreCompletion[]));
+      setLists(mergePolled('todo_lists', (tl.data ?? []) as unknown as TodoList[]));
+      setListItems(mergePolled('todo_items', (ti.data ?? []) as unknown as TodoItem[]));
+      setHabits(mergePolled('habits', (hb.data ?? []) as unknown as Habit[]));
+      setCheckIns(mergePolled('habit_check_ins', (hci.data ?? []) as unknown as HabitCheckIn[]));
+      setGoals(mergePolled('reward_goals', (rg.data ?? []) as unknown as RewardGoal[]));
+      setRedemptions(mergePolled('redemptions', (rd.data ?? []) as unknown as Redemption[]));
+      setDayPlanBlocks(mergePolled('day_plan_blocks', (dpb.data ?? []) as unknown as DayPlanBlock[]));
+      setActivityPool(mergePolled('activity_pool_items', (api.data ?? []) as unknown as ActivityPoolItem[]));
+      setRecipes(mergePolled('recipes', (rec.data ?? []) as unknown as Recipe[]));
+      setMealPlans(mergePolled('meal_plans', (mp.data ?? []) as unknown as MealPlan[]));
       setLastReloadAt(Date.now());
 
       const detail = fErrMsg
