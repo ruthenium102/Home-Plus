@@ -23,12 +23,12 @@ interface Props {
 
 export function TopBar({ onSwitchUser }: Props) {
   const { family, activeMember } = useFamily();
-  const { temp, code, locationName, loading, error, locationStatus, requestLocation } =
+  const { temp, code, locationName, loading, error, locationStatus, requestLocation, unit } =
     useWeather();
   const now = new Date();
 
   const WeatherIcon = code !== null ? (ICON_MAP[weatherIconName(code)] ?? Cloud) : null;
-  const tempStr = loading ? '—°' : error ? '?°' : temp !== null ? `${temp}°` : null;
+  const tempStr = loading ? '—°' : error ? '?°' : temp !== null ? `${temp}°${unit}` : null;
 
   return (
     <div className="flex items-center justify-between mb-6">

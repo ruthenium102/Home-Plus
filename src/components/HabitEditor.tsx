@@ -28,7 +28,6 @@ export function HabitEditor({ open, editing, onClose }: Props) {
   const [cadence, setCadence] = useState<HabitCadence>('daily');
   const [visibility, setVisibility] = useState<'private' | 'shared'>('private');
   const [streakRewards, setStreakRewards] = useState(false);
-  const [countMode, setCountMode] = useState(false);
   const [dailyTarget, setDailyTarget] = useState(1);
 
   useEffect(() => {
@@ -40,7 +39,6 @@ export function HabitEditor({ open, editing, onClose }: Props) {
       setCadence(editing.cadence);
       setVisibility(editing.visibility);
       setStreakRewards(editing.streak_rewards);
-      setCountMode(editing.count_mode ?? false);
       setDailyTarget(editing.daily_target ?? 1);
     } else {
       setTitle('');
@@ -49,7 +47,6 @@ export function HabitEditor({ open, editing, onClose }: Props) {
       setCadence('daily');
       setVisibility('private');
       setStreakRewards(false);
-      setCountMode(false);
       setDailyTarget(1);
     }
   }, [open, editing, activeMember]);
@@ -69,8 +66,8 @@ export function HabitEditor({ open, editing, onClose }: Props) {
       visibility,
       streak_rewards: isKid ? streakRewards : false,
       archived: false,
-      count_mode: countMode,
-      daily_target: countMode ? Math.max(1, dailyTarget) : 1
+      count_mode: true,
+      daily_target: Math.max(1, dailyTarget)
     };
     if (editing) {
       updateHabit(editing.id, payload);
@@ -232,61 +229,44 @@ export function HabitEditor({ open, editing, onClose }: Props) {
             </label>
           )}
 
-          {/* Count mode */}
-          <label className="flex items-center gap-3 cursor-pointer p-3 rounded-md border border-border hover:bg-surface-2/50">
-            <input
-              type="checkbox"
-              checked={countMode}
-              onChange={(e) => setCountMode(e.target.checked)}
-              className="accent-accent w-4 h-4"
-            />
+          {/* Daily target — every habit has one (default 1). Count mode is
+              now implicit. */}
+          <div className="flex items-center gap-3 px-3 py-2.5 rounded-md bg-surface-2/60 border border-border">
             <Hash size={15} className="text-accent" />
-            <div className="flex-1">
-              <div className="text-sm text-text font-medium">Count mode</div>
-              <div className="text-[11px] text-text-faint">
-                Track how many times per day (e.g. glasses of water)
-              </div>
+            <span className="text-sm text-text-muted flex-1">Daily target</span>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setDailyTarget((v) => Math.max(1, v - 1))}
+                className="w-7 h-7 rounded-md border border-border flex items-center justify-center text-text-muted hover:bg-surface-2 hover:text-text text-base leading-none"
+              >
+                −
+              </button>
+              <input
+                type="number"
+                min={1}
+                max={99}
+                value={dailyTarget}
+                onChange={(e) => {
+                  const v = parseInt(e.target.value, 10);
+                  if (!isNaN(v)) setDailyTarget(Math.min(99, Math.max(1, v)));
+                }}
+                className="w-12 text-center px-1 py-1 bg-surface-2 border border-border rounded-md text-text text-sm font-medium focus:outline-none focus:border-accent"
+              />
+              <button
+                type="button"
+                onClick={() => setDailyTarget((v) => Math.min(99, v + 1))}
+                className="w-7 h-7 rounded-md border border-border flex items-center justify-center text-text-muted hover:bg-surface-2 hover:text-text text-base leading-none"
+              >
+                +
+              </button>
             </div>
-          </label>
+          </div>
 
-          {/* Daily target — shown only when count mode is on */}
-          {countMode && (
-            <div className="flex items-center gap-3 px-3 py-2.5 rounded-md bg-surface-2/60 border border-border">
-              <span className="text-sm text-text-muted flex-1">Daily target</span>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setDailyTarget((v) => Math.max(1, v - 1))}
-                  className="w-7 h-7 rounded-md border border-border flex items-center justify-center text-text-muted hover:bg-surface-2 hover:text-text text-base leading-none"
-                >
-                  −
-                </button>
-                <input
-                  type="number"
-                  min={1}
-                  max={99}
-                  value={dailyTarget}
-                  onChange={(e) => {
-                    const v = parseInt(e.target.value, 10);
-                    if (!isNaN(v)) setDailyTarget(Math.min(99, Math.max(1, v)));
-                  }}
-                  className="w-12 text-center px-1 py-1 bg-surface-2 border border-border rounded-md text-text text-sm font-medium focus:outline-none focus:border-accent"
-                />
-                <button
-                  type="button"
-                  onClick={() => setDailyTarget((v) => Math.min(99, v + 1))}
-                  className="w-7 h-7 rounded-md border border-border flex items-center justify-center text-text-muted hover:bg-surface-2 hover:text-text text-base leading-none"
-                >
-                  +
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* Recent counts — only for count-mode habits being edited. Lets
-              the user correct over-counts (the inline +/- was removed from
-              the main view per design). */}
-          {editing && countMode && (
+          {/* Recent counts — only when editing an existing habit. Lets the
+              user correct over-counts (the inline +/- was removed from the
+              main view per design). */}
+          {editing && (
             <div className="space-y-2">
               <div className="text-sm text-text-muted">Recent counts</div>
               <div className="rounded-md border border-border divide-y divide-border overflow-hidden">

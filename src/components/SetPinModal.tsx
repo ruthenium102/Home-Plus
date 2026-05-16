@@ -15,32 +15,45 @@ interface Props {
 type Step = 'verify_current' | 'enter_new' | 'confirm_new' | 'remove_confirm';
 
 export function SetPinModal({ open, member, onClose }: Props) {
-  const { setMemberPin } = useFamily();
+  const { setMemberPin, activeMember } = useFamily();
   const [step, setStep] = useState<Step>('enter_new');
   const [firstPin, setFirstPin] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [mode, setMode] = useState<'set' | 'remove' | null>(null);
+  // Bumped on every step transition so the PinPad clears its entered dots
+  // before the user re-enters / confirms the next value.
+  const [padResetKey, setPadResetKey] = useState(0);
 
   if (!open || !member) return null;
 
   const hasPin = member.pin_hash !== null;
-  const initialStep: Step = hasPin ? 'verify_current' : 'enter_new';
+  // Parent override: a parent editing another member's PIN can bypass the
+  // current-PIN check entirely (covers the "kid forgot their PIN" case).
+  const canOverride =
+    activeMember?.role === 'parent' && activeMember.id !== member.id;
+  const requiresVerify = hasPin && !canOverride;
+  const initialStep: Step = requiresVerify ? 'verify_current' : 'enter_new';
   // For has-PIN flows the user must pick set/remove first (mode), and until
-  // they do we keep showing the chooser. For no-PIN flows we walk step
-  // directly so it can advance enter_new → confirm_new without being pinned
-  // back to initialStep on each render.
-  const currentStep = mode || !hasPin ? step : initialStep;
+  // they do we keep showing the chooser. For no-PIN / override flows we walk
+  // step directly so it advances enter_new → confirm_new on each render.
+  const currentStep = mode || !requiresVerify ? step : initialStep;
 
   const reset = () => {
     setStep('enter_new');
     setFirstPin('');
     setError(null);
     setMode(null);
+    setPadResetKey((k) => k + 1);
   };
 
   const handleClose = () => {
     reset();
     onClose();
+  };
+
+  const advance = (next: Step) => {
+    setStep(next);
+    setPadResetKey((k) => k + 1);
   };
 
   const handlePinComplete = (pin: string) => {
@@ -56,22 +69,22 @@ export function SetPinModal({ open, member, onClose }: Props) {
         setMemberPin(member.id, null);
         handleClose();
       } else {
-        setStep('enter_new');
+        advance('enter_new');
       }
       return;
     }
 
     if (currentStep === 'enter_new') {
       setFirstPin(pin);
-      setStep('confirm_new');
+      advance('confirm_new');
       return;
     }
 
     if (currentStep === 'confirm_new') {
       if (pin !== firstPin) {
         setError("PINs don't match");
-        setStep('enter_new');
         setFirstPin('');
+        advance('enter_new');
         return;
       }
       setMemberPin(member.id, pin);
@@ -80,8 +93,13 @@ export function SetPinModal({ open, member, onClose }: Props) {
     }
   };
 
-  // Initial choice screen if member already has a PIN
+  // Initial choice screen if member already has a PIN. Parent-override skips
+  // straight to enter_new (no current PIN required) but we still let them
+  // pick set vs. remove explicitly.
   if (hasPin && !mode) {
+    const overrideHint = canOverride
+      ? 'Parent override — no current PIN needed'
+      : "You'll need the current one first";
     return (
       <div
         className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4"
@@ -111,22 +129,26 @@ export function SetPinModal({ open, member, onClose }: Props) {
             <button
               onClick={() => {
                 setMode('set');
-                setStep('verify_current');
+                advance(canOverride ? 'enter_new' : 'verify_current');
               }}
               className="w-full flex items-center gap-3 p-4 rounded-md border border-border hover:bg-surface-2 transition-colors text-left"
             >
               <Lock size={18} className="text-text-muted" />
               <div className="flex-1">
                 <div className="text-sm font-medium text-text">Change PIN</div>
-                <div className="text-xs text-text-faint">
-                  You'll need the current one first
-                </div>
+                <div className="text-xs text-text-faint">{overrideHint}</div>
               </div>
             </button>
             <button
               onClick={() => {
+                if (canOverride) {
+                  // Parent skips verification and removes directly.
+                  setMemberPin(member.id, null);
+                  handleClose();
+                  return;
+                }
                 setMode('remove');
-                setStep('verify_current');
+                advance('verify_current');
               }}
               className="w-full flex items-center gap-3 p-4 rounded-md border border-border hover:bg-surface-2 transition-colors text-left"
             >
@@ -134,7 +156,9 @@ export function SetPinModal({ open, member, onClose }: Props) {
               <div className="flex-1">
                 <div className="text-sm font-medium text-text">Remove PIN</div>
                 <div className="text-xs text-text-faint">
-                  Anyone will be able to tap straight in
+                  {canOverride
+                    ? 'Removes now — anyone will be able to tap straight in'
+                    : 'Anyone will be able to tap straight in'}
                 </div>
               </div>
             </button>
@@ -152,6 +176,15 @@ export function SetPinModal({ open, member, onClose }: Props) {
           ? 'Enter new PIN'
           : 'Choose a PIN'
         : 'Confirm PIN';
+
+  const saveLabel =
+    currentStep === 'verify_current' ? 'Unlock' :
+    currentStep === 'confirm_new' ? 'Save PIN' :
+    'Next';
+
+  // The verify step keeps the auto-submit behaviour (lighter touch); the
+  // setup/confirm steps require an explicit Save tap so the user can review.
+  const submitMode = currentStep === 'verify_current' ? 'auto' : 'save';
 
   return (
     <div
@@ -181,6 +214,9 @@ export function SetPinModal({ open, member, onClose }: Props) {
             error={error}
             prompt={prompt}
             onCancel={handleClose}
+            resetKey={padResetKey}
+            submitMode={submitMode}
+            saveLabel={saveLabel}
           />
         </div>
       </div>

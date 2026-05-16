@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
-import { Sun, Moon, Monitor, Lock, LockOpen, MapPin, Search, X, UserPlus, LogOut, Pencil, Home, Calendar, ListChecks, Trophy, Sparkles, ChefHat, PawPrint, ChevronUp, ChevronDown } from 'lucide-react';
+import { Sun, Moon, Monitor, Lock, LockOpen, MapPin, Search, X, UserPlus, LogOut, Pencil, Home, Calendar, ListChecks, Trophy, Sparkles, ChefHat, PawPrint } from 'lucide-react';
+import { DragHandle } from '@/components/DragHandle';
+import { useListDragReorder } from '@/hooks/useListDragReorder';
 import { useFamily } from '@/context/FamilyContext';
 import { useTheme } from '@/context/ThemeContext';
 import { useWeather } from '@/hooks/useWeather';
@@ -23,10 +25,11 @@ interface GeoResult {
 }
 
 export function SettingsPage() {
-  const { members, family, isDemoMode, updateMember, signOut, activeMember, kitchenSettings, updateKitchenSettings, moveMember } =
+  const { members, family, isDemoMode, updateMember, signOut, activeMember, kitchenSettings, updateKitchenSettings, reorderMembers } =
     useFamily();
+  const memberDnd = useListDragReorder(members, reorderMembers);
   const { mode, setMode } = useTheme();
-  const { temp, locationName, locationStatus, resetLocation, setManualLocation } = useWeather();
+  const { temp, locationName, locationStatus, resetLocation, setManualLocation, unit, setUnit } = useWeather();
   const { authSignOut } = useAuth();
   const [pinTarget, setPinTarget] = useState<FamilyMember | null>(null);
   const [editTarget, setEditTarget] = useState<FamilyMember | null>(null);
@@ -164,20 +167,19 @@ export function SettingsPage() {
           )}
         </div>
         <div className="space-y-2">
-          {members.map((m, idx) => (
-            <MemberRow
-              key={m.id}
-              member={m}
-              isActive={activeMember?.id === m.id}
-              canReorder={isParent && members.length > 1}
-              canMoveUp={idx > 0}
-              canMoveDown={idx < members.length - 1}
-              onMoveUp={() => moveMember(m.id, 'up')}
-              onMoveDown={() => moveMember(m.id, 'down')}
-              onEdit={() => setEditTarget(m)}
-              onSetPin={() => setPinTarget(m)}
-            />
-          ))}
+          {members.map((m) => {
+            const rowProps = isParent && members.length > 1 ? memberDnd.getRowProps(m.id) : null;
+            return (
+              <MemberRow
+                key={m.id}
+                member={m}
+                isActive={activeMember?.id === m.id}
+                dragProps={rowProps}
+                onEdit={() => setEditTarget(m)}
+                onSetPin={() => setPinTarget(m)}
+              />
+            );
+          })}
         </div>
       </section>
 
@@ -332,7 +334,29 @@ export function SettingsPage() {
           </div>
           <div>
             <div className="text-text-faint text-xs uppercase tracking-wider mb-1">Current</div>
-            <div className="text-text">{temp !== null ? `${temp}°` : '—'}</div>
+            <div className="text-text">{temp !== null ? `${temp}°${unit}` : '—'}</div>
+          </div>
+        </div>
+
+        {/* Unit toggle */}
+        <div className="flex items-center justify-between mb-4 p-2 rounded-md bg-surface-2/40">
+          <span className="text-sm text-text-muted">Show temperatures in</span>
+          <div className="flex items-center bg-surface-2 border border-border rounded-md p-0.5">
+            {(['C', 'F'] as const).map((u) => (
+              <button
+                key={u}
+                onClick={() => setUnit(u)}
+                className={
+                  'px-3 py-1 rounded text-xs font-semibold transition-colors ' +
+                  (unit === u
+                    ? 'bg-accent text-white'
+                    : 'text-text-muted hover:text-text')
+                }
+                aria-pressed={unit === u}
+              >
+                °{u}
+              </button>
+            ))}
           </div>
         </div>
 
@@ -430,49 +454,28 @@ export function SettingsPage() {
 function MemberRow({
   member,
   isActive,
-  canReorder,
-  canMoveUp,
-  canMoveDown,
-  onMoveUp,
-  onMoveDown,
+  dragProps,
   onEdit,
   onSetPin
 }: {
   member: FamilyMember;
   isActive: boolean;
-  canReorder: boolean;
-  canMoveUp: boolean;
-  canMoveDown: boolean;
-  onMoveUp: () => void;
-  onMoveDown: () => void;
+  dragProps: ReturnType<ReturnType<typeof useListDragReorder<FamilyMember>>['getRowProps']> | null;
   onEdit: () => void;
   onSetPin: () => void;
 }) {
   const hasLogin = !!member.auth_user_id;
+  const { isDragging, isOver, ...rowHandlers } = dragProps ?? { isDragging: false, isOver: false };
   return (
-    <div className="flex items-center gap-3 p-3 rounded-md bg-surface-2/40 hover:bg-surface-2/70 transition-colors">
-      {canReorder && (
-        <div className="flex flex-col -my-1 shrink-0">
-          <button
-            onClick={onMoveUp}
-            disabled={!canMoveUp}
-            className="w-6 h-5 flex items-center justify-center text-text-faint hover:text-text disabled:opacity-25 disabled:cursor-not-allowed"
-            title="Move up"
-            aria-label="Move member up"
-          >
-            <ChevronUp size={14} />
-          </button>
-          <button
-            onClick={onMoveDown}
-            disabled={!canMoveDown}
-            className="w-6 h-5 flex items-center justify-center text-text-faint hover:text-text disabled:opacity-25 disabled:cursor-not-allowed"
-            title="Move down"
-            aria-label="Move member down"
-          >
-            <ChevronDown size={14} />
-          </button>
-        </div>
-      )}
+    <div
+      {...(dragProps ? rowHandlers : {})}
+      className={
+        'flex items-center gap-3 p-3 rounded-md bg-surface-2/40 hover:bg-surface-2/70 transition-colors ' +
+        (isDragging ? 'opacity-40 ' : '') +
+        (isOver ? 'ring-2 ring-accent ' : '')
+      }
+    >
+      {dragProps && <DragHandle />}
       <Avatar member={member} size={44} />
       <div className="flex-1 min-w-0">
         <div className="flex items-baseline gap-2 mb-0.5 flex-wrap">

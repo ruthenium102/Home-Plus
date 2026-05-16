@@ -13,9 +13,11 @@ import { useFamily } from '@/context/FamilyContext';
 import { useTheme } from '@/context/ThemeContext';
 import { useToast } from '@/context/ToastContext';
 import { useSwipeMode } from '@/hooks/useSwipeMode';
+import { useListDragReorder } from '@/hooks/useListDragReorder';
 import { ListEditor, getListIcon } from '@/components/ListEditor';
 import { ListItemEditor } from '@/components/ListItemEditor';
 import { Avatar } from '@/components/Avatar';
+import { DragHandle } from '@/components/DragHandle';
 import { SwipeableRow } from '@/components/SwipeableRow';
 import { getColorTokens } from '@/lib/colors';
 import {
@@ -30,13 +32,14 @@ import {
 import type { TodoItem, TodoList } from '@/types';
 
 export function ListsPage() {
-  const { lists, listItems, activeMember, members } = useFamily();
+  const { lists, listItems, activeMember, members, reorderLists, reorderListItems } = useFamily();
   const { resolved } = useTheme();
 
   const myLists = useMemo(
     () => (activeMember ? visibleLists(lists, activeMember.id) : []),
     [lists, activeMember]
   );
+  const listDnd = useListDragReorder(myLists, reorderLists);
 
   const [activeListId, setActiveListId] = useState<string | null>(
     () => myLists[0]?.id || null
@@ -85,14 +88,19 @@ export function ListsPage() {
               (i) => i.list_id === list.id && !i.done
             ).length;
 
+            const { isDragging, isOver, ...rowHandlers } = listDnd.getRowProps(list.id);
             return (
               <div
                 key={list.id}
+                {...rowHandlers}
                 className={
-                  'flex items-center gap-2.5 px-2 py-2 rounded-md transition-colors group ' +
-                  (isActive ? 'bg-surface-2' : 'hover:bg-surface-2/60')
+                  'flex items-center gap-2 px-2 py-2 rounded-md transition-colors group ' +
+                  (isActive ? 'bg-surface-2' : 'hover:bg-surface-2/60') + ' ' +
+                  (isDragging ? 'opacity-40 ' : '') +
+                  (isOver ? 'ring-2 ring-accent ' : '')
                 }
               >
+                <DragHandle />
                 <button
                   onClick={() => setActiveListId(list.id)}
                   className="flex items-center gap-2.5 flex-1 min-w-0 text-left"
@@ -192,20 +200,16 @@ export function ListsPage() {
                 </button>
               </div>
             ) : (
-              <div className="divide-y divide-border">
-                {activeItems.map((item) => (
-                  <ListItemRow
-                    key={item.id}
-                    item={item}
-                    list={activeList}
-                    members={members}
-                    onEdit={() => {
-                      setEditingItem(item);
-                      setItemEditorOpen(true);
-                    }}
-                  />
-                ))}
-              </div>
+              <ItemsList
+                list={activeList}
+                items={activeItems}
+                members={members}
+                onEditItem={(item) => {
+                  setEditingItem(item);
+                  setItemEditorOpen(true);
+                }}
+                onReorderItems={(orderedIds) => reorderListItems(activeList.id, orderedIds)}
+              />
             )}
           </div>
         ) : (
@@ -238,15 +242,47 @@ export function ListsPage() {
   );
 }
 
+function ItemsList({
+  list,
+  items,
+  members,
+  onEditItem,
+  onReorderItems,
+}: {
+  list: TodoList;
+  items: TodoItem[];
+  members: ReturnType<typeof useFamily>['members'];
+  onEditItem: (item: TodoItem) => void;
+  onReorderItems: (orderedIds: string[]) => void;
+}) {
+  const itemDnd = useListDragReorder(items, onReorderItems);
+  return (
+    <div className="divide-y divide-border">
+      {items.map((item) => (
+        <ListItemRow
+          key={item.id}
+          item={item}
+          list={list}
+          members={members}
+          dragProps={itemDnd.getRowProps(item.id)}
+          onEdit={() => onEditItem(item)}
+        />
+      ))}
+    </div>
+  );
+}
+
 function ListItemRow({
   item,
   list,
   members,
+  dragProps,
   onEdit
 }: {
   item: TodoItem;
   list: TodoList;
   members: ReturnType<typeof useFamily>['members'];
+  dragProps: ReturnType<ReturnType<typeof useListDragReorder<TodoItem>>['getRowProps']>;
   onEdit: () => void;
 }) {
   const { toggleListItem, deleteListItem, addListItem } = useFamily();
@@ -280,9 +316,18 @@ function ListItemRow({
     });
   };
 
+  const { isDragging, isOver, ...rowHandlers } = dragProps;
   return (
     <SwipeableRow onDelete={handleDelete} mode={swipeMode}>
-      <div className="flex items-center gap-3 p-3 bg-surface-2/40 hover:bg-surface-2/70 transition-colors">
+      <div
+        {...rowHandlers}
+        className={
+          'flex items-center gap-2 p-3 bg-surface-2/40 hover:bg-surface-2/70 transition-colors ' +
+          (isDragging ? 'opacity-40 ' : '') +
+          (isOver ? 'ring-2 ring-accent ' : '')
+        }
+      >
+        <DragHandle />
         <button
           data-no-swipe
           onClick={() => toggleListItem(item.id)}

@@ -19,7 +19,9 @@ import { useTheme } from '@/context/ThemeContext';
 import { useToast } from '@/context/ToastContext';
 import { useSwipeMode } from '@/hooks/useSwipeMode';
 import { Avatar } from '@/components/Avatar';
+import { DragHandle } from '@/components/DragHandle';
 import { ChoreEditor } from '@/components/ChoreEditor';
+import { useListDragReorder } from '@/hooks/useListDragReorder';
 import { RedemptionModal } from '@/components/RedemptionModal';
 import { SwipeableRow } from '@/components/SwipeableRow';
 import { getColorTokens } from '@/lib/colors';
@@ -406,11 +408,13 @@ function ParentOverview() {
 }
 
 function ParentManage() {
-  const { chores, members, deleteChore, addChore } = useFamily();
+  const { chores, members, deleteChore, addChore, reorderChores } = useFamily();
   const { show } = useToast();
   const swipeMode = useSwipeMode();
   const [editorOpen, setEditorOpen] = useState(false);
   const [editing, setEditing] = useState<Chore | null>(null);
+  const activeChores = chores.filter((c) => !c.archived);
+  const choreDnd = useListDragReorder(activeChores, reorderChores);
 
   const handleNew = () => {
     setEditing(null);
@@ -462,18 +466,24 @@ function ParentManage() {
       </div>
 
       <div className="card divide-y divide-border">
-        {chores
-          .filter((c) => !c.archived)
-          .map((c) => (
+        {activeChores.map((c) => {
+            const { isDragging, isOver, ...rowHandlers } = choreDnd.getRowProps(c.id);
+            return (
             <SwipeableRow
               key={c.id}
               mode={swipeMode}
               onDelete={() => handleDeleteChore(c)}
             >
               <div
+                {...rowHandlers}
                 onClick={() => handleEdit(c)}
-                className="w-full flex items-center gap-3 p-3 bg-surface-2/40 hover:bg-surface-2/70 transition-colors cursor-pointer first:rounded-t-lg last:rounded-b-lg"
+                className={
+                  'w-full flex items-center gap-3 p-3 bg-surface-2/40 hover:bg-surface-2/70 transition-colors cursor-pointer first:rounded-t-lg last:rounded-b-lg ' +
+                  (isDragging ? 'opacity-40 ' : '') +
+                  (isOver ? 'ring-2 ring-accent ' : '')
+                }
               >
+                <DragHandle />
                 <div className="flex-1 min-w-0">
                   <div className="text-sm font-medium text-text">{c.title}</div>
                   <div className="text-xs text-text-faint">
@@ -495,8 +505,9 @@ function ParentManage() {
                 </button>
               </div>
             </SwipeableRow>
-          ))}
-        {chores.filter((c) => !c.archived).length === 0 && (
+          );
+          })}
+        {activeChores.length === 0 && (
           <div className="p-6 text-center text-text-faint text-sm">
             No chores yet. Tap "New chore" above.
           </div>

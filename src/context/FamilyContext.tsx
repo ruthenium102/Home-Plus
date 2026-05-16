@@ -87,6 +87,13 @@ interface FamilyContextValue {
   deleteMember: (id: string) => void;
   /** Move a member one step up or down in the display order. */
   moveMember: (id: string, direction: 'up' | 'down') => void;
+  /** Replace the display order for members with a full list of IDs. */
+  reorderMembers: (orderedIds: string[]) => void;
+  reorderHabits: (orderedIds: string[]) => void;
+  reorderChores: (orderedIds: string[]) => void;
+  reorderLists: (orderedIds: string[]) => void;
+  /** Update positions on items within a single list (uses TodoItem.position). */
+  reorderListItems: (listId: string, orderedItemIds: string[]) => void;
   setMemberPin: (id: string, pin: string | null) => void;
   setMemberLocation: (id: string, location: string | null, until: string | null) => void;
 
@@ -194,6 +201,9 @@ const FAMILY_KEY = 'demo:family';
 const EVENTS_KEY = 'demo:events';
 const MEMBERS_KEY = 'demo:members';
 const MEMBER_ORDER_KEY = 'demo:member_order';
+const HABIT_ORDER_KEY = 'demo:habit_order';
+const CHORE_ORDER_KEY = 'demo:chore_order';
+const LIST_ORDER_KEY = 'demo:list_order';
 const CHORES_KEY = 'demo:chores';
 const COMPLETIONS_KEY = 'demo:completions';
 const REDEMPTIONS_KEY = 'demo:redemptions';
@@ -267,6 +277,15 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
   // Members missing from this list fall back to their natural array order.
   const [memberOrder, setMemberOrder] = useState<string[]>(() =>
     storage.get<string[]>(MEMBER_ORDER_KEY, [])
+  );
+  const [habitOrder, setHabitOrder] = useState<string[]>(() =>
+    storage.get<string[]>(HABIT_ORDER_KEY, [])
+  );
+  const [choreOrder, setChoreOrder] = useState<string[]>(() =>
+    storage.get<string[]>(CHORE_ORDER_KEY, [])
+  );
+  const [listOrder, setListOrder] = useState<string[]>(() =>
+    storage.get<string[]>(LIST_ORDER_KEY, [])
   );
   const [events, setEvents] = useState<CalendarEvent[]>(() =>
     storage.get<CalendarEvent[]>(EVENTS_KEY, LIVE ? [] : DEMO_EVENTS)
@@ -589,6 +608,9 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
   useEffect(() => storage.set(FAMILY_KEY, family), [family]);
   useEffect(() => storage.set(MEMBERS_KEY, members), [members]);
   useEffect(() => storage.set(MEMBER_ORDER_KEY, memberOrder), [memberOrder]);
+  useEffect(() => storage.set(HABIT_ORDER_KEY, habitOrder), [habitOrder]);
+  useEffect(() => storage.set(CHORE_ORDER_KEY, choreOrder), [choreOrder]);
+  useEffect(() => storage.set(LIST_ORDER_KEY, listOrder), [listOrder]);
   useEffect(() => storage.set(EVENTS_KEY, events), [events]);
   useEffect(() => storage.set(CHORES_KEY, chores), [chores]);
   useEffect(() => storage.set(COMPLETIONS_KEY, completions), [completions]);
@@ -815,6 +837,40 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
       });
     },
     [members],
+  );
+
+  // Generic "save this list of IDs as the display order" for each kind.
+  // Items not in the list keep their natural order at the tail (see the
+  // sortedX selectors below).
+  const reorderMembers = useCallback((orderedIds: string[]) => {
+    setMemberOrder(orderedIds);
+  }, []);
+  const reorderHabits = useCallback((orderedIds: string[]) => {
+    setHabitOrder(orderedIds);
+  }, []);
+  const reorderChores = useCallback((orderedIds: string[]) => {
+    setChoreOrder(orderedIds);
+  }, []);
+  const reorderLists = useCallback((orderedIds: string[]) => {
+    setListOrder(orderedIds);
+  }, []);
+  // Items within a single list have a real `position` field, so the order is
+  // stored on the row rather than in localStorage. We rewrite the positions
+  // of just the affected list, leaving others untouched.
+  const reorderListItems = useCallback(
+    (listId: string, orderedItemIds: string[]) => {
+      setListItems((prev) =>
+        prev.map((item) => {
+          if (item.list_id !== listId) return item;
+          const newPos = orderedItemIds.indexOf(item.id);
+          if (newPos < 0 || newPos === item.position) return item;
+          const updated = { ...item, position: newPos };
+          dbUpsert('list_items', updated as unknown as Record<string, unknown>);
+          return updated;
+        }),
+      );
+    },
+    [],
   );
 
   const setMemberPin = useCallback((id: string, pin: string | null) => {
@@ -1722,18 +1778,32 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
     return [...members].sort((a, b) => indexOf(a.id) - indexOf(b.id));
   }, [members, memberOrder]);
 
+  // Same shape for habits, chores, lists — sort by stored order with new
+  // entries falling to the end.
+  const sortByOrder = <T extends { id: string }>(items: T[], order: string[]): T[] => {
+    if (order.length === 0) return items;
+    const indexOf = (id: string) => {
+      const i = order.indexOf(id);
+      return i < 0 ? Number.MAX_SAFE_INTEGER : i;
+    };
+    return [...items].sort((a, b) => indexOf(a.id) - indexOf(b.id));
+  };
+  const sortedHabits = useMemo(() => sortByOrder(habits, habitOrder), [habits, habitOrder]);
+  const sortedChores = useMemo(() => sortByOrder(chores, choreOrder), [chores, choreOrder]);
+  const sortedLists = useMemo(() => sortByOrder(lists, listOrder), [lists, listOrder]);
+
   const value: FamilyContextValue = {
     family,
     members: sortedMembers,
     events,
-    chores,
+    chores: sortedChores,
     completions,
     redemptions,
     goals,
     rewardCategories: DEFAULT_REWARD_CATEGORIES,
-    lists,
+    lists: sortedLists,
     listItems,
-    habits,
+    habits: sortedHabits,
     checkIns,
     activeMember,
     isDemoMode: !isSupabaseConfigured,
@@ -1746,6 +1816,11 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
     updateMember,
     deleteMember,
     moveMember,
+    reorderMembers,
+    reorderHabits,
+    reorderChores,
+    reorderLists,
+    reorderListItems,
     setMemberPin,
     setMemberLocation,
     addChore,

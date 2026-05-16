@@ -67,58 +67,6 @@ function resolveIcon(name: string | null): LucideIcon {
   return ICON_MAP[name] ?? Circle;
 }
 
-// ---- Date scroller --------------------------------------------------------
-
-function DateScroller({ date, onChange }: { date: string; onChange: (d: string) => void }) {
-  const dt = new Date(`${date}T00:00:00`);
-  const today = localISO();
-  const isToday = date === today;
-  const shift = (delta: number) => onChange(format(addDays(dt, delta), 'yyyy-MM-dd'));
-
-  return (
-    <div className="flex items-center gap-2">
-      <button
-        onClick={() => shift(-1)}
-        className="w-8 h-8 rounded-md flex items-center justify-center text-text-muted hover:bg-surface-2"
-        aria-label="Previous day"
-      >
-        <ChevronLeft size={16} />
-      </button>
-      <div className="flex flex-col items-center min-w-[140px]">
-        <span className="font-display text-sm text-text leading-tight">
-          {format(dt, 'EEEE, d MMM')}
-        </span>
-        {!isToday && (
-          <button
-            onClick={() => onChange(today)}
-            className="text-[10px] uppercase tracking-wider text-accent font-semibold hover:underline"
-          >
-            Jump to today
-          </button>
-        )}
-        {isToday && (
-          <span className="text-[10px] uppercase tracking-wider text-accent font-semibold">Today</span>
-        )}
-      </div>
-      <button
-        onClick={() => shift(1)}
-        className="w-8 h-8 rounded-md flex items-center justify-center text-text-muted hover:bg-surface-2"
-        aria-label="Next day"
-      >
-        <ChevronRight size={16} />
-      </button>
-      {/* Native date picker for jumping further */}
-      <input
-        type="date"
-        value={date}
-        onChange={(e) => e.target.value && onChange(e.target.value)}
-        className="opacity-0 absolute pointer-events-none"
-        aria-hidden
-      />
-    </div>
-  );
-}
-
 // ---- Focus mode (unchanged in spirit) -------------------------------------
 
 interface FocusModeProps {
@@ -730,29 +678,61 @@ export function MyDayPage() {
 
         {/* Timeline */}
         <div className="flex-1 min-w-0 space-y-3">
-          {/* Header */}
-          <div className="flex items-center justify-between gap-2 flex-wrap">
-            <div className="flex items-center gap-3">
-              <h2 className="font-display text-xl text-text">{activeMember.name}'s Day</h2>
+          {/* Header — mirrors the Calendar toolbar shape */}
+          <div className="card p-3 flex items-center gap-3 flex-wrap">
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => {
+                  const prev = new Date(`${date}T00:00:00`);
+                  prev.setDate(prev.getDate() - 1);
+                  setDate(format(prev, 'yyyy-MM-dd'));
+                }}
+                className="w-9 h-9 rounded-md hover:bg-surface-2 flex items-center justify-center text-text-muted"
+                aria-label="Previous day"
+              >
+                <ChevronLeft size={18} />
+              </button>
+              <button
+                onClick={() => setDate(localISO())}
+                className="px-3 py-1.5 rounded-md text-sm text-text-muted hover:bg-surface-2"
+              >
+                Today
+              </button>
+              <button
+                onClick={() => {
+                  const next = new Date(`${date}T00:00:00`);
+                  next.setDate(next.getDate() + 1);
+                  setDate(format(next, 'yyyy-MM-dd'));
+                }}
+                className="w-9 h-9 rounded-md hover:bg-surface-2 flex items-center justify-center text-text-muted"
+                aria-label="Next day"
+              >
+                <ChevronRight size={18} />
+              </button>
+            </div>
+
+            <div className="font-display text-lg text-text flex-1 min-w-0 truncate">
+              {format(new Date(`${date}T00:00:00`), 'EEEE, d MMM yyyy')}
               {total > 0 && (
-                <span className="text-xs text-text-faint">{totalDone}/{total} done</span>
+                <span className="ml-2 text-xs text-text-faint font-sans">
+                  · {totalDone}/{total} done
+                </span>
               )}
             </div>
-            <div className="flex items-center gap-2">
-              <DateScroller date={date} onChange={setDate} />
-              <button
-                onClick={() => setModalState({ mode: 'add' })}
-                className="lg:hidden flex items-center gap-1.5 px-3 py-1.5 bg-surface-2 border border-border rounded-md text-sm text-text-muted hover:bg-surface"
-              >
-                <Plus size={14} /> Add
-              </button>
-              <button
-                onClick={() => setFocusMode(true)}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-accent text-white rounded-md text-sm font-medium hover:opacity-90 active:scale-95 transition-all"
-              >
-                <Maximize2 size={14} /> Focus
-              </button>
-            </div>
+
+            <button
+              onClick={() => setModalState({ mode: 'add' })}
+              className="lg:hidden flex items-center gap-1.5 px-3 py-2 border border-border text-text-muted text-sm rounded-md hover:bg-surface-2"
+            >
+              <Plus size={14} /> Activity
+            </button>
+
+            <button
+              onClick={() => setFocusMode(true)}
+              className="flex items-center gap-1.5 px-3 py-2 bg-accent text-white text-sm font-medium rounded-md hover:opacity-90"
+            >
+              <Maximize2 size={16} /> Focus
+            </button>
           </div>
 
           <Timeline

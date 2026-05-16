@@ -13,8 +13,10 @@ import { useTheme } from '@/context/ThemeContext';
 import { useToast } from '@/context/ToastContext';
 import { useSwipeMode } from '@/hooks/useSwipeMode';
 import { Avatar } from '@/components/Avatar';
+import { DragHandle } from '@/components/DragHandle';
 import { HabitEditor } from '@/components/HabitEditor';
 import { SwipeableRow } from '@/components/SwipeableRow';
+import { useListDragReorder } from '@/hooks/useListDragReorder';
 import { getColorTokens } from '@/lib/colors';
 import {
   computeHabitStreak,
@@ -26,8 +28,12 @@ import {
 import type { Habit } from '@/types';
 
 export function HabitsPage() {
-  const { habits, checkIns, members, activeMember, toggleCheckIn, incrementCheckIn, decrementCheckIn, deleteHabit, addHabit } =
+  const { habits, checkIns, members, activeMember, toggleCheckIn, incrementCheckIn, decrementCheckIn, deleteHabit, addHabit, reorderHabits } =
     useFamily();
+  // Drag-to-reorder applies only to the active member's own habits — other
+  // sections are read-only. The hook walks the full habit array so the new
+  // global order preserves cross-member positions naturally.
+  const habitDnd = useListDragReorder(habits, reorderHabits);
   const { resolved } = useTheme();
   const { show } = useToast();
   const swipeMode = useSwipeMode();
@@ -141,18 +147,18 @@ export function HabitsPage() {
                   const todayCount = todayCheckIn ? (todayCheckIn.count ?? 1) : 0;
                   const target = habit.daily_target ?? 1;
 
-                  // For count-mode heatmap: a day is "checked" when count >= target.
-                  // We carry the raw count through so the cell can render a
-                  // light "N" overlay when the user has logged more than once.
+                  // Heatmap data: every habit is count-mode now, so a day is
+                  // "checked" when count >= target. We carry the raw count
+                  // through so the cell can render a light overlay.
                   const last7Data = lastNDays(checkIns, habit.id, member.id, 7).map((d) => {
                     const ci = checkIns.find(
                       (c) => c.habit_id === habit.id && c.member_id === member.id && c.for_date === d.date
                     );
                     const dayCount = ci ? (ci.count ?? 1) : 0;
-                    if (!habit.count_mode) return { ...d, count: dayCount };
                     return { date: d.date, checked: dayCount >= target, count: dayCount };
                   });
 
+                  const dragProps = isActive ? habitDnd.getRowProps(habit.id) : null;
                   const row = (
                     <HabitRow
                       key={habit.id}
@@ -165,6 +171,7 @@ export function HabitsPage() {
                       streak={computeHabitStreak(checkIns, habit.id, member.id)}
                       last7={last7Data}
                       todayCount={todayCount}
+                      dragProps={dragProps}
                       onToggle={() => toggleCheckIn(habit.id, member.id, todayISO)}
                       onToggleDate={(iso) => toggleCheckIn(habit.id, member.id, iso)}
                       onIncrement={() => incrementCheckIn(habit.id, member.id, todayISO)}
@@ -218,6 +225,7 @@ interface HabitRowProps {
   streak: number;
   last7: { date: string; checked: boolean; count: number }[];
   todayCount: number;
+  dragProps: ReturnType<ReturnType<typeof useListDragReorder<Habit>>['getRowProps']> | null;
   onToggle: () => void;
   onToggleDate: (iso: string) => void;
   onIncrement: () => void;
@@ -237,6 +245,7 @@ function HabitRow({
   streak,
   last7,
   todayCount,
+  dragProps,
   onToggle,
   onToggleDate,
   onIncrement,
@@ -247,78 +256,52 @@ function HabitRow({
 }: HabitRowProps) {
   void onDecrement;
   void onDecrementDate;
+  void onToggle;
+  void isCheckedToday;
   const milestone = nextStreakMilestone(streak);
   const milestoneTo = milestone - streak;
+  const target = habit.daily_target ?? 1;
+  const targetMet = todayCount >= target;
 
+  const { isDragging, isOver, ...rowHandlers } = dragProps ?? { isDragging: false, isOver: false };
   return (
-    <div className="flex items-center gap-3 p-3 rounded-md bg-surface-2/40 hover:bg-surface-2/70 transition-colors">
-      {/* Today's status circle. In count-mode each tap adds another entry
-          (replacing the old +/- buttons); decrements move into the habit
-          edit modal. Boolean mode keeps a single toggle. */}
-      {habit.count_mode ? (
-        <button
-          onClick={canCheck ? onIncrement : undefined}
-          disabled={!canCheck}
+    <div
+      {...(dragProps ? rowHandlers : {})}
+      className={
+        'flex items-center gap-3 p-3 rounded-md bg-surface-2/40 hover:bg-surface-2/70 transition-colors ' +
+        (isDragging ? 'opacity-40 ' : '') +
+        (isOver ? 'ring-2 ring-accent ' : '')
+      }
+    >
+      {dragProps && <DragHandle />}
+      {/* Today's status circle — tap to log another entry. Target lives
+          in the subtitle under the habit name, not on the circle. */}
+      <button
+        onClick={canCheck ? onIncrement : undefined}
+        disabled={!canCheck}
+        className={
+          'w-11 h-11 rounded-full shrink-0 flex items-center justify-center transition-all ' +
+          (canCheck ? 'cursor-pointer active:scale-95' : 'cursor-default')
+        }
+        style={{
+          background: targetMet ? color.base : color.soft,
+          border: targetMet ? 'none' : `2px solid ${color.base}40`,
+        }}
+        title={
+          canCheck
+            ? `Tap to log another (${todayCount}/${target} today)`
+            : `${todayCount}/${target} today`
+        }
+      >
+        <span
           className={
-            'w-11 h-11 rounded-full shrink-0 flex items-center justify-center relative transition-all ' +
-            (canCheck ? 'cursor-pointer active:scale-95' : 'cursor-default')
-          }
-          style={{
-            background: todayCount >= (habit.daily_target ?? 1) ? color.base : color.soft,
-            border: todayCount >= (habit.daily_target ?? 1) ? 'none' : `2px solid ${color.base}40`,
-          }}
-          title={
-            canCheck
-              ? `Tap to log another (${todayCount}/${habit.daily_target ?? 1} today)`
-              : `${todayCount}/${habit.daily_target ?? 1} today`
+            'text-base font-bold tabular-nums ' +
+            (targetMet ? 'text-white' : 'text-text-muted')
           }
         >
-          <span
-            className={
-              'text-sm font-bold tabular-nums ' +
-              (todayCount >= (habit.daily_target ?? 1) ? 'text-white/90' : 'text-text-muted')
-            }
-          >
-            {todayCount > 0 ? todayCount : ''}
-          </span>
-          <span
-            className={
-              'absolute bottom-0 right-0 -mb-0.5 -mr-0.5 text-[9px] tabular-nums px-1 rounded-full ' +
-              (todayCount >= (habit.daily_target ?? 1)
-                ? 'text-white/70'
-                : 'text-text-faint')
-            }
-          >
-            /{habit.daily_target ?? 1}
-          </span>
-        </button>
-      ) : (
-        <button
-          onClick={canCheck ? onToggle : undefined}
-          disabled={!canCheck}
-          className={
-            'w-11 h-11 rounded-full shrink-0 flex items-center justify-center transition-all ' +
-            (canCheck ? 'cursor-pointer active:scale-95' : 'cursor-default')
-          }
-          style={{
-            background: isCheckedToday ? color.base : color.soft,
-            border: isCheckedToday ? 'none' : `2px solid ${color.base}40`
-          }}
-          title={
-            canCheck
-              ? isCheckedToday
-                ? 'Tap to undo'
-                : 'Tap to check in'
-              : 'View only'
-          }
-        >
-          {isCheckedToday && (
-            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="20 6 9 17 4 12" />
-            </svg>
-          )}
-        </button>
-      )}
+          {todayCount > 0 ? todayCount : ''}
+        </span>
+      </button>
 
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
@@ -332,8 +315,12 @@ function HabitRow({
             <Sparkles size={11} className="text-accent shrink-0" />
           )}
         </div>
-        <div className="flex items-center gap-2 mt-0.5">
-          <div className="flex items-center gap-1 text-xs">
+        <div className="flex items-center gap-2 mt-0.5 text-xs">
+          <span className="text-text-faint tabular-nums">
+            Target {target}/day
+          </span>
+          <span className="text-text-faint">·</span>
+          <div className="flex items-center gap-1">
             <Flame
               size={11}
               className={streak > 0 ? 'text-accent' : 'text-text-faint'}
@@ -354,38 +341,30 @@ function HabitRow({
         </div>
       </div>
 
-      {/* 7-day heatmap. For count-mode habits each tap adds another entry
-          for that day (works for any date, not just today) and shows a
-          light-coloured count overlay once the user has logged more than
-          once. Boolean habits keep tap-to-toggle. */}
+      {/* 7-day heatmap. Each tap adds another entry for that day (works for
+          any date, not just today) and shows a light-coloured count overlay
+          once the user has logged more than once. Corrections live in the
+          habit editor. */}
       <div className="flex items-end gap-1 shrink-0">
         {last7.map((d, idx) => {
           const isToday = d.date === todayISO;
           const date = new Date(d.date);
           const dayLabel = date.toLocaleDateString(undefined, { weekday: 'narrow' });
           const target = habit.daily_target ?? 1;
-          const showCount = habit.count_mode && d.count >= 2;
+          const showCount = d.count >= 2;
+          void onToggleDate;
           return (
             <button
               key={d.date}
-              onClick={
-                canCheck
-                  ? () => (habit.count_mode ? onIncrementDate(d.date) : onToggleDate(d.date))
-                  : undefined
-              }
+              onClick={canCheck ? () => onIncrementDate(d.date) : undefined}
               disabled={!canCheck}
               className={
                 'flex flex-col items-center gap-0.5 group ' +
                 (canCheck ? 'cursor-pointer' : 'cursor-default')
               }
               title={
-                d.date +
-                (habit.count_mode ? ` · ${d.count}/${target}` : (d.checked ? ' · done' : '')) +
-                (canCheck
-                  ? habit.count_mode
-                    ? ' (tap to add another · edit habit to correct)'
-                    : (d.checked ? ' (tap to undo)' : ' (tap to mark done)')
-                  : '')
+                `${d.date} · ${d.count}/${target}` +
+                (canCheck ? ' (tap to add another · edit habit to correct)' : '')
               }
             >
               <div

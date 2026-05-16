@@ -9,9 +9,12 @@ import {
 } from 'react';
 
 const LOCATION_KEY = 'hp:location';
+const UNIT_KEY = 'hp:weather_unit';
 const PERTH = { lat: -31.9505, lng: 115.8605, name: 'Perth' };
 const REFRESH_MS = 30 * 60 * 1000; // 30 min between weather refreshes
 const GPS_STALE_MS = 7 * 24 * 60 * 60 * 1000; // re-request GPS once a week
+
+export type TempUnit = 'C' | 'F';
 
 interface StoredLocation {
   lat: number;
@@ -33,6 +36,8 @@ export interface WeatherState {
   requestLocation: () => void;
   resetLocation: () => void;
   setManualLocation: (lat: number, lng: number, name: string) => void;
+  unit: TempUnit;
+  setUnit: (u: TempUnit) => void;
 }
 
 // ---- WMO weather-code helpers -----------------------------------------------
@@ -90,8 +95,23 @@ export function WeatherProvider({ children }: { children: ReactNode }) {
       return null;
     }
   });
-  const [temp, setTemp] = useState<number | null>(null);
+  // Internal: always store celsius (what the API returns). The exposed
+  // `temp` is computed on the active unit each render.
+  const [tempC, setTempC] = useState<number | null>(null);
   const [code, setCode] = useState<number | null>(null);
+  const [unit, setUnitState] = useState<TempUnit>(() => {
+    const u = localStorage.getItem(UNIT_KEY);
+    return u === 'F' ? 'F' : 'C';
+  });
+  const setUnit = useCallback((u: TempUnit) => {
+    localStorage.setItem(UNIT_KEY, u);
+    setUnitState(u);
+  }, []);
+  const temp = tempC === null
+    ? null
+    : unit === 'F'
+      ? Math.round(tempC * 9 / 5 + 32)
+      : tempC;
   const [locationName, setLocationName] = useState(() => {
     const raw = localStorage.getItem(LOCATION_KEY);
     if (!raw) return '';
@@ -108,7 +128,7 @@ export function WeatherProvider({ children }: { children: ReactNode }) {
       const weatherRes = await fetch(
         `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current=temperature_2m,weather_code&timezone=auto`
       ).then((r) => r.json());
-      setTemp(Math.round(weatherRes.current.temperature_2m));
+      setTempC(Math.round(weatherRes.current.temperature_2m));
       setCode(weatherRes.current.weather_code);
 
       if (nameOverride) {
@@ -213,7 +233,7 @@ export function WeatherProvider({ children }: { children: ReactNode }) {
     if (intervalRef.current) clearInterval(intervalRef.current);
     setCoords(null);
     setManualName(null);
-    setTemp(null);
+    setTempC(null);
     setCode(null);
     setLocationName('');
     setError(null);
@@ -237,7 +257,9 @@ export function WeatherProvider({ children }: { children: ReactNode }) {
     locationStatus,
     requestLocation,
     resetLocation,
-    setManualLocation
+    setManualLocation,
+    unit,
+    setUnit,
   };
 
   return <WeatherContext.Provider value={value}>{children}</WeatherContext.Provider>;

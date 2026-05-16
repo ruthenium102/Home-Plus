@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { endOfDay, isAfter, startOfDay } from 'date-fns';
+import { endOfDay, format, isAfter, startOfDay } from 'date-fns';
 import { Bell, ListChecks, Flame } from 'lucide-react';
 import { useFamily } from '@/context/FamilyContext';
 import { expandEvents } from '@/lib/recurrence';
@@ -13,7 +13,7 @@ import { useSwipeMode } from '@/hooks/useSwipeMode';
 import { getColorTokens } from '@/lib/colors';
 import { isParent, formatBalance } from '@/lib/chores';
 import { isDueSoon, isOverdue, formatDue, visibleLists } from '@/lib/lists';
-import { computeHabitStreak, isCheckedIn, visibleHabits, isHabitDue } from '@/lib/habits';
+import { computeHabitStreak, visibleHabits, isHabitDue } from '@/lib/habits';
 import type { TabKey } from '@/components/TabBar';
 
 interface Props {
@@ -95,17 +95,28 @@ export function HomePage({ onNavigate }: Props) {
       .slice(0, 4);
   }, [activeMember, lists, listItems]);
 
-  // Today's habits for active member
+  // Today's habits for active member. Every habit is count-mode now, so we
+  // also surface the current count vs. target.
+  const todayISO = format(today, 'yyyy-MM-dd');
   const myHabitsToday = useMemo(() => {
     if (!activeMember) return [];
     return visibleHabits(habits, activeMember.id)
       .filter((h) => h.member_id === activeMember.id && isHabitDue(h, today))
-      .map((h) => ({
-        habit: h,
-        checked: isCheckedIn(checkIns, h.id, activeMember.id, today),
-        streak: computeHabitStreak(checkIns, h.id, activeMember.id)
-      }));
-  }, [activeMember, habits, checkIns, today]);
+      .map((h) => {
+        const ci = checkIns.find(
+          (c) => c.habit_id === h.id && c.member_id === activeMember.id && c.for_date === todayISO,
+        );
+        const count = ci ? (ci.count ?? 1) : 0;
+        const target = h.daily_target ?? 1;
+        return {
+          habit: h,
+          count,
+          target,
+          checked: count >= target,
+          streak: computeHabitStreak(checkIns, h.id, activeMember.id),
+        };
+      });
+  }, [activeMember, habits, checkIns, today, todayISO]);
 
   return (
     <div className="space-y-5">
@@ -168,7 +179,7 @@ export function HomePage({ onNavigate }: Props) {
                 </button>
               </div>
               <div className="space-y-2">
-                {myHabitsToday.map(({ habit, checked, streak }) => (
+                {myHabitsToday.map(({ habit, count, target, checked, streak }) => (
                   <button
                     key={habit.id}
                     onClick={() => onNavigate('habits')}
@@ -176,26 +187,16 @@ export function HomePage({ onNavigate }: Props) {
                   >
                     <div
                       className={
-                        'w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ' +
+                        'w-7 h-7 rounded-full flex items-center justify-center shrink-0 text-[11px] font-bold tabular-nums ' +
                         (checked
-                          ? 'bg-accent border-accent'
-                          : 'border-text-faint')
+                          ? 'bg-accent text-white'
+                          : count > 0
+                            ? 'bg-accent/30 text-text border-2 border-accent/40'
+                            : 'border-2 border-text-faint text-text-faint')
                       }
+                      aria-label={`${count} of ${target} today`}
                     >
-                      {checked && (
-                        <svg
-                          viewBox="0 0 24 24"
-                          width="11"
-                          height="11"
-                          fill="none"
-                          stroke="white"
-                          strokeWidth="3"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        >
-                          <polyline points="20 6 9 17 4 12" />
-                        </svg>
-                      )}
+                      {count > 0 ? count : ''}
                     </div>
                     <div className="flex-1 min-w-0">
                       <div
@@ -205,6 +206,9 @@ export function HomePage({ onNavigate }: Props) {
                         }
                       >
                         {habit.title}
+                      </div>
+                      <div className="text-[10px] text-text-faint tabular-nums">
+                        {count}/{target} today
                       </div>
                     </div>
                     {streak > 0 && (
