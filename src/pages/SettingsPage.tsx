@@ -121,28 +121,6 @@ export function SettingsPage() {
         </div>
       </section>
 
-      {/* Calendar — meal colour */}
-      {isParent && (
-        <section className="card p-5">
-          <h2 className="font-display text-lg text-text mb-1">Calendar</h2>
-          <p className="text-xs text-text-faint mb-3">Colour used for meal plan events.</p>
-          <div className="flex flex-wrap gap-2">
-            {['#3b82f6','#8b5cf6','#ec4899','#f97316','#22c55e','#14b8a6','#f59e0b','#ef4444'].map((hex) => {
-              const active = (kitchenSettings.meal_color ?? '#3b82f6') === hex;
-              return (
-                <button
-                  key={hex}
-                  onClick={() => updateKitchenSettings({ meal_color: hex })}
-                  className={'w-8 h-8 rounded-full border-2 transition-all ' + (active ? 'border-text scale-110' : 'border-transparent hover:scale-105')}
-                  style={{ background: hex }}
-                  title={hex}
-                />
-              );
-            })}
-          </div>
-        </section>
-      )}
-
       {/* Members */}
       <section className="card p-5">
         <div className="flex items-center justify-between mb-4">
@@ -300,7 +278,7 @@ export function SettingsPage() {
       {isParent && (
         <section className="card p-5">
           <h2 className="font-display text-lg text-text mb-1">Kitchen+</h2>
-          <p className="text-xs text-text-faint mb-4">Cupboard staples and shopping days.</p>
+          <p className="text-xs text-text-faint mb-4">Cupboard staples, shopping days, and meal-event colour.</p>
 
           <div className="mb-5">
             <h3 className="text-sm font-medium text-text mb-1">Cupboard staples</h3>
@@ -310,10 +288,29 @@ export function SettingsPage() {
             <CupboardEditor />
           </div>
 
-          <div>
+          <div className="mb-5">
             <h3 className="text-sm font-medium text-text mb-1">Shopping days</h3>
             <p className="text-xs text-text-faint mb-3">Used to split the shopping list into two shops.</p>
             <ShopDaysEditor />
+          </div>
+
+          <div>
+            <h3 className="text-sm font-medium text-text mb-1">Meal-event colour</h3>
+            <p className="text-xs text-text-faint mb-3">Colour used when meal plans appear on the calendar.</p>
+            <div className="flex flex-wrap gap-2">
+              {['#3b82f6','#8b5cf6','#ec4899','#f97316','#22c55e','#14b8a6','#f59e0b','#ef4444'].map((hex) => {
+                const active = (kitchenSettings.meal_color ?? '#3b82f6') === hex;
+                return (
+                  <button
+                    key={hex}
+                    onClick={() => updateKitchenSettings({ meal_color: hex })}
+                    className={'w-8 h-8 rounded-full border-2 transition-all ' + (active ? 'border-text scale-110' : 'border-transparent hover:scale-105')}
+                    style={{ background: hex }}
+                    title={hex}
+                  />
+                );
+              })}
+            </div>
           </div>
         </section>
       )}

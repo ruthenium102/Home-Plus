@@ -486,7 +486,10 @@ create table if not exists day_plan_blocks (
   position integer not null default 0,
   done boolean not null default false,
   done_at timestamptz,
-  created_at timestamptz not null default now()
+  created_at timestamptz not null default now(),
+  -- Minutes from midnight when the block is placed on the timeline.
+  -- Older rows without this fall back to section + position at render time.
+  start_min integer
 );
 
 create index if not exists idx_day_plan_blocks_member_date

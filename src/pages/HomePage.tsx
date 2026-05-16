@@ -33,7 +33,8 @@ export function HomePage({ onNavigate }: Props) {
     checkIns,
     activeMember,
     deleteEvent,
-    addEvent
+    addEvent,
+    incrementCheckIn,
   } = useFamily();
   const { resolved } = useTheme();
   const { show } = useToast();
@@ -180,44 +181,57 @@ export function HomePage({ onNavigate }: Props) {
               </div>
               <div className="space-y-2">
                 {myHabitsToday.map(({ habit, count, target, checked, streak }) => (
-                  <button
+                  <div
                     key={habit.id}
-                    onClick={() => onNavigate('habits')}
-                    className="w-full flex items-center gap-2.5 p-2 rounded-md hover:bg-surface-2/50 text-left transition-colors"
+                    className="flex items-center gap-2.5 p-2 rounded-md hover:bg-surface-2/50 transition-colors"
                   >
-                    <div
+                    {/* Count circle — tap to log another entry inline.
+                        Separate target from the rest of the row, which
+                        navigates to the full habits page. */}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (!activeMember) return;
+                        incrementCheckIn(habit.id, activeMember.id, todayISO);
+                      }}
                       className={
-                        'w-7 h-7 rounded-full flex items-center justify-center shrink-0 text-[11px] font-bold tabular-nums ' +
+                        'w-8 h-8 rounded-full flex items-center justify-center shrink-0 text-[11px] font-bold tabular-nums transition-transform active:scale-95 cursor-pointer ' +
                         (checked
                           ? 'bg-accent text-white'
                           : count > 0
                             ? 'bg-accent/30 text-text border-2 border-accent/40'
-                            : 'border-2 border-text-faint text-text-faint')
+                            : 'border-2 border-text-faint text-text-faint hover:border-accent/60')
                       }
-                      aria-label={`${count} of ${target} today`}
+                      aria-label={`Log ${habit.title} — currently ${count} of ${target} today`}
+                      title={`Tap to log another (${count}/${target})`}
                     >
-                      {count > 0 ? count : ''}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div
-                        className={
-                          'text-sm truncate ' +
-                          (checked ? 'text-text-muted' : 'text-text')
-                        }
-                      >
-                        {habit.title}
+                      {count > 0 ? count : '+'}
+                    </button>
+                    <button
+                      onClick={() => onNavigate('habits')}
+                      className="flex items-center gap-2 flex-1 min-w-0 text-left"
+                    >
+                      <div className="flex-1 min-w-0">
+                        <div
+                          className={
+                            'text-sm truncate ' +
+                            (checked ? 'text-text-muted' : 'text-text')
+                          }
+                        >
+                          {habit.title}
+                        </div>
+                        <div className="text-[10px] text-text-faint tabular-nums">
+                          {count}/{target} today
+                        </div>
                       </div>
-                      <div className="text-[10px] text-text-faint tabular-nums">
-                        {count}/{target} today
-                      </div>
-                    </div>
-                    {streak > 0 && (
-                      <div className="flex items-center gap-1 text-xs text-text-faint shrink-0">
-                        <Flame size={11} className="text-accent" />
-                        <span className="tabular-nums">{streak}</span>
-                      </div>
-                    )}
-                  </button>
+                      {streak > 0 && (
+                        <div className="flex items-center gap-1 text-xs text-text-faint shrink-0">
+                          <Flame size={11} className="text-accent" />
+                          <span className="tabular-nums">{streak}</span>
+                        </div>
+                      )}
+                    </button>
+                  </div>
                 ))}
               </div>
             </div>
