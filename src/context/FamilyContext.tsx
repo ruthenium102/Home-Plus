@@ -863,6 +863,21 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
     return () => document.removeEventListener('visibilitychange', onVis);
   }, [reloadFromCloud]);
 
+  // Periodic safety net. Capacitor WKWebView can silently drop the realtime
+  // WebSocket while the app is foreground (we've observed list-item updates
+  // not propagating across devices), so we poll every 20s as long as the
+  // page is visible. Skipped while hidden or while a manual reload is in
+  // flight to avoid pile-ups.
+  useEffect(() => {
+    if (!LIVE || !supabase) return;
+    const id = window.setInterval(() => {
+      if (document.hidden) return;
+      if (reloading) return;
+      reloadFromCloud();
+    }, 20_000);
+    return () => window.clearInterval(id);
+  }, [reloadFromCloud, reloading]);
+
   // ---- Events --------------------------------------------------------------
 
   const addEvent = useCallback(
