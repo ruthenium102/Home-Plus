@@ -195,15 +195,20 @@ interface FamilyContextValue {
 
   /**
    * Force a re-fetch from Supabase for the current family.id and replace
-   * local state. Useful when realtime updates have been missed (e.g. the
-   * device was offline or the WKWebView paused the channel). Resolves to
-   * true on success. Quietly returns false in demo mode or if no family.
+   * local state. Returns ok + an optional error string so callers can
+   * surface the underlying problem to the user.
    */
-  reloadFromCloud: () => Promise<boolean>;
+  reloadFromCloud: () => Promise<{ ok: boolean; error?: string }>;
   /** True while a reload is in flight, for spinner UI. */
   reloading: boolean;
   /** ms-epoch of the last successful cloud reload (0 if none this session). */
   lastReloadAt: number;
+  /**
+   * Per-table probe: runs head-only count queries so we can see exactly
+   * which tables are returning what (or failing). Used by the Sync
+   * diagnostic panel when bulk reload is misbehaving.
+   */
+  probeTables: () => Promise<{ table: string; count: number | null; error?: string }[]>;
 }
 
 const FamilyContext = createContext<FamilyContextValue | null>(null);
@@ -754,12 +759,13 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
   const [reloading, setReloading] = useState(false);
   const [lastReloadAt, setLastReloadAt] = useState(0);
 
-  const reloadFromCloud = useCallback(async (): Promise<boolean> => {
-    if (!LIVE || !supabase || !family.id || family.id === DEMO_FAMILY.id) return false;
+  const reloadFromCloud = useCallback(async (): Promise<{ ok: boolean; error?: string }> => {
+    if (!LIVE || !supabase) return { ok: false, error: 'Supabase not configured (demo mode)' };
+    if (!family.id || family.id === DEMO_FAMILY.id) return { ok: false, error: 'No real family loaded' };
     setReloading(true);
     try {
       const data = await dbLoadFamily(family.id);
-      if (!data) return false;
+      if (!data) return { ok: false, error: `dbLoadFamily returned null for family ${family.id.slice(-8)}` };
       setFamily(data.family);
       setMembers(data.members);
       setEvents(data.events);
@@ -776,13 +782,35 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
       setRecipes(data.recipes);
       setMealPlans(data.mealPlans);
       setLastReloadAt(Date.now());
-      return true;
+      return { ok: true };
     } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
       console.warn('[reloadFromCloud] failed:', e);
-      return false;
+      return { ok: false, error: msg };
     } finally {
       setReloading(false);
     }
+  }, [family.id]);
+
+  const probeTables = useCallback(async () => {
+    if (!LIVE || !supabase || !family.id) return [];
+    const tables = [
+      'families', 'family_members', 'events', 'chores', 'chore_completions',
+      'todo_lists', 'todo_items', 'habits', 'habit_check_ins', 'reward_goals',
+      'redemptions', 'day_plan_blocks', 'activity_pool_items',
+      'recipes', 'meal_plans',
+    ];
+    const results = await Promise.all(
+      tables.map(async (table) => {
+        const filter = table === 'families' ? 'id' : 'family_id';
+        const { count, error } = await supabase!
+          .from(table)
+          .select('id', { count: 'exact', head: true })
+          .eq(filter, family.id);
+        return { table, count: count ?? null, error: error?.message };
+      }),
+    );
+    return results;
   }, [family.id]);
 
   // Re-fetch when the tab/app becomes visible again. Realtime sometimes drops
@@ -1955,6 +1983,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
     reloadFromCloud,
     reloading,
     lastReloadAt,
+    probeTables,
   };
 
   return <FamilyContext.Provider value={value}>{children}</FamilyContext.Provider>;

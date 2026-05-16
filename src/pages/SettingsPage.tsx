@@ -38,17 +38,20 @@ export function SettingsPage() {
     reloadFromCloud,
     reloading,
     lastReloadAt,
+    probeTables,
     events,
     habits,
     lists,
     listItems,
     chores,
   } = useFamily();
+  const { user: authUser, authSignOut } = useAuth();
   const memberDnd = useListDragReorder(members, reorderMembers);
   const [reloadMsg, setReloadMsg] = useState<string | null>(null);
+  const [probe, setProbe] = useState<{ table: string; count: number | null; error?: string }[] | null>(null);
+  const [probing, setProbing] = useState(false);
   const { mode, setMode } = useTheme();
   const { temp, locationName, locationStatus, resetLocation, setManualLocation, unit, setUnit } = useWeather();
-  const { authSignOut } = useAuth();
   const [pinTarget, setPinTarget] = useState<FamilyMember | null>(null);
   const [editTarget, setEditTarget] = useState<FamilyMember | null>(null);
   const [inviteOpen, setInviteOpen] = useState(false);
@@ -428,12 +431,14 @@ export function SettingsPage() {
         <section className="card p-5">
           <h2 className="font-display text-lg text-text mb-1">Sync</h2>
           <p className="text-xs text-text-faint mb-3">
-            Realtime should keep devices in step. If something's missing,
-            tap Refresh to pull the latest from the cloud, and compare the
-            counts to your other device.
+            Compare these numbers to your other device. The Probe button
+            queries the cloud directly per table so we can see exactly
+            which one is misbehaving.
           </p>
-          <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs font-mono text-text-muted mb-3">
+          <div className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-xs font-mono text-text-muted mb-3">
+            <div>Auth user</div><div>{authUser ? `…${authUser.id.slice(-8)}` : '—'}</div>
             <div>Family</div><div>…{family.id.slice(-8)}</div>
+            <div>Active member</div><div>{activeMember ? `…${activeMember.id.slice(-8)}` : '—'}</div>
             <div>Members</div><div>{members.length}</div>
             <div>Events</div><div>{events.length}</div>
             <div>Habits</div><div>{habits.length}</div>
@@ -442,19 +447,57 @@ export function SettingsPage() {
             <div>Last refresh</div>
             <div>{lastReloadAt ? new Date(lastReloadAt).toLocaleTimeString() : '—'}</div>
           </div>
-          <button
-            onClick={async () => {
-              setReloadMsg(null);
-              const ok = await reloadFromCloud();
-              setReloadMsg(ok ? 'Refreshed.' : 'Refresh failed — see console.');
-              window.setTimeout(() => setReloadMsg(null), 2500);
-            }}
-            disabled={reloading}
-            className="flex items-center gap-2 px-4 py-2 bg-surface-2 border border-border text-text-muted text-sm rounded-md hover:bg-surface disabled:opacity-50"
-          >
-            {reloading ? 'Refreshing…' : 'Refresh from cloud'}
-          </button>
-          {reloadMsg && <div className="mt-2 text-xs text-text-muted">{reloadMsg}</div>}
+
+          <div className="flex flex-wrap gap-2 mb-2">
+            <button
+              onClick={async () => {
+                setReloadMsg(null);
+                const result = await reloadFromCloud();
+                setReloadMsg(result.ok ? 'Refreshed.' : `Refresh failed: ${result.error ?? 'unknown'}`);
+              }}
+              disabled={reloading}
+              className="flex items-center gap-2 px-4 py-2 bg-surface-2 border border-border text-text-muted text-sm rounded-md hover:bg-surface disabled:opacity-50"
+            >
+              {reloading ? 'Refreshing…' : 'Refresh from cloud'}
+            </button>
+            <button
+              onClick={async () => {
+                setProbe(null);
+                setProbing(true);
+                try {
+                  const r = await probeTables();
+                  setProbe(r);
+                } finally {
+                  setProbing(false);
+                }
+              }}
+              disabled={probing}
+              className="flex items-center gap-2 px-4 py-2 bg-surface-2 border border-border text-text-muted text-sm rounded-md hover:bg-surface disabled:opacity-50"
+            >
+              {probing ? 'Probing…' : 'Probe tables'}
+            </button>
+          </div>
+
+          {reloadMsg && <div className="mt-1 mb-2 text-xs text-text break-words">{reloadMsg}</div>}
+
+          {probe && (
+            <div className="mt-3 border border-border rounded-md overflow-hidden text-xs font-mono">
+              <div className="grid grid-cols-[1fr_auto_auto] gap-2 px-3 py-1.5 bg-surface-2/50 text-text-faint">
+                <div>Table</div>
+                <div>Count</div>
+                <div>Status</div>
+              </div>
+              {probe.map((row) => (
+                <div key={row.table} className="grid grid-cols-[1fr_auto_auto] gap-2 px-3 py-1.5 border-t border-border">
+                  <div className="text-text-muted truncate">{row.table}</div>
+                  <div className="text-text tabular-nums">{row.count ?? '—'}</div>
+                  <div className={row.error ? 'text-red-500 break-words text-[10px] max-w-[140px]' : 'text-green-500'}>
+                    {row.error ? row.error : 'OK'}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </section>
       )}
 
