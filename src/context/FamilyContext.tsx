@@ -1006,7 +1006,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
           const newPos = orderedItemIds.indexOf(item.id);
           if (newPos < 0 || newPos === item.position) return item;
           const updated = { ...item, position: newPos };
-          dbUpsert('list_items', updated as unknown as Record<string, unknown>);
+          dbUpsert('todo_items', updated as unknown as Record<string, unknown>);
           return updated;
         }),
       );
@@ -1326,12 +1326,17 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
           // fresh next_due so the user sees the strike-through briefly.
           // (We'll let the UI surface "Next: 2026-11-08" as a hint.)
         }
-        return {
+        const updated = {
           ...i,
           done: nowDone,
           done_at: nowDone ? new Date().toISOString() : null,
-          next_due
+          next_due,
         };
+        // Persist to Supabase so other devices (and our own next reload)
+        // see the change. Previously this only updated local state, which
+        // caused completed items to revert on the next poll.
+        dbUpsert('todo_items', updated as unknown as Record<string, unknown>);
+        return updated;
       })
     );
   }, []);
