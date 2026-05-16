@@ -192,6 +192,18 @@ interface FamilyContextValue {
   // Invite flow
   needsPasswordSetup: boolean;
   clearNeedsPasswordSetup: () => void;
+
+  /**
+   * Force a re-fetch from Supabase for the current family.id and replace
+   * local state. Useful when realtime updates have been missed (e.g. the
+   * device was offline or the WKWebView paused the channel). Resolves to
+   * true on success. Quietly returns false in demo mode or if no family.
+   */
+  reloadFromCloud: () => Promise<boolean>;
+  /** True while a reload is in flight, for spinner UI. */
+  reloading: boolean;
+  /** ms-epoch of the last successful cloud reload (0 if none this session). */
+  lastReloadAt: number;
 }
 
 const FamilyContext = createContext<FamilyContextValue | null>(null);
@@ -736,6 +748,64 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
   );
 
   const signOut = useCallback(() => setSession(null), []);
+
+  // ---- Manual cloud reload + auto-refresh on tab visibility ----------------
+
+  const [reloading, setReloading] = useState(false);
+  const [lastReloadAt, setLastReloadAt] = useState(0);
+
+  const reloadFromCloud = useCallback(async (): Promise<boolean> => {
+    if (!LIVE || !supabase || !family.id || family.id === DEMO_FAMILY.id) return false;
+    setReloading(true);
+    try {
+      const data = await dbLoadFamily(family.id);
+      if (!data) return false;
+      setFamily(data.family);
+      setMembers(data.members);
+      setEvents(data.events);
+      setChores(data.chores);
+      setCompletions(data.completions);
+      setLists(data.lists);
+      setListItems(data.listItems);
+      setHabits(data.habits);
+      setCheckIns(data.checkIns);
+      setGoals(data.goals);
+      setRedemptions(data.redemptions);
+      setDayPlanBlocks(data.dayPlanBlocks);
+      setActivityPool(data.activityPool);
+      setRecipes(data.recipes);
+      setMealPlans(data.mealPlans);
+      setLastReloadAt(Date.now());
+      return true;
+    } catch (e) {
+      console.warn('[reloadFromCloud] failed:', e);
+      return false;
+    } finally {
+      setReloading(false);
+    }
+  }, [family.id]);
+
+  // Re-fetch when the tab/app becomes visible again. Realtime sometimes drops
+  // events when the WKWebView is paused (iOS app in background), so this
+  // catches up automatically on resume.
+  useEffect(() => {
+    if (!LIVE || !supabase) return;
+    let hiddenAt: number | null = null;
+    const onVis = () => {
+      if (document.hidden) {
+        hiddenAt = Date.now();
+        return;
+      }
+      // Only refetch if we were actually hidden for more than 5s, to avoid
+      // hammering the API on quick focus flips.
+      if (hiddenAt && Date.now() - hiddenAt > 5_000) {
+        reloadFromCloud();
+      }
+      hiddenAt = null;
+    };
+    document.addEventListener('visibilitychange', onVis);
+    return () => document.removeEventListener('visibilitychange', onVis);
+  }, [reloadFromCloud]);
 
   // ---- Events --------------------------------------------------------------
 
@@ -1882,6 +1952,9 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
     gainXp,
     needsPasswordSetup,
     clearNeedsPasswordSetup,
+    reloadFromCloud,
+    reloading,
+    lastReloadAt,
   };
 
   return <FamilyContext.Provider value={value}>{children}</FamilyContext.Provider>;

@@ -25,9 +25,27 @@ interface GeoResult {
 }
 
 export function SettingsPage() {
-  const { members, family, isDemoMode, updateMember, signOut, activeMember, kitchenSettings, updateKitchenSettings, reorderMembers } =
-    useFamily();
+  const {
+    members,
+    family,
+    isDemoMode,
+    updateMember,
+    signOut,
+    activeMember,
+    kitchenSettings,
+    updateKitchenSettings,
+    reorderMembers,
+    reloadFromCloud,
+    reloading,
+    lastReloadAt,
+    events,
+    habits,
+    lists,
+    listItems,
+    chores,
+  } = useFamily();
   const memberDnd = useListDragReorder(members, reorderMembers);
+  const [reloadMsg, setReloadMsg] = useState<string | null>(null);
   const { mode, setMode } = useTheme();
   const { temp, locationName, locationStatus, resetLocation, setManualLocation, unit, setUnit } = useWeather();
   const { authSignOut } = useAuth();
@@ -404,6 +422,41 @@ export function SettingsPage() {
           <MapPin size={14} /> Reset to GPS location
         </button>
       </section>
+
+      {/* Sync diagnostic (Supabase only) */}
+      {isSupabaseConfigured && !isDemoMode && (
+        <section className="card p-5">
+          <h2 className="font-display text-lg text-text mb-1">Sync</h2>
+          <p className="text-xs text-text-faint mb-3">
+            Realtime should keep devices in step. If something's missing,
+            tap Refresh to pull the latest from the cloud, and compare the
+            counts to your other device.
+          </p>
+          <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs font-mono text-text-muted mb-3">
+            <div>Family</div><div>…{family.id.slice(-8)}</div>
+            <div>Members</div><div>{members.length}</div>
+            <div>Events</div><div>{events.length}</div>
+            <div>Habits</div><div>{habits.length}</div>
+            <div>Lists</div><div>{lists.length} ({listItems.length} items)</div>
+            <div>Chores</div><div>{chores.length}</div>
+            <div>Last refresh</div>
+            <div>{lastReloadAt ? new Date(lastReloadAt).toLocaleTimeString() : '—'}</div>
+          </div>
+          <button
+            onClick={async () => {
+              setReloadMsg(null);
+              const ok = await reloadFromCloud();
+              setReloadMsg(ok ? 'Refreshed.' : 'Refresh failed — see console.');
+              window.setTimeout(() => setReloadMsg(null), 2500);
+            }}
+            disabled={reloading}
+            className="flex items-center gap-2 px-4 py-2 bg-surface-2 border border-border text-text-muted text-sm rounded-md hover:bg-surface disabled:opacity-50"
+          >
+            {reloading ? 'Refreshing…' : 'Refresh from cloud'}
+          </button>
+          {reloadMsg && <div className="mt-2 text-xs text-text-muted">{reloadMsg}</div>}
+        </section>
+      )}
 
       {/* Account */}
       <section className="card p-5">
