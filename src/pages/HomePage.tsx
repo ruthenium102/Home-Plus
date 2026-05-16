@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { endOfDay, isAfter, startOfDay } from 'date-fns';
-import { Sparkles, Bell, ListChecks, Flame } from 'lucide-react';
+import { Bell, ListChecks, Flame } from 'lucide-react';
 import { useFamily } from '@/context/FamilyContext';
 import { expandEvents } from '@/lib/recurrence';
 import { MemberStrip } from '@/components/MemberStrip';
@@ -342,36 +342,7 @@ export function HomePage({ onNavigate }: Props) {
             </div>
           </div>
 
-          {/* AI suggestion card */}
-          <AISuggestion />
         </div>
-      </div>
-    </div>
-  );
-}
-
-function AISuggestion() {
-  // Placeholder — phase 5 will wire this to a real Claude API call.
-  return (
-    <div className="rounded-lg p-4 bg-gradient-to-br from-surface-2 to-surface border border-border-strong">
-      <div className="flex items-center gap-2 mb-2">
-        <div className="w-5 h-5 rounded-full bg-accent flex items-center justify-center">
-          <Sparkles size={11} className="text-white" />
-        </div>
-        <div className="text-[11px] uppercase tracking-widest text-accent font-medium">
-          AI suggests
-        </div>
-      </div>
-      <div className="text-sm text-text leading-relaxed mb-3">
-        Henry's been on a roll — 5 chores done this week. Worth a high-five at dinner.
-      </div>
-      <div className="flex gap-2">
-        <button className="flex-1 px-3 py-2 bg-accent text-white text-xs font-medium rounded-md hover:opacity-90">
-          Got it
-        </button>
-        <button className="flex-1 px-3 py-2 border border-border text-text-muted text-xs rounded-md hover:bg-surface-2">
-          Dismiss
-        </button>
       </div>
     </div>
   );

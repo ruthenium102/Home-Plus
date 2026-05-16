@@ -44,3 +44,45 @@ export function formatDuration(minutes: number): string {
   const m = minutes % 60;
   return m > 0 ? `${h}h ${m}m` : `${h}h`;
 }
+
+// ---- Timeline helpers ------------------------------------------------------
+
+export const TIMELINE_START_MIN = 6 * 60;  // 06:00
+export const TIMELINE_END_MIN = 23 * 60;   // 23:00
+export const PX_PER_MIN = 1;               // 60px per hour
+export const SNAP_MIN = 15;                // 15-minute snap
+
+/** Default start time for a section — used to migrate section-only blocks. */
+export function defaultStartMinForSection(section: DayPlanSection): number {
+  if (section === 'morning') return 8 * 60;
+  if (section === 'afternoon') return 13 * 60;
+  return 18 * 60;
+}
+
+/** Effective start minute of a block — uses start_min when set, otherwise
+ *  falls back to a section-derived position so legacy data still renders. */
+export function effectiveStartMin(block: DayPlanBlock): number {
+  if (typeof block.start_min === 'number') return block.start_min;
+  return defaultStartMinForSection(block.section) + block.position * 30;
+}
+
+export function formatTimeOfDay(min: number): string {
+  const h24 = Math.floor(min / 60);
+  const m = min % 60;
+  const ampm = h24 < 12 ? 'am' : 'pm';
+  const h12 = h24 % 12 === 0 ? 12 : h24 % 12;
+  return `${h12}:${String(m).padStart(2, '0')} ${ampm}`;
+}
+
+export function snapMin(min: number): number {
+  return Math.round(min / SNAP_MIN) * SNAP_MIN;
+}
+
+export function clampStartMin(start: number, duration: number): number {
+  const max = TIMELINE_END_MIN - duration;
+  return Math.max(TIMELINE_START_MIN, Math.min(max, start));
+}
+
+export function sectionForMin(min: number): DayPlanSection {
+  return sectionForHour(Math.floor(min / 60));
+}

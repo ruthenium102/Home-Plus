@@ -327,6 +327,10 @@ export interface DayPlanBlock {
   done: boolean;
   done_at: string | null;
   created_at: string;
+  // Minutes from midnight (0..1439). When set, the block is placed at a
+  // specific time on the timeline; older blocks without this still render
+  // via a fallback derived from `section` + `position`.
+  start_min?: number | null;
 }
 
 export interface ActivityPoolItem {

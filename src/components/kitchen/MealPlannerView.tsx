@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react';
-import { ChevronLeft, ChevronRight, X, Heart, Search } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { ChevronLeft, ChevronRight, X, Heart, Search, Repeat } from 'lucide-react';
 import { addDays, format, startOfWeek } from 'date-fns';
 import { useFamily } from '@/context/FamilyContext';
 import { getMonday, mealTypeLabel } from '@/lib/kitchen';
@@ -8,7 +8,8 @@ import type { MealPlan, MealType, Recipe } from '@/types';
 const MEAL_TYPES: MealType[] = ['breakfast', 'lunch', 'dinner', 'snack'];
 
 export function MealPlannerView() {
-  const { recipes, mealPlans, addMealPlan, removeMealPlan, activeMember } = useFamily();
+  const { recipes, mealPlans, addMealPlan, removeMealPlan, repeatMealPlan, activeMember } = useFamily();
+  const [repeatTargetId, setRepeatTargetId] = useState<string | null>(null);
   const [weekStart, setWeekStart] = useState(() => getMonday(new Date()));
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
   const [selectedMealType, setSelectedMealType] = useState<MealType>('dinner');
@@ -143,6 +144,7 @@ export function MealPlannerView() {
                           mealPlan={mp}
                           recipe={recipe}
                           onRemove={() => removeMealPlan(mp.id)}
+                          onRepeat={() => setRepeatTargetId(mp.id)}
                         />
                       );
                     })}
@@ -208,6 +210,127 @@ export function MealPlannerView() {
           </button>
         </div>
       )}
+
+      {repeatTargetId && (
+        <RepeatMealModal
+          mealPlan={mealPlans.find((m) => m.id === repeatTargetId) ?? null}
+          recipe={(() => {
+            const mp = mealPlans.find((m) => m.id === repeatTargetId);
+            return mp ? recipes.find((r) => r.id === mp.recipe_id) : undefined;
+          })()}
+          onClose={() => setRepeatTargetId(null)}
+          onApply={(weekdays, weeks) => {
+            repeatMealPlan(repeatTargetId, weekdays, weeks);
+            setRepeatTargetId(null);
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+// Modal — pick weekdays + how many weeks forward to copy this meal.
+const WEEKDAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+function RepeatMealModal({
+  mealPlan,
+  recipe,
+  onClose,
+  onApply,
+}: {
+  mealPlan: MealPlan | null;
+  recipe?: Recipe;
+  onClose: () => void;
+  onApply: (weekdays: number[], weeks: number) => void;
+}) {
+  const sourceWeekday = mealPlan ? new Date(`${mealPlan.date}T00:00:00`).getDay() : null;
+  const [selected, setSelected] = useState<Set<number>>(() => new Set(sourceWeekday !== null ? [sourceWeekday] : []));
+  const [weeks, setWeeks] = useState(4);
+  const dialogRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
+  if (!mealPlan) return null;
+
+  const toggle = (wd: number) =>
+    setSelected((prev) => {
+      const next = new Set(prev);
+      next.has(wd) ? next.delete(wd) : next.add(wd);
+      return next;
+    });
+
+  const apply = () => {
+    // Exclude the source weekday — that day is already on the plan.
+    const dest = [...selected].filter((wd) => wd !== sourceWeekday);
+    onApply(dest.length > 0 ? dest : [...selected], weeks);
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4"
+      onClick={onClose}
+    >
+      <div
+        ref={dialogRef}
+        className="card max-w-sm w-full p-5 space-y-4"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between">
+          <h3 className="font-display text-lg text-text">Repeat meal</h3>
+          <button onClick={onClose} className="text-text-muted hover:text-text text-xl leading-none" aria-label="Close">×</button>
+        </div>
+        <p className="text-sm text-text-muted">
+          Copy <strong>{recipe?.icon || '🍽️'} {recipe?.title ?? 'this meal'}</strong> ({mealTypeLabel(mealPlan.meal_type)}) onto these weekdays:
+        </p>
+        <div className="grid grid-cols-7 gap-1">
+          {WEEKDAY_LABELS.map((label, wd) => {
+            const active = selected.has(wd);
+            return (
+              <button
+                key={wd}
+                onClick={() => toggle(wd)}
+                className={
+                  'py-2 rounded-md text-xs font-medium border-2 transition-all active:scale-95 ' +
+                  (active
+                    ? 'border-accent bg-accent-soft text-text'
+                    : 'border-border text-text-muted hover:border-border-strong')
+                }
+              >
+                {label}
+              </button>
+            );
+          })}
+        </div>
+        <div>
+          <label className="text-xs font-medium text-text-muted flex items-center justify-between mb-1">
+            <span>For how long?</span>
+            <span>{weeks} week{weeks === 1 ? '' : 's'}</span>
+          </label>
+          <input
+            type="range"
+            min="1"
+            max="12"
+            step="1"
+            value={weeks}
+            onChange={(e) => setWeeks(Number(e.target.value))}
+            className="w-full"
+          />
+        </div>
+        <div className="flex gap-2 pt-1">
+          <button onClick={onClose} className="btn-secondary flex-1 py-2.5 rounded-xl">Cancel</button>
+          <button
+            onClick={apply}
+            disabled={selected.size === 0}
+            className="btn-primary flex-1 py-2.5 rounded-xl disabled:opacity-40"
+          >
+            Apply
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -216,10 +339,12 @@ function MealChip({
   mealPlan,
   recipe,
   onRemove,
+  onRepeat,
 }: {
   mealPlan: MealPlan;
   recipe?: Recipe;
   onRemove: () => void;
+  onRepeat: () => void;
 }) {
   return (
     <div className="group relative bg-accent-soft rounded px-1.5 py-0.5 flex items-center gap-1 text-xs">
@@ -229,8 +354,18 @@ function MealChip({
         <span className="text-text-faint ml-0.5">· {mealTypeLabel(mealPlan.meal_type)}</span>
       </span>
       <button
+        onClick={onRepeat}
+        className="opacity-0 group-hover:opacity-100 text-text-faint hover:text-accent flex-shrink-0 transition"
+        title="Repeat this meal"
+        aria-label="Repeat this meal"
+      >
+        <Repeat size={11} />
+      </button>
+      <button
         onClick={onRemove}
         className="opacity-0 group-hover:opacity-100 text-text-faint hover:text-red-500 flex-shrink-0 transition"
+        title="Remove"
+        aria-label="Remove meal"
       >
         <X size={11} />
       </button>

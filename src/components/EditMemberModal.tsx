@@ -18,7 +18,7 @@ interface Props {
 
 export function EditMemberModal({ open, member, onClose }: Props) {
   const { updateMember, deleteMember, activeMember, members } = useFamily();
-  const { forgotPassword } = useAuth();
+  const { forgotPassword, user: authUser } = useAuth();
   const { show } = useToast();
 
   const [name, setName] = useState('');
@@ -177,12 +177,18 @@ export function EditMemberModal({ open, member, onClose }: Props) {
               <label className="block text-xs text-text-muted mb-1.5 font-medium">Account</label>
               {member.auth_user_id ? (
                 <div className="space-y-2">
-                  {/* Email field (read-only) */}
+                  {/* Email field (read-only). When the member row is missing
+                      its email, fall back to the signed-in auth user's email
+                      so the field never appears blank for the active user. */}
                   <div>
                     <div className="text-[10px] uppercase tracking-wider text-text-faint mb-1">Email</div>
                     <div className="flex items-center gap-2 px-3 py-2.5 bg-surface-2 border border-border rounded-md text-sm text-text">
                       <Mail size={14} className="text-text-faint shrink-0" />
-                      <span className="truncate flex-1">{member.email || '—'}</span>
+                      <span className="truncate flex-1">
+                        {member.email
+                          || (authUser && member.auth_user_id === authUser.id ? authUser.email : null)
+                          || '—'}
+                      </span>
                       <CheckCircle2 size={14} className="text-green-500 shrink-0" aria-label="Account linked" />
                     </div>
                   </div>

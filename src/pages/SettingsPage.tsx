@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Sun, Moon, Monitor, Lock, LockOpen, MapPin, Search, X, UserPlus, LogOut, Pencil, Home, Calendar, ListChecks, Trophy, Sparkles, ChefHat, PawPrint } from 'lucide-react';
+import { Sun, Moon, Monitor, Lock, LockOpen, MapPin, Search, X, UserPlus, LogOut, Pencil, Home, Calendar, ListChecks, Trophy, Sparkles, ChefHat, PawPrint, ChevronUp, ChevronDown } from 'lucide-react';
 import { useFamily } from '@/context/FamilyContext';
 import { useTheme } from '@/context/ThemeContext';
 import { useWeather } from '@/hooks/useWeather';
@@ -23,7 +23,7 @@ interface GeoResult {
 }
 
 export function SettingsPage() {
-  const { members, family, isDemoMode, updateMember, signOut, activeMember, kitchenSettings, updateKitchenSettings } =
+  const { members, family, isDemoMode, updateMember, signOut, activeMember, kitchenSettings, updateKitchenSettings, moveMember } =
     useFamily();
   const { mode, setMode } = useTheme();
   const { temp, locationName, locationStatus, resetLocation, setManualLocation } = useWeather();
@@ -140,28 +140,6 @@ export function SettingsPage() {
         </section>
       )}
 
-      {/* Kitchen+ */}
-      {isParent && (
-        <section className="card p-5">
-          <h2 className="font-display text-lg text-text mb-1">Kitchen+</h2>
-          <p className="text-xs text-text-faint mb-4">Cupboard staples and shopping days.</p>
-
-          <div className="mb-5">
-            <h3 className="text-sm font-medium text-text mb-1">Cupboard staples</h3>
-            <p className="text-xs text-text-faint mb-2">
-              Ingredients you always have — excluded from the shopping list.
-            </p>
-            <CupboardEditor />
-          </div>
-
-          <div>
-            <h3 className="text-sm font-medium text-text mb-1">Shopping days</h3>
-            <p className="text-xs text-text-faint mb-3">Used to split the shopping list into two shops.</p>
-            <ShopDaysEditor />
-          </div>
-        </section>
-      )}
-
       {/* Members */}
       <section className="card p-5">
         <div className="flex items-center justify-between mb-4">
@@ -186,11 +164,16 @@ export function SettingsPage() {
           )}
         </div>
         <div className="space-y-2">
-          {members.map((m) => (
+          {members.map((m, idx) => (
             <MemberRow
               key={m.id}
               member={m}
               isActive={activeMember?.id === m.id}
+              canReorder={isParent && members.length > 1}
+              canMoveUp={idx > 0}
+              canMoveDown={idx < members.length - 1}
+              onMoveUp={() => moveMember(m.id, 'up')}
+              onMoveDown={() => moveMember(m.id, 'down')}
               onEdit={() => setEditTarget(m)}
               onSetPin={() => setPinTarget(m)}
             />
@@ -311,6 +294,28 @@ export function SettingsPage() {
         </div>
       </section>
 
+      {/* Kitchen+ */}
+      {isParent && (
+        <section className="card p-5">
+          <h2 className="font-display text-lg text-text mb-1">Kitchen+</h2>
+          <p className="text-xs text-text-faint mb-4">Cupboard staples and shopping days.</p>
+
+          <div className="mb-5">
+            <h3 className="text-sm font-medium text-text mb-1">Cupboard staples</h3>
+            <p className="text-xs text-text-faint mb-2">
+              Ingredients you always have — excluded from the shopping list.
+            </p>
+            <CupboardEditor />
+          </div>
+
+          <div>
+            <h3 className="text-sm font-medium text-text mb-1">Shopping days</h3>
+            <p className="text-xs text-text-faint mb-3">Used to split the shopping list into two shops.</p>
+            <ShopDaysEditor />
+          </div>
+        </section>
+      )}
+
       {/* Weather */}
       <section className="card p-5">
         <h2 className="font-display text-lg text-text mb-4">Weather</h2>
@@ -425,17 +430,49 @@ export function SettingsPage() {
 function MemberRow({
   member,
   isActive,
+  canReorder,
+  canMoveUp,
+  canMoveDown,
+  onMoveUp,
+  onMoveDown,
   onEdit,
   onSetPin
 }: {
   member: FamilyMember;
   isActive: boolean;
+  canReorder: boolean;
+  canMoveUp: boolean;
+  canMoveDown: boolean;
+  onMoveUp: () => void;
+  onMoveDown: () => void;
   onEdit: () => void;
   onSetPin: () => void;
 }) {
   const hasLogin = !!member.auth_user_id;
   return (
     <div className="flex items-center gap-3 p-3 rounded-md bg-surface-2/40 hover:bg-surface-2/70 transition-colors">
+      {canReorder && (
+        <div className="flex flex-col -my-1 shrink-0">
+          <button
+            onClick={onMoveUp}
+            disabled={!canMoveUp}
+            className="w-6 h-5 flex items-center justify-center text-text-faint hover:text-text disabled:opacity-25 disabled:cursor-not-allowed"
+            title="Move up"
+            aria-label="Move member up"
+          >
+            <ChevronUp size={14} />
+          </button>
+          <button
+            onClick={onMoveDown}
+            disabled={!canMoveDown}
+            className="w-6 h-5 flex items-center justify-center text-text-faint hover:text-text disabled:opacity-25 disabled:cursor-not-allowed"
+            title="Move down"
+            aria-label="Move member down"
+          >
+            <ChevronDown size={14} />
+          </button>
+        </div>
+      )}
       <Avatar member={member} size={44} />
       <div className="flex-1 min-w-0">
         <div className="flex items-baseline gap-2 mb-0.5 flex-wrap">

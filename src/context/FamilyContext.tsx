@@ -85,6 +85,8 @@ interface FamilyContextValue {
   addMember: (m: Omit<FamilyMember, 'id' | 'created_at' | 'family_id'>) => void;
   updateMember: (id: string, patch: Partial<FamilyMember>) => void;
   deleteMember: (id: string) => void;
+  /** Move a member one step up or down in the display order. */
+  moveMember: (id: string, direction: 'up' | 'down') => void;
   setMemberPin: (id: string, pin: string | null) => void;
   setMemberLocation: (id: string, location: string | null, until: string | null) => void;
 
@@ -150,6 +152,12 @@ interface FamilyContextValue {
   toggleRecipeFavorite: (id: string) => void;
   addMealPlan: (mp: Omit<MealPlan, 'id' | 'created_at' | 'family_id'>) => void;
   removeMealPlan: (id: string) => void;
+  /**
+   * Replicate an existing meal plan onto the given weekdays (0=Sun..6=Sat)
+   * for the next `weeks` weeks (starting from the source plan's week).
+   * Existing meal plans on the same date + meal type are skipped.
+   */
+  repeatMealPlan: (sourceMealPlanId: string, weekdays: number[], weeks: number) => void;
   updateKitchenSettings: (patch: Partial<KitchenSettings>) => void;
 
   // Virtual Pet
@@ -185,6 +193,7 @@ const SESSION_KEY = 'session';
 const FAMILY_KEY = 'demo:family';
 const EVENTS_KEY = 'demo:events';
 const MEMBERS_KEY = 'demo:members';
+const MEMBER_ORDER_KEY = 'demo:member_order';
 const CHORES_KEY = 'demo:chores';
 const COMPLETIONS_KEY = 'demo:completions';
 const REDEMPTIONS_KEY = 'demo:redemptions';
@@ -253,6 +262,11 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
   );
   const [members, setMembers] = useState<FamilyMember[]>(() =>
     storage.get<FamilyMember[]>(MEMBERS_KEY, LIVE ? [] : DEMO_MEMBERS)
+  );
+  // Ordered list of member ids — pure UI ordering, kept in localStorage only.
+  // Members missing from this list fall back to their natural array order.
+  const [memberOrder, setMemberOrder] = useState<string[]>(() =>
+    storage.get<string[]>(MEMBER_ORDER_KEY, [])
   );
   const [events, setEvents] = useState<CalendarEvent[]>(() =>
     storage.get<CalendarEvent[]>(EVENTS_KEY, LIVE ? [] : DEMO_EVENTS)
@@ -574,6 +588,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
   // Persist
   useEffect(() => storage.set(FAMILY_KEY, family), [family]);
   useEffect(() => storage.set(MEMBERS_KEY, members), [members]);
+  useEffect(() => storage.set(MEMBER_ORDER_KEY, memberOrder), [memberOrder]);
   useEffect(() => storage.set(EVENTS_KEY, events), [events]);
   useEffect(() => storage.set(CHORES_KEY, chores), [chores]);
   useEffect(() => storage.set(COMPLETIONS_KEY, completions), [completions]);
@@ -717,6 +732,19 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
         if (e.id !== id) return e;
         const updated = { ...e, ...patch };
         dbUpsert('events', updated as unknown as Record<string, unknown>);
+        // If this is a meal event whose date changed, sync the linked meal
+        // plan's date so the planner stays in lockstep with the calendar.
+        if (updated.category === 'meal' && patch.start_at && patch.start_at !== e.start_at) {
+          const newDate = updated.start_at.slice(0, 10);
+          setMealPlans((mps) =>
+            mps.map((mp) => {
+              if (mp.calendar_event_id !== id || mp.date === newDate) return mp;
+              const next = { ...mp, date: newDate };
+              dbUpsert('meal_plans', next as unknown as Record<string, unknown>);
+              return next;
+            }),
+          );
+        }
         return updated;
       })),
     []
@@ -724,6 +752,13 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
 
   const deleteEvent = useCallback(
     (id: string) => {
+      // Remove any meal plan linked to this event so the planner and calendar
+      // stay in sync when a meal is deleted from the calendar side.
+      setMealPlans((mps) => {
+        const linked = mps.filter((mp) => mp.calendar_event_id === id);
+        linked.forEach((mp) => dbDelete('meal_plans', mp.id));
+        return linked.length ? mps.filter((mp) => mp.calendar_event_id !== id) : mps;
+      });
       setEvents((prev) => prev.filter((e) => e.id !== id));
       dbDelete('events', id);
     },
@@ -754,8 +789,33 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
 
   const deleteMember = useCallback((id: string) => {
     setMembers((prev) => prev.filter((m) => m.id !== id));
+    setMemberOrder((prev) => prev.filter((mid) => mid !== id));
     dbDelete('family_members', id);
   }, []);
+
+  // Re-orders the member with `id` by one step in the given direction. Order
+  // is stored in localStorage only; not synced to Supabase.
+  const moveMember = useCallback(
+    (id: string, direction: 'up' | 'down') => {
+      setMemberOrder((prev) => {
+        // Build the current display order: start with any prior ordering,
+        // then append any members not yet in the list (new joiners go last).
+        const known = new Set(prev);
+        const current = [
+          ...prev.filter((mid) => members.some((m) => m.id === mid)),
+          ...members.filter((m) => !known.has(m.id)).map((m) => m.id),
+        ];
+        const idx = current.indexOf(id);
+        if (idx < 0) return current;
+        const target = direction === 'up' ? idx - 1 : idx + 1;
+        if (target < 0 || target >= current.length) return current;
+        const next = current.slice();
+        [next[idx], next[target]] = [next[target], next[idx]];
+        return next;
+      });
+    },
+    [members],
+  );
 
   const setMemberPin = useCallback((id: string, pin: string | null) => {
     setMembers((prev) =>
@@ -1436,6 +1496,68 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
     []
   );
 
+  const repeatMealPlan = useCallback(
+    (sourceMealPlanId: string, weekdays: number[], weeks: number) => {
+      const source = mealPlans.find((m) => m.id === sourceMealPlanId);
+      if (!source || weekdays.length === 0 || weeks <= 0) return;
+      const recipe = recipes.find((r) => r.id === source.recipe_id);
+      const times = { breakfast: ['08:00', '09:00'], lunch: ['12:30', '13:30'], dinner: ['18:30', '20:00'], snack: ['15:00', '15:30'] };
+      const [startTime, endTime] = times[source.meal_type as MealType] ?? times.dinner;
+      const sourceDate = new Date(`${source.date}T00:00:00`);
+      // Walk forward day by day for the requested span and pick any matching
+      // weekday that doesn't already have a plan for this meal type.
+      const newEvents: CalendarEvent[] = [];
+      const newPlans: MealPlan[] = [];
+      const totalDays = weeks * 7;
+      for (let i = 1; i <= totalDays; i++) {
+        const d = new Date(sourceDate.getTime());
+        d.setDate(d.getDate() + i);
+        const wd = d.getDay();
+        if (!weekdays.includes(wd)) continue;
+        const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        const clash = mealPlans.some(
+          (m) => m.date === dateStr && m.meal_type === source.meal_type && m.recipe_id === source.recipe_id,
+        ) || newPlans.some((m) => m.date === dateStr && m.meal_type === source.meal_type);
+        if (clash) continue;
+        const eventId = uid('e');
+        newEvents.push({
+          id: eventId,
+          family_id: family.id,
+          title: recipe ? `${recipe.icon || '🍽️'} ${recipe.title}` : '🍽️ Meal',
+          description: null,
+          start_at: `${dateStr}T${startTime}:00`,
+          end_at: `${dateStr}T${endTime}:00`,
+          all_day: false,
+          location: null,
+          category: 'meal',
+          member_ids: [],
+          recurrence: null,
+          reminder_offsets: [],
+          created_by: activeMember?.id ?? null,
+          created_at: new Date().toISOString(),
+        });
+        newPlans.push({
+          id: uid('mp'),
+          family_id: family.id,
+          recipe_id: source.recipe_id,
+          date: dateStr,
+          meal_type: source.meal_type,
+          servings: source.servings,
+          calendar_event_id: eventId,
+          notes: null,
+          created_by: activeMember?.id ?? null,
+          created_at: new Date().toISOString(),
+        });
+      }
+      if (newPlans.length === 0) return;
+      setEvents((prev) => [...prev, ...newEvents]);
+      setMealPlans((prev) => [...prev, ...newPlans]);
+      newEvents.forEach((e) => dbUpsert('events', e as unknown as Record<string, unknown>));
+      newPlans.forEach((p) => dbUpsert('meal_plans', p as unknown as Record<string, unknown>));
+    },
+    [mealPlans, recipes, family.id, activeMember],
+  );
+
   const updateKitchenSettings = useCallback(
     (patch: Partial<KitchenSettings>) =>
       setKitchenSettings((prev) => ({ ...prev, ...patch })),
@@ -1589,9 +1711,20 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
     setNeedsPasswordSetup(false);
   }, []);
 
+  // Sort members for display by the stored member order. Members not in the
+  // stored order keep their natural array position at the end.
+  const sortedMembers = useMemo(() => {
+    if (memberOrder.length === 0) return members;
+    const indexOf = (id: string) => {
+      const i = memberOrder.indexOf(id);
+      return i < 0 ? Number.MAX_SAFE_INTEGER : i;
+    };
+    return [...members].sort((a, b) => indexOf(a.id) - indexOf(b.id));
+  }, [members, memberOrder]);
+
   const value: FamilyContextValue = {
     family,
-    members,
+    members: sortedMembers,
     events,
     chores,
     completions,
@@ -1612,6 +1745,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
     deleteEvent,
     updateMember,
     deleteMember,
+    moveMember,
     setMemberPin,
     setMemberLocation,
     addChore,
@@ -1658,6 +1792,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
     toggleRecipeFavorite,
     addMealPlan,
     removeMealPlan,
+    repeatMealPlan,
     updateKitchenSettings,
     pets,
     getPet,

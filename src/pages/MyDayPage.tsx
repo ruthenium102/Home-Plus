@@ -1,17 +1,17 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Plus,
   X,
   Check,
-  GripVertical,
-  ChevronDown,
   Maximize2,
   Minimize2,
   Trash2,
+  Pencil,
+  ChevronLeft,
+  ChevronRight,
   Circle,
   BookOpen,
   Music,
-  Pencil,
   TreePine,
   Gamepad2,
   Bike,
@@ -31,28 +31,34 @@ import {
   Leaf,
   Film,
   Waves,
-  type LucideIcon
+  type LucideIcon,
 } from 'lucide-react';
-import { format } from 'date-fns';
+import { addDays, format } from 'date-fns';
 import { useFamily } from '@/context/FamilyContext';
 import { localISO } from '@/lib/dates';
 import {
+  PX_PER_MIN,
   SECTION_LABELS,
-  SECTION_TIME_RANGE,
+  SNAP_MIN,
+  TIMELINE_END_MIN,
+  TIMELINE_START_MIN,
   blocksForMemberDate,
+  clampStartMin,
+  effectiveStartMin,
   formatDuration,
-  nextPosition,
+  formatTimeOfDay,
   sectionForHour,
-  sortedSectionBlocks
+  sectionForMin,
+  snapMin,
 } from '@/lib/dayplan';
 import type { ActivityPoolItem, DayPlanBlock, DayPlanSection } from '@/types';
 
-// ---- Icon resolver -------------------------------------------------------
+// ---- Icon resolver --------------------------------------------------------
 
 const ICON_MAP: Record<string, LucideIcon> = {
   Circle, BookOpen, Music, Pencil, TreePine, Gamepad2,
   Bike, Heart, Star, Dumbbell, Brush, Coffee, Apple,
-  Utensils, Bath, Dog, ShoppingCart, Laptop, Bed, Pill, Leaf, Film, Waves
+  Utensils, Bath, Dog, ShoppingCart, Laptop, Bed, Pill, Leaf, Film, Waves,
 };
 
 function resolveIcon(name: string | null): LucideIcon {
@@ -60,25 +66,59 @@ function resolveIcon(name: string | null): LucideIcon {
   return ICON_MAP[name] ?? Circle;
 }
 
-// ---- Now indicator -------------------------------------------------------
+// ---- Date scroller --------------------------------------------------------
 
-function NowIndicator() {
-  const [time, setTime] = useState(new Date());
-  useEffect(() => {
-    const t = setInterval(() => setTime(new Date()), 30000);
-    return () => clearInterval(t);
-  }, []);
+function DateScroller({ date, onChange }: { date: string; onChange: (d: string) => void }) {
+  const dt = new Date(`${date}T00:00:00`);
+  const today = localISO();
+  const isToday = date === today;
+  const shift = (delta: number) => onChange(format(addDays(dt, delta), 'yyyy-MM-dd'));
 
   return (
-    <div className="flex items-center gap-2 py-1.5">
-      <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse shrink-0" />
-      <span className="text-xs font-medium text-red-500">{format(time, 'h:mm a')}</span>
-      <div className="flex-1 h-px bg-red-400/40" />
+    <div className="flex items-center gap-2">
+      <button
+        onClick={() => shift(-1)}
+        className="w-8 h-8 rounded-md flex items-center justify-center text-text-muted hover:bg-surface-2"
+        aria-label="Previous day"
+      >
+        <ChevronLeft size={16} />
+      </button>
+      <div className="flex flex-col items-center min-w-[140px]">
+        <span className="font-display text-sm text-text leading-tight">
+          {format(dt, 'EEEE, d MMM')}
+        </span>
+        {!isToday && (
+          <button
+            onClick={() => onChange(today)}
+            className="text-[10px] uppercase tracking-wider text-accent font-semibold hover:underline"
+          >
+            Jump to today
+          </button>
+        )}
+        {isToday && (
+          <span className="text-[10px] uppercase tracking-wider text-accent font-semibold">Today</span>
+        )}
+      </div>
+      <button
+        onClick={() => shift(1)}
+        className="w-8 h-8 rounded-md flex items-center justify-center text-text-muted hover:bg-surface-2"
+        aria-label="Next day"
+      >
+        <ChevronRight size={16} />
+      </button>
+      {/* Native date picker for jumping further */}
+      <input
+        type="date"
+        value={date}
+        onChange={(e) => e.target.value && onChange(e.target.value)}
+        className="opacity-0 absolute pointer-events-none"
+        aria-hidden
+      />
     </div>
   );
 }
 
-// ---- Focus mode overlay --------------------------------------------------
+// ---- Focus mode (unchanged in spirit) -------------------------------------
 
 interface FocusModeProps {
   blocks: DayPlanBlock[];
@@ -88,17 +128,16 @@ interface FocusModeProps {
 
 function FocusMode({ blocks, onClose, onToggleDone }: FocusModeProps) {
   const now = new Date();
-  const section = sectionForHour(now.getHours());
-  const sectionBlocks = sortedSectionBlocks(blocks, section);
-  const undone = sectionBlocks.filter((b) => !b.done);
-  const current = undone[0] ?? sectionBlocks[0] ?? null;
+  const sortedAll = [...blocks].sort((a, b) => effectiveStartMin(a) - effectiveStartMin(b));
+  const undone = sortedAll.filter((b) => !b.done);
+  const current = undone[0] ?? sortedAll[0] ?? null;
   const next = undone[1] ?? null;
 
   return (
     <div className="fixed inset-0 z-50 bg-bg flex flex-col" onClick={onClose}>
       <div className="flex-1 flex flex-col items-center justify-center p-8" onClick={(e) => e.stopPropagation()}>
         <div className="text-xs uppercase tracking-widest text-text-faint mb-8">
-          {SECTION_LABELS[section]} · {format(now, 'h:mm a')}
+          {SECTION_LABELS[sectionForHour(now.getHours())]} · {format(now, 'h:mm a')}
         </div>
 
         {current ? (
@@ -130,7 +169,7 @@ function FocusMode({ blocks, onClose, onToggleDone }: FocusModeProps) {
           <div className="text-center">
             <div className="text-5xl mb-4">🎉</div>
             <div className="font-display text-3xl text-text">All done!</div>
-            <div className="text-text-faint mt-2">Nothing left for this part of the day.</div>
+            <div className="text-text-faint mt-2">Nothing left for today.</div>
           </div>
         )}
 
@@ -154,248 +193,278 @@ function FocusMode({ blocks, onClose, onToggleDone }: FocusModeProps) {
   );
 }
 
-// ---- Block card ----------------------------------------------------------
+// ---- Block rendered on the time grid --------------------------------------
 
-interface BlockCardProps {
+interface BlockOnTimelineProps {
   block: DayPlanBlock;
+  onCommit: (patch: { start_min?: number; duration_min?: number }) => void;
   onToggleDone: () => void;
   onRemove: () => void;
-  onResize: (newDuration: number) => void;
-  dragHandleProps: React.HTMLAttributes<HTMLDivElement>;
 }
 
-function BlockCard({ block, onToggleDone, onRemove, onResize, dragHandleProps }: BlockCardProps) {
-  const resizeRef = useRef<HTMLDivElement>(null);
-  const startY = useRef(0);
-  const startDur = useRef(block.duration_min);
-  const [hovered, setHovered] = useState(false);
+function BlockOnTimeline({ block, onCommit, onToggleDone, onRemove }: BlockOnTimelineProps) {
+  const start = effectiveStartMin(block);
+  const duration = block.duration_min;
   const Icon = resolveIcon(block.icon);
 
-  const handleResizeDown = useCallback(
-    (e: React.PointerEvent) => {
-      e.preventDefault();
-      e.stopPropagation();
-      resizeRef.current?.setPointerCapture(e.pointerId);
-      startY.current = e.clientY;
-      startDur.current = block.duration_min;
+  // Local "preview" overrides so the block visibly tracks the pointer while a
+  // gesture is in progress. We only commit on pointerup.
+  const [previewStart, setPreviewStart] = useState<number | null>(null);
+  const [previewDur, setPreviewDur] = useState<number | null>(null);
+
+  const renderStart = previewStart ?? start;
+  const renderDur = previewDur ?? duration;
+
+  const top = (renderStart - TIMELINE_START_MIN) * PX_PER_MIN;
+  const height = renderDur * PX_PER_MIN;
+
+  // Generic pointer-gesture helper used by move/top-resize/bottom-resize.
+  const useGesture = (
+    onStart: () => { origStart: number; origDur: number },
+    onMove: (deltaMin: number, orig: { origStart: number; origDur: number }) => { start: number; duration: number },
+  ) => (e: React.PointerEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const target = e.currentTarget as HTMLElement;
+    target.setPointerCapture(e.pointerId);
+    const startY = e.clientY;
+    const orig = onStart();
+
+    let latest = { start: orig.origStart, duration: orig.origDur };
+    const move = (ev: PointerEvent) => {
+      const deltaMin = snapMin((ev.clientY - startY) / PX_PER_MIN);
+      latest = onMove(deltaMin, orig);
+      setPreviewStart(latest.start);
+      setPreviewDur(latest.duration);
+    };
+    const up = () => {
+      target.removeEventListener('pointermove', move);
+      target.removeEventListener('pointerup', up);
+      target.removeEventListener('pointercancel', up);
+      setPreviewStart(null);
+      setPreviewDur(null);
+      // Only commit if anything actually changed.
+      const patch: { start_min?: number; duration_min?: number } = {};
+      if (latest.start !== orig.origStart) patch.start_min = latest.start;
+      if (latest.duration !== orig.origDur) patch.duration_min = latest.duration;
+      if (patch.start_min !== undefined || patch.duration_min !== undefined) onCommit(patch);
+    };
+    target.addEventListener('pointermove', move);
+    target.addEventListener('pointerup', up);
+    target.addEventListener('pointercancel', up);
+  };
+
+  // Body drag — moves the whole block.
+  const onBodyDown = useGesture(
+    () => ({ origStart: start, origDur: duration }),
+    (delta, orig) => {
+      const newStart = clampStartMin(orig.origStart + delta, orig.origDur);
+      return { start: newStart, duration: orig.origDur };
     },
-    [block.duration_min]
   );
 
-  const handleResizeMove = useCallback(
-    (e: React.PointerEvent) => {
-      if (!resizeRef.current?.hasPointerCapture(e.pointerId)) return;
-      const delta = e.clientY - startY.current;
-      const addMin = Math.round(delta / 2 / 5) * 5;
-      const newDur = Math.max(5, Math.min(240, startDur.current + addMin));
-      onResize(newDur);
+  // Top handle — adjusts start_min while keeping the bottom edge fixed.
+  const onTopHandleDown = useGesture(
+    () => ({ origStart: start, origDur: duration }),
+    (delta, orig) => {
+      const minDur = 15;
+      const maxDelta = orig.origDur - minDur;
+      const clampedDelta = Math.max(-(orig.origStart - TIMELINE_START_MIN), Math.min(maxDelta, delta));
+      return {
+        start: orig.origStart + clampedDelta,
+        duration: orig.origDur - clampedDelta,
+      };
     },
-    [onResize]
   );
 
-  const handleResizeUp = useCallback(
-    (e: React.PointerEvent) => {
-      resizeRef.current?.releasePointerCapture(e.pointerId);
+  // Bottom handle — adjusts duration only.
+  const onBottomHandleDown = useGesture(
+    () => ({ origStart: start, origDur: duration }),
+    (delta, orig) => {
+      const minDur = 15;
+      const maxDur = TIMELINE_END_MIN - orig.origStart;
+      const newDur = Math.max(minDur, Math.min(maxDur, orig.origDur + delta));
+      return { start: orig.origStart, duration: newDur };
     },
-    []
   );
-
-  const minHeight = Math.max(56, block.duration_min * 1.2);
 
   return (
     <div
       className={
-        'relative rounded-lg border transition-all group ' +
+        'absolute left-12 right-2 rounded-lg border shadow-sm group transition-shadow ' +
         (block.done
           ? 'bg-surface border-border opacity-60'
-          : 'bg-surface-2 border-border hover:border-accent/40')
+          : 'bg-surface-2 border-border hover:border-accent/40 hover:shadow')
       }
-      style={{ minHeight }}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
+      style={{ top, height, touchAction: 'none' }}
     >
-      <div className="flex items-start gap-2 p-3">
-        {/* Drag handle */}
-        <div
-          {...dragHandleProps}
-          className="mt-0.5 cursor-grab active:cursor-grabbing text-text-faint/40 hover:text-text-faint shrink-0 touch-none"
-        >
-          <GripVertical size={16} />
-        </div>
+      {/* Top resize handle */}
+      <div
+        onPointerDown={onTopHandleDown}
+        className="absolute -top-2 left-0 right-0 h-4 flex items-center justify-start pl-1 cursor-ns-resize"
+        title="Drag to change start time"
+      >
+        <div className="w-3 h-3 rounded-full bg-accent ring-2 ring-bg opacity-0 group-hover:opacity-100 transition-opacity" />
+      </div>
 
-        {/* Done toggle */}
+      {/* Body — drag to move */}
+      <div
+        onPointerDown={onBodyDown}
+        className="absolute inset-0 px-2 py-1.5 flex items-start gap-2 cursor-grab active:cursor-grabbing select-none overflow-hidden"
+      >
         <button
+          onPointerDown={(e) => e.stopPropagation()}
           onClick={onToggleDone}
           className={
-            'mt-0.5 shrink-0 rounded-full border-2 w-5 h-5 flex items-center justify-center transition-colors ' +
+            'mt-0.5 shrink-0 rounded-full border-2 w-4 h-4 flex items-center justify-center transition-colors ' +
             (block.done
               ? 'bg-accent border-accent text-white'
-              : 'border-border hover:border-accent')
+              : 'border-border hover:border-accent bg-bg')
           }
+          aria-label={block.done ? 'Mark undone' : 'Mark done'}
         >
-          {block.done && <Check size={11} strokeWidth={3} />}
+          {block.done && <Check size={9} strokeWidth={3} />}
         </button>
-
-        {/* Content */}
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-1.5 mb-0.5">
-            <Icon size={14} className="text-accent shrink-0" />
+          <div className="flex items-center gap-1.5 leading-tight">
+            <Icon size={12} className="text-accent shrink-0" />
             <span className={
-              'text-sm font-medium truncate ' +
-              (block.done ? 'line-through text-text-muted' : 'text-text')
+              'text-xs font-medium truncate ' + (block.done ? 'line-through text-text-muted' : 'text-text')
             }>
               {block.title}
             </span>
           </div>
-          <div className="text-xs text-text-faint">{formatDuration(block.duration_min)}</div>
+          <div className="text-[10px] text-text-faint mt-0.5">
+            {formatTimeOfDay(renderStart)} · {formatDuration(renderDur)}
+          </div>
         </div>
-
-        {/* Delete button */}
-        {(hovered || block.done) && (
-          <button
-            onClick={onRemove}
-            className="shrink-0 w-6 h-6 rounded flex items-center justify-center text-text-faint/40 hover:text-accent hover:bg-accent/10 transition-colors"
-          >
-            <Trash2 size={13} />
-          </button>
-        )}
+        <button
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={onRemove}
+          className="shrink-0 w-5 h-5 rounded flex items-center justify-center text-text-faint/40 hover:text-red-500 hover:bg-red-500/10 transition-colors opacity-0 group-hover:opacity-100"
+          aria-label="Remove block"
+        >
+          <Trash2 size={11} />
+        </button>
       </div>
 
-      {/* Resize handle */}
+      {/* Bottom resize handle */}
       <div
-        ref={resizeRef}
-        onPointerDown={handleResizeDown}
-        onPointerMove={handleResizeMove}
-        onPointerUp={handleResizeUp}
-        className="absolute bottom-0 left-0 right-0 h-3 cursor-ns-resize flex items-center justify-center group/resize touch-none"
-        title="Drag to resize"
+        onPointerDown={onBottomHandleDown}
+        className="absolute -bottom-2 left-0 right-0 h-4 flex items-center justify-end pr-1 cursor-ns-resize"
+        title="Drag to change duration"
       >
-        <div className="w-8 h-0.5 rounded-full bg-border group-hover/resize:bg-accent/50 transition-colors" />
+        <div className="w-3 h-3 rounded-full bg-accent ring-2 ring-bg opacity-0 group-hover:opacity-100 transition-opacity" />
       </div>
     </div>
   );
 }
 
-// ---- Day section ---------------------------------------------------------
+// ---- Timeline grid --------------------------------------------------------
 
-interface DaySectionProps {
-  section: DayPlanSection;
+interface TimelineProps {
   blocks: DayPlanBlock[];
-  isCurrentSection: boolean;
-  onDropPoolItem: (poolItemId: string, section: DayPlanSection) => void;
-  onDropBlock: (blockId: string, targetSection: DayPlanSection, targetPosition: number) => void;
+  isToday: boolean;
+  onDropPoolItem: (poolItemId: string, startMin: number) => void;
+  onUpdateBlock: (id: string, patch: { start_min?: number; duration_min?: number }) => void;
   onToggleDone: (id: string) => void;
   onRemove: (id: string) => void;
-  onResize: (id: string, dur: number) => void;
 }
 
-function DaySection({
-  section,
-  blocks,
-  isCurrentSection,
-  onDropPoolItem,
-  onDropBlock,
-  onToggleDone,
-  onRemove,
-  onResize
-}: DaySectionProps) {
-  const [collapsed, setCollapsed] = useState(false);
+function Timeline({ blocks, isToday, onDropPoolItem, onUpdateBlock, onToggleDone, onRemove }: TimelineProps) {
+  const gridRef = useRef<HTMLDivElement>(null);
   const [dragOver, setDragOver] = useState(false);
-  const sorted = sortedSectionBlocks(blocks, section);
-  const doneCount = sorted.filter((b) => b.done).length;
+  const [now, setNow] = useState(new Date());
 
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    setDragOver(true);
-  };
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), 30_000);
+    return () => clearInterval(id);
+  }, []);
 
-  const handleDrop = (e: React.DragEvent, targetPos?: number) => {
-    e.preventDefault();
-    setDragOver(false);
-    const raw = e.dataTransfer.getData('text/plain');
-    if (!raw) return;
-    try {
-      const data = JSON.parse(raw) as { type: 'pool'; id: string } | { type: 'block'; id: string };
-      if (data.type === 'pool') {
-        onDropPoolItem(data.id, section);
-      } else if (data.type === 'block') {
-        onDropBlock(data.id, section, targetPos ?? nextPosition(blocks, section));
-      }
-    } catch { /* ignore */ }
+  const hours = useMemo(() => {
+    const list: number[] = [];
+    for (let h = TIMELINE_START_MIN / 60; h <= TIMELINE_END_MIN / 60; h++) list.push(h);
+    return list;
+  }, []);
+
+  const totalHeight = (TIMELINE_END_MIN - TIMELINE_START_MIN) * PX_PER_MIN;
+  const nowMin = now.getHours() * 60 + now.getMinutes();
+  const nowTop = (nowMin - TIMELINE_START_MIN) * PX_PER_MIN;
+  const showNow = isToday && nowMin >= TIMELINE_START_MIN && nowMin <= TIMELINE_END_MIN;
+
+  const minForClientY = (clientY: number): number => {
+    const rect = gridRef.current?.getBoundingClientRect();
+    if (!rect) return TIMELINE_START_MIN;
+    const min = TIMELINE_START_MIN + (clientY - rect.top) / PX_PER_MIN;
+    return snapMin(Math.max(TIMELINE_START_MIN, Math.min(TIMELINE_END_MIN - SNAP_MIN, min)));
   };
 
   return (
-    <div className="card overflow-hidden">
-      {/* Section header */}
-      <button
-        onClick={() => setCollapsed((c) => !c)}
-        className="w-full flex items-center justify-between px-4 py-3 hover:bg-surface-2/50 transition-colors"
-      >
-        <div className="flex items-center gap-2">
-          <span className="font-display text-base text-text">{SECTION_LABELS[section]}</span>
-          <span className="text-xs text-text-faint">{SECTION_TIME_RANGE[section]}</span>
-          {isCurrentSection && (
-            <span className="text-[10px] uppercase tracking-wider bg-red-500/10 text-red-500 px-1.5 py-0.5 rounded-full font-semibold">
-              now
-            </span>
-          )}
-          {doneCount > 0 && (
-            <span className="text-[10px] text-text-faint">
-              {doneCount}/{sorted.length} done
-            </span>
-          )}
-        </div>
-        <ChevronDown
-          size={16}
-          className={'text-text-faint transition-transform ' + (collapsed ? '-rotate-90' : '')}
-        />
-      </button>
-
-      {!collapsed && (
-        <div
-          className={
-            'px-3 pb-3 space-y-2 min-h-[60px] transition-colors ' +
-            (dragOver ? 'bg-accent/5' : '')
+    <div
+      ref={gridRef}
+      onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+      onDragLeave={() => setDragOver(false)}
+      onDrop={(e) => {
+        e.preventDefault();
+        setDragOver(false);
+        const raw = e.dataTransfer.getData('text/plain');
+        if (!raw) return;
+        try {
+          const data = JSON.parse(raw) as { type: 'pool'; id: string };
+          if (data.type === 'pool') {
+            onDropPoolItem(data.id, minForClientY(e.clientY));
           }
-          onDragOver={handleDragOver}
-          onDragLeave={() => setDragOver(false)}
-          onDrop={(e) => handleDrop(e)}
-        >
-          {isCurrentSection && sorted.length > 0 && <NowIndicator />}
-
-          {sorted.map((block, idx) => (
-            <div
-              key={block.id}
-              draggable
-              onDragStart={(e) => {
-                e.dataTransfer.setData('text/plain', JSON.stringify({ type: 'block', id: block.id }));
-              }}
-              onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
-              onDrop={(e) => { e.stopPropagation(); handleDrop(e, idx); }}
-            >
-              <BlockCard
-                block={block}
-                onToggleDone={() => onToggleDone(block.id)}
-                onRemove={() => onRemove(block.id)}
-                onResize={(dur) => onResize(block.id, dur)}
-                dragHandleProps={{
-                  draggable: false,
-                  onDragStart: (e) => e.stopPropagation()
-                }}
-              />
+        } catch { /* ignore */ }
+      }}
+      className={
+        'card relative overflow-hidden ' + (dragOver ? 'ring-2 ring-accent/40' : '')
+      }
+      style={{ height: totalHeight + 20 /* small bottom pad */ }}
+    >
+      {/* Hour rows */}
+      {hours.map((h, idx) => {
+        const top = (h * 60 - TIMELINE_START_MIN) * PX_PER_MIN;
+        const ampm = h < 12 ? 'am' : 'pm';
+        const h12 = h % 12 === 0 ? 12 : h % 12;
+        return (
+          <div key={h} className="absolute left-0 right-0 flex items-start" style={{ top, height: 60 * PX_PER_MIN }}>
+            <div className="w-12 -mt-2 text-[10px] text-text-faint text-right pr-2 select-none">
+              {idx === 0 ? '' : `${h12} ${ampm}`}
             </div>
-          ))}
+            <div className="flex-1 border-t border-border" />
+          </div>
+        );
+      })}
 
-          {sorted.length === 0 && (
-            <div className={
-              'flex items-center justify-center h-14 rounded-lg border-2 border-dashed text-xs text-text-faint transition-colors ' +
-              (dragOver ? 'border-accent/50 bg-accent/5' : 'border-border')
-            }>
-              Drop activities here
-            </div>
-          )}
+      {/* Half-hour ticks */}
+      {hours.slice(0, -1).map((h) => {
+        const top = (h * 60 + 30 - TIMELINE_START_MIN) * PX_PER_MIN;
+        return (
+          <div key={`half-${h}`} className="absolute left-12 right-0 border-t border-border/40 border-dashed" style={{ top }} />
+        );
+      })}
+
+      {/* Now line */}
+      {showNow && (
+        <div className="absolute left-0 right-0 z-20 flex items-center pointer-events-none" style={{ top: nowTop }}>
+          <div className="w-12 pr-1 text-[10px] font-semibold text-red-500 text-right">
+            {format(now, 'h:mm')}
+          </div>
+          <div className="flex-1 h-px bg-red-500/80" />
+          <div className="absolute left-12 w-2 h-2 rounded-full bg-red-500 -translate-x-1" />
         </div>
       )}
+
+      {/* Blocks */}
+      {blocks.map((b) => (
+        <BlockOnTimeline
+          key={b.id}
+          block={b}
+          onCommit={(patch) => onUpdateBlock(b.id, patch)}
+          onToggleDone={() => onToggleDone(b.id)}
+          onRemove={() => onRemove(b.id)}
+        />
+      ))}
     </div>
   );
 }
@@ -404,22 +473,21 @@ function DaySection({
 
 interface PoolItemProps {
   item: ActivityPoolItem;
-  onAdd: (section: DayPlanSection) => void;
-  onArchive: () => void;
+  onEdit: () => void;
+  onDelete: () => void;
 }
 
-function PoolItemChip({ item, onAdd, onArchive }: PoolItemProps) {
-  const [menuOpen, setMenuOpen] = useState(false);
+function PoolItemChip({ item, onEdit, onDelete }: PoolItemProps) {
   const Icon = resolveIcon(item.icon);
-  const currentSection = sectionForHour(new Date().getHours());
-
   return (
     <div
-      className="relative flex items-center gap-2 px-2.5 py-2 rounded-lg bg-surface-2 border border-border hover:border-accent/40 cursor-grab active:cursor-grabbing group"
       draggable
       onDragStart={(e) => {
         e.dataTransfer.setData('text/plain', JSON.stringify({ type: 'pool', id: item.id }));
+        e.dataTransfer.effectAllowed = 'copy';
       }}
+      className="relative flex items-center gap-2 px-2.5 py-2 rounded-lg bg-surface-2 border border-border hover:border-accent/40 cursor-grab active:cursor-grabbing group"
+      title="Drag onto the timeline"
     >
       <Icon size={14} className="text-accent shrink-0" />
       <div className="flex-1 min-w-0">
@@ -427,75 +495,47 @@ function PoolItemChip({ item, onAdd, onArchive }: PoolItemProps) {
         <div className="text-[10px] text-text-faint">{formatDuration(item.default_duration_min)}</div>
       </div>
       <button
-        onClick={() => setMenuOpen((o) => !o)}
-        className="shrink-0 w-5 h-5 flex items-center justify-center rounded text-text-faint/40 hover:text-accent opacity-0 group-hover:opacity-100 transition-opacity"
+        onClick={onEdit}
+        className="shrink-0 w-6 h-6 rounded flex items-center justify-center text-text-faint hover:text-accent hover:bg-accent/10 opacity-0 group-hover:opacity-100 transition-all"
+        title="Edit activity"
+        aria-label="Edit activity"
       >
-        <Plus size={13} />
+        <Pencil size={12} />
       </button>
-
-      {menuOpen && (
-        <div className="absolute left-0 top-full mt-1 z-30 card overflow-hidden shadow-lg border border-border w-36">
-          {(['morning', 'afternoon', 'evening'] as DayPlanSection[]).map((s) => (
-            <button
-              key={s}
-              onClick={() => { onAdd(s); setMenuOpen(false); }}
-              className={
-                'w-full text-left px-3 py-2 text-xs text-text hover:bg-surface-2 flex items-center gap-2 ' +
-                (s === currentSection ? 'font-semibold' : '')
-              }
-            >
-              {s === currentSection && <span className="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0" />}
-              {SECTION_LABELS[s]}
-            </button>
-          ))}
-          <div className="border-t border-border">
-            <button
-              onClick={() => { onArchive(); setMenuOpen(false); }}
-              className="w-full text-left px-3 py-2 text-xs text-text-muted hover:bg-surface-2"
-            >
-              Remove from pool
-            </button>
-          </div>
-        </div>
-      )}
+      <button
+        onClick={onDelete}
+        className="shrink-0 w-6 h-6 rounded flex items-center justify-center text-text-faint hover:text-red-500 hover:bg-red-500/10 opacity-0 group-hover:opacity-100 transition-all"
+        title="Delete activity"
+        aria-label="Delete activity"
+      >
+        <Trash2 size={12} />
+      </button>
     </div>
   );
 }
 
-// ---- Add pool item modal --------------------------------------------------
+// ---- Activity modal (add + edit) ------------------------------------------
 
-interface AddPoolModalProps {
-  memberId: string;
-  onAdd: (item: Omit<ActivityPoolItem, 'id' | 'created_at' | 'family_id'>) => void;
+interface ActivityModalProps {
+  initial?: ActivityPoolItem | null;
+  onSave: (data: { title: string; icon: string; duration: number }) => void;
   onClose: () => void;
-  scheduleSection?: DayPlanSection;
-  onScheduleNow?: (title: string, icon: string, duration: number, section: DayPlanSection) => void;
 }
 
-function AddPoolModal({ memberId, onAdd, onClose, scheduleSection, onScheduleNow }: AddPoolModalProps) {
-  const [title, setTitle] = useState('');
-  const [duration, setDuration] = useState(60);
-  const [icon, setIcon] = useState('Circle');
+const QUICK_ICONS = [
+  'BookOpen', 'Music', 'Pencil', 'TreePine', 'Gamepad2', 'Bike',
+  'Heart', 'Star', 'Dumbbell', 'Brush', 'Coffee', 'Apple',
+  'Utensils', 'Bath', 'Dog', 'ShoppingCart', 'Laptop', 'Bed', 'Pill', 'Leaf', 'Film', 'Waves',
+];
 
-  const QUICK_ICONS = [
-    'BookOpen', 'Music', 'Pencil', 'TreePine', 'Gamepad2', 'Bike',
-    'Heart', 'Star', 'Dumbbell', 'Brush', 'Coffee', 'Apple',
-    'Utensils', 'Bath', 'Dog', 'ShoppingCart', 'Laptop', 'Bed', 'Pill', 'Leaf', 'Film', 'Waves'
-  ];
+function ActivityModal({ initial, onSave, onClose }: ActivityModalProps) {
+  const [title, setTitle] = useState(initial?.title ?? '');
+  const [duration, setDuration] = useState(initial?.default_duration_min ?? 60);
+  const [icon, setIcon] = useState(initial?.icon ?? 'Circle');
 
   const handleSave = () => {
     if (!title.trim()) return;
-    onAdd({
-      member_id: memberId,
-      title: title.trim(),
-      icon,
-      default_duration_min: duration,
-      usage_count: 0,
-      archived: false
-    });
-    if (onScheduleNow && scheduleSection) {
-      onScheduleNow(title.trim(), icon, duration, scheduleSection);
-    }
+    onSave({ title: title.trim(), icon, duration });
     onClose();
   };
 
@@ -503,8 +543,8 @@ function AddPoolModal({ memberId, onAdd, onClose, scheduleSection, onScheduleNow
     <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4" onClick={onClose}>
       <div className="card w-full max-w-sm" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between p-4 border-b border-border">
-          <h3 className="font-display text-lg text-text">Add activity</h3>
-          <button onClick={onClose} className="text-text-muted hover:text-text">
+          <h3 className="font-display text-lg text-text">{initial ? 'Edit activity' : 'Add activity'}</h3>
+          <button onClick={onClose} className="text-text-muted hover:text-text" aria-label="Close">
             <X size={18} />
           </button>
         </div>
@@ -522,14 +562,14 @@ function AddPoolModal({ memberId, onAdd, onClose, scheduleSection, onScheduleNow
             <div className="flex items-center gap-2">
               <input
                 type="range"
-                min={5}
-                max={120}
-                step={5}
+                min={15}
+                max={180}
+                step={15}
                 value={duration}
                 onChange={(e) => setDuration(Number(e.target.value))}
                 className="flex-1 accent-accent"
               />
-              <span className="text-sm text-text w-12 text-right">{formatDuration(duration)}</span>
+              <span className="text-sm text-text w-14 text-right">{formatDuration(duration)}</span>
             </div>
           </div>
           <div>
@@ -562,7 +602,7 @@ function AddPoolModal({ memberId, onAdd, onClose, scheduleSection, onScheduleNow
             disabled={!title.trim()}
             className="px-5 py-2 bg-accent text-white text-sm font-medium rounded-md hover:opacity-90 disabled:opacity-40"
           >
-            Add
+            {initial ? 'Save' : 'Add'}
           </button>
         </div>
       </div>
@@ -570,7 +610,7 @@ function AddPoolModal({ memberId, onAdd, onClose, scheduleSection, onScheduleNow
   );
 }
 
-// ---- Main page -----------------------------------------------------------
+// ---- Main page ------------------------------------------------------------
 
 export function MyDayPage() {
   const {
@@ -580,79 +620,63 @@ export function MyDayPage() {
     addDayPlanBlock,
     updateDayPlanBlock,
     removeDayPlanBlock,
-    reorderDayPlanBlocks,
     toggleBlockDone,
     addPoolItem,
-    archivePoolItem
+    updatePoolItem,
+    archivePoolItem,
   } = useFamily();
 
   const [focusMode, setFocusMode] = useState(false);
-  const [addPoolOpen, setAddPoolOpen] = useState(false);
-
-  const today = localISO();
-  const now = new Date();
-  const currentSection = sectionForHour(now.getHours());
+  const [modalState, setModalState] = useState<{ mode: 'add' } | { mode: 'edit'; item: ActivityPoolItem } | null>(null);
+  const [date, setDate] = useState<string>(localISO());
 
   if (!activeMember) return null;
 
-  const memberBlocks = blocksForMemberDate(dayPlanBlocks, activeMember.id, today);
+  const memberBlocks = blocksForMemberDate(dayPlanBlocks, activeMember.id, date);
   const memberPool = activityPool
     .filter((ap) => ap.member_id === activeMember.id && !ap.archived)
     .sort((a, b) => b.usage_count - a.usage_count);
 
-  const sections: DayPlanSection[] = ['morning', 'afternoon', 'evening'];
+  const isToday = date === localISO();
 
-  const handleDropPoolItem = (poolItemId: string, section: DayPlanSection) => {
+  const totalDone = memberBlocks.filter((b) => b.done).length;
+  const total = memberBlocks.length;
+
+  const handleDropPoolItem = (poolItemId: string, startMin: number) => {
     const item = memberPool.find((p) => p.id === poolItemId);
     if (!item) return;
+    const startSafe = clampStartMin(startMin, item.default_duration_min);
     addDayPlanBlock({
       member_id: activeMember.id,
-      date: today,
-      section,
+      date,
+      section: sectionForMin(startSafe),
       source: 'other',
       source_id: poolItemId,
       title: item.title,
       icon: item.icon,
       duration_min: item.default_duration_min,
-      position: nextPosition(memberBlocks, section),
+      position: 0,
       done: false,
-      done_at: null
+      done_at: null,
+      start_min: startSafe,
     });
   };
 
-  const handleDropBlock = (blockId: string, targetSection: DayPlanSection, targetPosition: number) => {
-    const block = memberBlocks.find((b) => b.id === blockId);
-    if (!block) return;
-
-    if (block.section === targetSection) {
-      // Reorder within section
-      const sectionBlocks = sortedSectionBlocks(memberBlocks, targetSection);
-      const without = sectionBlocks.filter((b) => b.id !== blockId);
-      without.splice(targetPosition, 0, block);
-      reorderDayPlanBlocks(
-        without.map((b, i) => ({ id: b.id, position: i, section: targetSection }))
-      );
-    } else {
-      // Move to different section
-      const updates: { id: string; position: number; section: DayPlanSection }[] = [
-        { id: blockId, position: nextPosition(memberBlocks.filter((b) => b.section === targetSection), targetSection), section: targetSection }
-      ];
-      reorderDayPlanBlocks(updates);
-    }
+  const handleUpdateBlock = (id: string, patch: { start_min?: number; duration_min?: number }) => {
+    const next: Partial<DayPlanBlock> = { ...patch };
+    if (patch.start_min !== undefined) next.section = sectionForMin(patch.start_min);
+    updateDayPlanBlock(id, next);
   };
-
-  const totalDone = memberBlocks.filter((b) => b.done).length;
-  const total = memberBlocks.length;
 
   return (
     <>
       <div className="flex gap-4 max-w-5xl">
         {/* Activity pool sidebar — desktop only */}
-        <aside className="hidden lg:flex flex-col w-48 shrink-0 gap-2">
+        <aside className="hidden lg:flex flex-col w-52 shrink-0 gap-2">
           <div className="flex items-center justify-between mb-1">
             <span className="text-xs font-medium text-text-muted uppercase tracking-wider">Activities</span>
             <button
-              onClick={() => setAddPoolOpen(true)}
+              onClick={() => setModalState({ mode: 'add' })}
               className="w-6 h-6 rounded flex items-center justify-center text-text-faint hover:text-accent hover:bg-accent/10 transition-colors"
               title="Add activity"
             >
@@ -662,7 +686,7 @@ export function MyDayPage() {
           {memberPool.length === 0 && (
             <div className="text-xs text-text-faint text-center py-4">
               No activities yet.{' '}
-              <button onClick={() => setAddPoolOpen(true)} className="text-accent underline">
+              <button onClick={() => setModalState({ mode: 'add' })} className="text-accent underline">
                 Add one
               </button>
             </div>
@@ -671,27 +695,29 @@ export function MyDayPage() {
             <PoolItemChip
               key={item.id}
               item={item}
-              onAdd={(section) => handleDropPoolItem(item.id, section)}
-              onArchive={() => archivePoolItem(item.id)}
+              onEdit={() => setModalState({ mode: 'edit', item })}
+              onDelete={() => archivePoolItem(item.id)}
             />
           ))}
+          <p className="mt-2 text-[10px] text-text-faint leading-snug">
+            Drag an activity onto the time grid to plan it.
+          </p>
         </aside>
 
         {/* Timeline */}
         <div className="flex-1 min-w-0 space-y-3">
           {/* Header */}
-          <div className="flex items-center justify-between">
-            <div>
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            <div className="flex items-center gap-3">
               <h2 className="font-display text-xl text-text">{activeMember.name}'s Day</h2>
-              <div className="text-xs text-text-faint">{format(now, 'EEEE, d MMM')}</div>
-            </div>
-            <div className="flex items-center gap-2">
               {total > 0 && (
                 <span className="text-xs text-text-faint">{totalDone}/{total} done</span>
               )}
-              {/* Mobile add button */}
+            </div>
+            <div className="flex items-center gap-2">
+              <DateScroller date={date} onChange={setDate} />
               <button
-                onClick={() => setAddPoolOpen(true)}
+                onClick={() => setModalState({ mode: 'add' })}
                 className="lg:hidden flex items-center gap-1.5 px-3 py-1.5 bg-surface-2 border border-border rounded-md text-sm text-text-muted hover:bg-surface"
               >
                 <Plus size={14} /> Add
@@ -705,20 +731,40 @@ export function MyDayPage() {
             </div>
           </div>
 
-          {/* Sections */}
-          {sections.map((section) => (
-            <DaySection
-              key={section}
-              section={section}
-              blocks={memberBlocks.filter((b) => b.section === section)}
-              isCurrentSection={section === currentSection}
-              onDropPoolItem={handleDropPoolItem}
-              onDropBlock={handleDropBlock}
-              onToggleDone={toggleBlockDone}
-              onRemove={removeDayPlanBlock}
-              onResize={(id, dur) => updateDayPlanBlock(id, { duration_min: dur })}
-            />
-          ))}
+          <Timeline
+            blocks={memberBlocks}
+            isToday={isToday}
+            onDropPoolItem={handleDropPoolItem}
+            onUpdateBlock={handleUpdateBlock}
+            onToggleDone={toggleBlockDone}
+            onRemove={removeDayPlanBlock}
+          />
+
+          {/* Mobile pool — collapsed list under the timeline */}
+          <div className="lg:hidden card p-3">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-medium text-text-muted uppercase tracking-wider">Activities</span>
+              <button
+                onClick={() => setModalState({ mode: 'add' })}
+                className="w-6 h-6 rounded flex items-center justify-center text-text-faint hover:text-accent hover:bg-accent/10 transition-colors"
+              >
+                <Plus size={14} />
+              </button>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              {memberPool.map((item) => (
+                <PoolItemChip
+                  key={item.id}
+                  item={item}
+                  onEdit={() => setModalState({ mode: 'edit', item })}
+                  onDelete={() => archivePoolItem(item.id)}
+                />
+              ))}
+            </div>
+            <p className="mt-2 text-[10px] text-text-faint leading-snug">
+              Long-press and drag onto the time grid to plan an activity.
+            </p>
+          </div>
         </div>
       </div>
 
@@ -730,26 +776,27 @@ export function MyDayPage() {
         />
       )}
 
-      {addPoolOpen && (
-        <AddPoolModal
-          memberId={activeMember.id}
-          onAdd={addPoolItem}
-          onClose={() => setAddPoolOpen(false)}
-          scheduleSection={currentSection}
-          onScheduleNow={(title, icon, duration, section) => {
-            addDayPlanBlock({
-              member_id: activeMember.id,
-              date: today,
-              section,
-              source: 'other',
-              source_id: '',
-              title,
-              icon,
-              duration_min: duration,
-              position: nextPosition(memberBlocks, section),
-              done: false,
-              done_at: null
-            });
+      {modalState && (
+        <ActivityModal
+          initial={modalState.mode === 'edit' ? modalState.item : null}
+          onClose={() => setModalState(null)}
+          onSave={({ title, icon, duration }) => {
+            if (modalState.mode === 'edit') {
+              updatePoolItem(modalState.item.id, {
+                title,
+                icon,
+                default_duration_min: duration,
+              });
+            } else {
+              addPoolItem({
+                member_id: activeMember.id,
+                title,
+                icon,
+                default_duration_min: duration,
+                usage_count: 0,
+                archived: false,
+              });
+            }
           }}
         />
       )}
