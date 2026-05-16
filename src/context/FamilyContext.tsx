@@ -764,25 +764,80 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
     if (!family.id || family.id === DEMO_FAMILY.id) return { ok: false, error: 'No real family loaded' };
     setReloading(true);
     try {
+      // Step 1: try the canonical bulk load. If it returns data, we're done.
       const data = await dbLoadFamily(family.id);
-      if (!data) return { ok: false, error: `dbLoadFamily returned null for family ${family.id.slice(-8)}` };
-      setFamily(data.family);
-      setMembers(data.members);
-      setEvents(data.events);
-      setChores(data.chores);
-      setCompletions(data.completions);
-      setLists(data.lists);
-      setListItems(data.listItems);
-      setHabits(data.habits);
-      setCheckIns(data.checkIns);
-      setGoals(data.goals);
-      setRedemptions(data.redemptions);
-      setDayPlanBlocks(data.dayPlanBlocks);
-      setActivityPool(data.activityPool);
-      setRecipes(data.recipes);
-      setMealPlans(data.mealPlans);
+      if (data) {
+        setFamily(data.family);
+        setMembers(data.members);
+        setEvents(data.events);
+        setChores(data.chores);
+        setCompletions(data.completions);
+        setLists(data.lists);
+        setListItems(data.listItems);
+        setHabits(data.habits);
+        setCheckIns(data.checkIns);
+        setGoals(data.goals);
+        setRedemptions(data.redemptions);
+        setDayPlanBlocks(data.dayPlanBlocks);
+        setActivityPool(data.activityPool);
+        setRecipes(data.recipes);
+        setMealPlans(data.mealPlans);
+        setLastReloadAt(Date.now());
+        return { ok: true };
+      }
+
+      // Step 2: bulk load failed — the families row is unreadable. Probe it
+      // directly so we can surface the underlying error to the user, then
+      // try a fallback that keeps the existing family object and refreshes
+      // the per-table data anyway.
+      const { error: fError } = await supabase!
+        .from('families')
+        .select('id')
+        .eq('id', family.id)
+        .maybeSingle();
+      const fErrMsg = fError?.message;
+
+      // Refresh per-table data without depending on families.
+      const probes = await Promise.all([
+        supabase!.from('family_members').select('*').eq('family_id', family.id),
+        supabase!.from('events').select('*').eq('family_id', family.id),
+        supabase!.from('chores').select('*').eq('family_id', family.id),
+        supabase!.from('chore_completions').select('*').eq('family_id', family.id),
+        supabase!.from('todo_lists').select('*').eq('family_id', family.id),
+        supabase!.from('todo_items').select('*').eq('family_id', family.id),
+        supabase!.from('habits').select('*').eq('family_id', family.id),
+        supabase!.from('habit_check_ins').select('*').eq('family_id', family.id),
+        supabase!.from('reward_goals').select('*').eq('family_id', family.id),
+        supabase!.from('redemptions').select('*').eq('family_id', family.id),
+        supabase!.from('day_plan_blocks').select('*').eq('family_id', family.id),
+        supabase!.from('activity_pool_items').select('*').eq('family_id', family.id),
+        supabase!.from('recipes').select('*').eq('family_id', family.id),
+        supabase!.from('meal_plans').select('*').eq('family_id', family.id),
+      ]);
+      const [mems, evs, ch, cc, tl, ti, hb, hci, rg, rd, dpb, api, rec, mp] = probes;
+      setMembers((mems.data ?? []) as unknown as FamilyMember[]);
+      setEvents((evs.data ?? []) as unknown as CalendarEvent[]);
+      setChores((ch.data ?? []) as unknown as Chore[]);
+      setCompletions((cc.data ?? []) as unknown as ChoreCompletion[]);
+      setLists((tl.data ?? []) as unknown as TodoList[]);
+      setListItems((ti.data ?? []) as unknown as TodoItem[]);
+      setHabits((hb.data ?? []) as unknown as Habit[]);
+      setCheckIns((hci.data ?? []) as unknown as HabitCheckIn[]);
+      setGoals((rg.data ?? []) as unknown as RewardGoal[]);
+      setRedemptions((rd.data ?? []) as unknown as Redemption[]);
+      setDayPlanBlocks((dpb.data ?? []) as unknown as DayPlanBlock[]);
+      setActivityPool((api.data ?? []) as unknown as ActivityPoolItem[]);
+      setRecipes((rec.data ?? []) as unknown as Recipe[]);
+      setMealPlans((mp.data ?? []) as unknown as MealPlan[]);
       setLastReloadAt(Date.now());
-      return { ok: true };
+
+      const detail = fErrMsg
+        ? `families read blocked: ${fErrMsg}`
+        : `families row not found (id ${family.id.slice(-8)})`;
+      return {
+        ok: false,
+        error: `Refreshed table data, but ${detail}. Apply the RLS migration in Supabase.`,
+      };
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       console.warn('[reloadFromCloud] failed:', e);
@@ -800,14 +855,22 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
       'redemptions', 'day_plan_blocks', 'activity_pool_items',
       'recipes', 'meal_plans',
     ];
+    // Fetch IDs and count locally. The previous `head:true` + `count:'exact'`
+    // approach left count=null in some configurations, which made the panel
+    // useless when something was actually wrong.
     const results = await Promise.all(
       tables.map(async (table) => {
         const filter = table === 'families' ? 'id' : 'family_id';
-        const { count, error } = await supabase!
+        const { data, error } = await supabase!
           .from(table)
-          .select('id', { count: 'exact', head: true })
-          .eq(filter, family.id);
-        return { table, count: count ?? null, error: error?.message };
+          .select('id')
+          .eq(filter, family.id)
+          .limit(5000);
+        return {
+          table,
+          count: error ? null : (data?.length ?? 0),
+          error: error?.message,
+        };
       }),
     );
     return results;
