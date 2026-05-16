@@ -15,6 +15,12 @@ interface Props {
   mood: PetMood;
   /** Center of the pet on the page — used to compute look direction. */
   rootRef: React.RefObject<HTMLDivElement | null>;
+  /**
+   * Optional explicit eye geometry. When provided, eye positions and size are
+   * taken directly from this layout instead of being derived from (cx, cy, r).
+   * Used by custom-drawing pets where the user has placed the eyes themselves.
+   */
+  layout?: { leftCx: number; rightCx: number; eyeY: number; eyeR: number };
 }
 
 /**
@@ -23,14 +29,13 @@ interface Props {
  * `cx`/`cy` attributes directly for performance.
  */
 export const PetEyes = forwardRef<PetEyesHandle, Props>(function PetEyes(
-  { cx, cy, r, mood, rootRef },
+  { cx, cy, r, mood, rootRef, layout },
   ref,
 ) {
-  const eyeY = cy - r * 0.12;
-  const eyeSpacing = r * 0.3;
-  const leftEyeX = cx - eyeSpacing;
-  const rightEyeX = cx + eyeSpacing;
-  const eyeR = r * 0.16;        // slightly larger to host iris movement
+  const eyeY = layout?.eyeY ?? cy - r * 0.12;
+  const leftEyeX = layout?.leftCx ?? cx - r * 0.3;
+  const rightEyeX = layout?.rightCx ?? cx + r * 0.3;
+  const eyeR = layout?.eyeR ?? r * 0.16;
   const pupilR = eyeR * 0.55;
   const shineR = pupilR * 0.42;
   const maxOffset = eyeR - pupilR - 1; // how far iris can travel inside sclera

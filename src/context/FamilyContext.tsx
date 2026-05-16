@@ -44,6 +44,7 @@ import type {
   KitchenSettings,
   MealPlan,
   MealType,
+  CustomPetEyes,
   PetAnimal,
   Redemption,
   Recipe,
@@ -154,7 +155,17 @@ interface FamilyContextValue {
   // Virtual Pet
   pets: VirtualPet[];
   getPet: (memberId: string) => VirtualPet | null;
-  createPet: (memberId: string, animal: PetAnimal, name: string) => void;
+  createPet: (
+    memberId: string,
+    animal: PetAnimal,
+    name: string,
+    custom?: { image: string; eyes: CustomPetEyes } | null,
+  ) => void;
+  setPetCustomDrawing: (
+    memberId: string,
+    image: string,
+    eyes: CustomPetEyes,
+  ) => void;
   feedPet: (memberId: string) => void;
   waterPet: (memberId: string) => void;
   patPet: (memberId: string) => void;
@@ -1440,7 +1451,12 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
   );
 
   const createPet = useCallback(
-    (memberId: string, animal: PetAnimal, name: string) => {
+    (
+      memberId: string,
+      animal: PetAnimal,
+      name: string,
+      custom?: { image: string; eyes: CustomPetEyes } | null,
+    ) => {
       const member = members.find((m) => m.id === memberId);
       if (!member) return;
       const memberCompletions = completions.filter(
@@ -1465,10 +1481,25 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
         last_interacted_at: null,
         created_at: new Date().toISOString(),
         accessories: [],
+        custom_image_data: custom?.image ?? null,
+        custom_eyes: custom?.eyes ?? null,
       };
       setPets((prev) => [...prev.filter((p) => p.member_id !== memberId), newPet]);
     },
     [members, completions, checkIns]
+  );
+
+  const setPetCustomDrawing = useCallback(
+    (memberId: string, image: string, eyes: CustomPetEyes) => {
+      setPets((prev) =>
+        prev.map((p) =>
+          p.member_id === memberId
+            ? { ...p, custom_image_data: image, custom_eyes: eyes }
+            : p,
+        ),
+      );
+    },
+    [],
   );
 
   const feedPet = useCallback((memberId: string) => {
@@ -1631,6 +1662,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
     pets,
     getPet,
     createPet,
+    setPetCustomDrawing,
     feedPet,
     waterPet,
     patPet,

@@ -395,7 +395,16 @@ export interface KitchenSettings {
 // Virtual Pet (Phase 6)
 // ============================================================================
 
-export type PetAnimal = 'cat' | 'dog' | 'bunny' | 'hamster' | 'axolotl' | 'dragon';
+export type PetAnimal = 'cat' | 'dog' | 'bunny' | 'hamster' | 'axolotl' | 'dragon' | 'custom';
+
+// Eye placement for custom pets, in 0..1 coordinates relative to the
+// processed pet image. Drawn over the image by PetEyes.
+export interface CustomPetEyes {
+  left: { x: number; y: number };
+  right: { x: number; y: number };
+  // Iris radius as a fraction of image width (e.g. 0.05). Tuned in the editor.
+  radius: number;
+}
 
 export interface VirtualPet {
   id: string;
@@ -415,4 +424,8 @@ export interface VirtualPet {
   // Currently-worn accessory ids (e.g. 'top_hat', 'red_collar'). Defaults to [].
   // Stored in-memory + localStorage only; not synced to Supabase schema.
   accessories: string[];
+  // Custom pet data — only set when animal === 'custom'. Same localStorage-only
+  // storage pattern as accessories.
+  custom_image_data?: string | null; // data: URL of processed PNG
+  custom_eyes?: CustomPetEyes | null;
 }

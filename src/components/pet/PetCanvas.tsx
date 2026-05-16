@@ -7,7 +7,7 @@ import {
   useRef,
   useState,
 } from 'react';
-import type { PetAnimal } from '@/types';
+import type { CustomPetEyes, PetAnimal } from '@/types';
 import { PetEyes, type PetEyesHandle } from './PetEyes';
 import { AccessoryLayer } from './AccessoryLayer';
 
@@ -44,6 +44,10 @@ interface Props {
   showShadow?: boolean;
   /** Pause animations (e.g. when page is hidden). */
   paused?: boolean;
+  /** Processed drawing for custom pets (data: URL). */
+  customImage?: string | null;
+  /** Eye positions (0..1 of the rendered image) for custom pets. */
+  customEyes?: CustomPetEyes | null;
 }
 
 export function xpToStage(xp: number): PetStage {
@@ -76,6 +80,8 @@ export const PetCanvas = forwardRef<PetCanvasHandle, Props>(function PetCanvas(
     attentionTrigger = 0,
     showShadow = true,
     paused = false,
+    customImage = null,
+    customEyes = null,
   },
   ref,
 ) {
@@ -209,6 +215,19 @@ export const PetCanvas = forwardRef<PetCanvasHandle, Props>(function PetCanvas(
 
   const cx = 100, cy = 95, r = 60;
 
+  const isCustom = animal === 'custom';
+  // Custom-pet image fills (mostly) the 200x200 viewBox.
+  const CI_X = 5, CI_Y = 5, CI_W = 190, CI_H = 190;
+  const customEyeLayout =
+    isCustom && customEyes
+      ? {
+          leftCx: CI_X + customEyes.left.x * CI_W,
+          rightCx: CI_X + customEyes.right.x * CI_W,
+          eyeY: CI_Y + ((customEyes.left.y + customEyes.right.y) / 2) * CI_H,
+          eyeR: Math.max(4, customEyes.radius * CI_W),
+        }
+      : undefined;
+
   return (
     <div
       ref={rootRef}
@@ -291,28 +310,64 @@ export const PetCanvas = forwardRef<PetCanvasHandle, Props>(function PetCanvas(
             transform: `scale(${scale})`,
             transition: 'transform 600ms cubic-bezier(0.34, 1.56, 0.64, 1)',
           }}>
-            <AnimalLayers animal={animal} mood={mood} tailWagCls={tailWagCls} />
+            {isCustom ? (
+              customImage ? (
+                <image
+                  href={customImage}
+                  x={CI_X}
+                  y={CI_Y}
+                  width={CI_W}
+                  height={CI_H}
+                  preserveAspectRatio="xMidYMid meet"
+                />
+              ) : (
+                // Empty-state for a custom pet without a drawing yet — a soft
+                // paper rectangle with a pencil glyph so the slot isn't blank.
+                <g>
+                  <rect x={CI_X} y={CI_Y} width={CI_W} height={CI_H} rx={20} fill="#f5e9d8" />
+                  <text
+                    x={100}
+                    y={115}
+                    fontSize="80"
+                    textAnchor="middle"
+                    style={{ pointerEvents: 'none' }}
+                  >
+                    ✏️
+                  </text>
+                </g>
+              )
+            ) : (
+              <AnimalLayers animal={animal} mood={mood} tailWagCls={tailWagCls} />
+            )}
 
-            {/* Eyes — independent layer with iris tracking */}
-            <PetEyes
-              ref={eyesRef}
-              cx={cx} cy={cy} r={r}
-              mood={mood}
-              rootRef={rootRef}
-            />
+            {/* Eyes — independent layer with iris tracking. For custom pets we
+                only draw the eye overlay when the user has placed eyes. */}
+            {(!isCustom || customEyeLayout) && (
+              <PetEyes
+                ref={eyesRef}
+                cx={cx} cy={cy} r={r}
+                mood={mood}
+                rootRef={rootRef}
+                layout={customEyeLayout}
+              />
+            )}
 
-            {/* Cheeks */}
-            <ellipse cx={cx - r * 0.42} cy={cy + r * 0.12} rx={r * 0.16} ry={r * 0.1} fill="#ffb3c1" opacity="0.55" />
-            <ellipse cx={cx + r * 0.42} cy={cy + r * 0.12} rx={r * 0.16} ry={r * 0.1} fill="#ffb3c1" opacity="0.55" />
+            {/* Standard face decoration — skipped for custom pets, since the
+                drawing has its own mouth/cheeks/nose. */}
+            {!isCustom && (
+              <>
+                <ellipse cx={cx - r * 0.42} cy={cy + r * 0.12} rx={r * 0.16} ry={r * 0.1} fill="#ffb3c1" opacity="0.55" />
+                <ellipse cx={cx + r * 0.42} cy={cy + r * 0.12} rx={r * 0.16} ry={r * 0.1} fill="#ffb3c1" opacity="0.55" />
+                <ellipse cx={cx} cy={cy + r * 0.04} rx={r * 0.05} ry={r * 0.034} fill="#e88fa0" />
+                <Mouth mood={mood} cx={cx} cy={cy} r={r} />
+              </>
+            )}
 
-            {/* Nose */}
-            <ellipse cx={cx} cy={cy + r * 0.04} rx={r * 0.05} ry={r * 0.034} fill="#e88fa0" />
-
-            {/* Mouth — mood-driven */}
-            <Mouth mood={mood} cx={cx} cy={cy} r={r} />
-
-            {/* Accessory layers */}
-            <AccessoryLayer accessories={accessories} cx={cx} cy={cy} r={r} animal={animal} />
+            {/* Accessory layers — skipped for custom pets, which carry their
+                own drawn-on details. */}
+            {!isCustom && (
+              <AccessoryLayer accessories={accessories} cx={cx} cy={cy} r={r} animal={animal} />
+            )}
 
             {/* Mood overlays */}
             {mood === 'eating' && (
@@ -366,6 +421,8 @@ function AnimalLayers({
     case 'hamster':return <HamsterLayers mood={mood} tailWagCls={tailWagCls} />;
     case 'axolotl':return <AxolotlLayers mood={mood} tailWagCls={tailWagCls} />;
     case 'dragon': return <DragonLayers mood={mood} tailWagCls={tailWagCls} />;
+    // 'custom' is handled by the caller before this point.
+    default: return null;
   }
 }
 
