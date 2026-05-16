@@ -203,12 +203,6 @@ interface FamilyContextValue {
   reloading: boolean;
   /** ms-epoch of the last successful cloud reload (0 if none this session). */
   lastReloadAt: number;
-  /**
-   * Per-table probe: runs head-only count queries so we can see exactly
-   * which tables are returning what (or failing). Used by the Sync
-   * diagnostic panel when bulk reload is misbehaving.
-   */
-  probeTables: () => Promise<{ table: string; count: number | null; error?: string }[]>;
 }
 
 const FamilyContext = createContext<FamilyContextValue | null>(null);
@@ -845,35 +839,6 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
     } finally {
       setReloading(false);
     }
-  }, [family.id]);
-
-  const probeTables = useCallback(async () => {
-    if (!LIVE || !supabase || !family.id) return [];
-    const tables = [
-      'families', 'family_members', 'events', 'chores', 'chore_completions',
-      'todo_lists', 'todo_items', 'habits', 'habit_check_ins', 'reward_goals',
-      'redemptions', 'day_plan_blocks', 'activity_pool_items',
-      'recipes', 'meal_plans',
-    ];
-    // Fetch IDs and count locally. The previous `head:true` + `count:'exact'`
-    // approach left count=null in some configurations, which made the panel
-    // useless when something was actually wrong.
-    const results = await Promise.all(
-      tables.map(async (table) => {
-        const filter = table === 'families' ? 'id' : 'family_id';
-        const { data, error } = await supabase!
-          .from(table)
-          .select('id')
-          .eq(filter, family.id)
-          .limit(5000);
-        return {
-          table,
-          count: error ? null : (data?.length ?? 0),
-          error: error?.message,
-        };
-      }),
-    );
-    return results;
   }, [family.id]);
 
   // Re-fetch when the tab/app becomes visible again. Realtime sometimes drops
@@ -2046,7 +2011,6 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
     reloadFromCloud,
     reloading,
     lastReloadAt,
-    probeTables,
   };
 
   return <FamilyContext.Provider value={value}>{children}</FamilyContext.Provider>;
