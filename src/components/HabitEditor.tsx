@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
 import { X, Trash2, Lock, Users, Sparkles, Hash } from 'lucide-react';
+import { format, subDays } from 'date-fns';
 import { useFamily } from '@/context/FamilyContext';
 import { Avatar } from './Avatar';
+import { localISO } from '@/lib/dates';
 import type { Habit, HabitCadence } from '@/types';
 
 interface Props {
@@ -18,7 +20,7 @@ const CADENCE_OPTIONS: { v: HabitCadence; label: string }[] = [
 ];
 
 export function HabitEditor({ open, editing, onClose }: Props) {
-  const { activeMember, members, addHabit, updateHabit, deleteHabit } = useFamily();
+  const { activeMember, members, checkIns, addHabit, updateHabit, deleteHabit, incrementCheckIn, decrementCheckIn } = useFamily();
 
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -277,6 +279,58 @@ export function HabitEditor({ open, editing, onClose }: Props) {
                 >
                   +
                 </button>
+              </div>
+            </div>
+          )}
+
+          {/* Recent counts — only for count-mode habits being edited. Lets
+              the user correct over-counts (the inline +/- was removed from
+              the main view per design). */}
+          {editing && countMode && (
+            <div className="space-y-2">
+              <div className="text-sm text-text-muted">Recent counts</div>
+              <div className="rounded-md border border-border divide-y divide-border overflow-hidden">
+                {Array.from({ length: 7 }, (_, i) => {
+                  const day = subDays(new Date(`${localISO()}T00:00:00`), 6 - i);
+                  const iso = format(day, 'yyyy-MM-dd');
+                  const ci = checkIns.find(
+                    (c) => c.habit_id === editing.id && c.member_id === memberId && c.for_date === iso,
+                  );
+                  const count = ci ? (ci.count ?? 1) : 0;
+                  const isToday = iso === localISO();
+                  return (
+                    <div key={iso} className="flex items-center justify-between px-3 py-2 bg-surface-2/40">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm text-text">{format(day, 'EEE d MMM')}</span>
+                        {isToday && (
+                          <span className="text-[10px] uppercase tracking-wider text-accent font-semibold">Today</span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => decrementCheckIn(editing.id, memberId, iso)}
+                          disabled={count === 0}
+                          className="w-7 h-7 rounded-md border border-border flex items-center justify-center text-text-muted hover:bg-surface-2 hover:text-text text-base leading-none disabled:opacity-30 disabled:cursor-not-allowed"
+                          title="Decrease"
+                        >
+                          −
+                        </button>
+                        <span className="min-w-[2.5rem] text-center text-sm font-semibold tabular-nums">
+                          {count}<span className="text-text-faint font-normal">/{dailyTarget}</span>
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => incrementCheckIn(editing.id, memberId, iso)}
+                          className="w-7 h-7 rounded-md border border-border flex items-center justify-center text-text-muted hover:bg-surface-2 hover:text-text text-base leading-none"
+                          title="Increase"
+                        >
+                          +
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           )}

@@ -25,7 +25,11 @@ export function SetPinModal({ open, member, onClose }: Props) {
 
   const hasPin = member.pin_hash !== null;
   const initialStep: Step = hasPin ? 'verify_current' : 'enter_new';
-  const currentStep = mode ? step : initialStep;
+  // For has-PIN flows the user must pick set/remove first (mode), and until
+  // they do we keep showing the chooser. For no-PIN flows we walk step
+  // directly so it can advance enter_new → confirm_new without being pinned
+  // back to initialStep on each render.
+  const currentStep = mode || !hasPin ? step : initialStep;
 
   const reset = () => {
     setStep('enter_new');

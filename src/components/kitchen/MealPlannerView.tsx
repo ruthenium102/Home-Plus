@@ -116,8 +116,45 @@ export function MealPlannerView() {
       </div>
 
       <div className="flex flex-col lg:flex-row gap-4">
+        {/* Recipe sidebar — LHS to match the rest of the create-flows. */}
+        <aside className="lg:w-52 flex-shrink-0 order-2 lg:order-1">
+          <div className="card p-3 lg:sticky lg:top-20 overflow-hidden">
+            <div className="flex items-center gap-2 mb-2 min-w-0">
+              <Search size={13} className="text-text-faint shrink-0" />
+              <input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search…"
+                className="input text-sm py-1 flex-1 min-w-0"
+              />
+            </div>
+            <p className="text-xs text-text-faint mb-2">
+              {query.trim() ? 'Drag to a day, or click + Add' : 'Recently used — search for more'}
+            </p>
+            <div className="space-y-1 max-h-[50vh] overflow-y-auto">
+              {sidebarRecipes.length === 0 ? (
+                <p className="text-xs text-text-faint p-2">
+                  {query.trim() ? 'No recipes found.' : 'No recent meals yet — search to find recipes.'}
+                </p>
+              ) : sidebarRecipes.map((r) => (
+                <div
+                  key={r.id}
+                  draggable
+                  onDragStart={(e) => handleDragStart(e, r.id)}
+                  className="flex items-center gap-1.5 px-2 py-1.5 rounded-md text-sm bg-surface-2 hover:bg-surface-3 cursor-grab active:cursor-grabbing transition min-w-0"
+                  onClick={() => selectedDay && handleAdd(r.id, selectedDay)}
+                >
+                  <span className="text-base shrink-0">{r.icon || '🍽️'}</span>
+                  <span className="flex-1 truncate text-text min-w-0">{r.title}</span>
+                  {r.favorite && <Heart size={11} className="text-red-500 shrink-0" fill="currentColor" />}
+                </div>
+              ))}
+            </div>
+          </div>
+        </aside>
+
         {/* Calendar */}
-        <div className="flex-1 order-1">
+        <div className="flex-1 order-1 lg:order-2">
           <div className="grid grid-cols-7 gap-1">
             {days.map(({ date, label, day }) => {
               const dayPlans = plansForDay(date);
@@ -161,42 +198,6 @@ export function MealPlannerView() {
           </div>
         </div>
 
-        {/* Recipe sidebar */}
-        <aside className="lg:w-52 flex-shrink-0 order-2 lg:order-2">
-          <div className="card p-3 lg:sticky lg:top-20 overflow-hidden">
-            <div className="flex items-center gap-2 mb-2 min-w-0">
-              <Search size={13} className="text-text-faint shrink-0" />
-              <input
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search…"
-                className="input text-sm py-1 flex-1 min-w-0"
-              />
-            </div>
-            <p className="text-xs text-text-faint mb-2">
-              {query.trim() ? 'Drag to a day, or click + Add' : 'Recently used — search for more'}
-            </p>
-            <div className="space-y-1 max-h-[50vh] overflow-y-auto">
-              {sidebarRecipes.length === 0 ? (
-                <p className="text-xs text-text-faint p-2">
-                  {query.trim() ? 'No recipes found.' : 'No recent meals yet — search to find recipes.'}
-                </p>
-              ) : sidebarRecipes.map((r) => (
-                <div
-                  key={r.id}
-                  draggable
-                  onDragStart={(e) => handleDragStart(e, r.id)}
-                  className="flex items-center gap-1.5 px-2 py-1.5 rounded-md text-sm bg-surface-2 hover:bg-surface-3 cursor-grab active:cursor-grabbing transition min-w-0"
-                  onClick={() => selectedDay && handleAdd(r.id, selectedDay)}
-                >
-                  <span className="text-base shrink-0">{r.icon || '🍽️'}</span>
-                  <span className="flex-1 truncate text-text min-w-0">{r.title}</span>
-                  {r.favorite && <Heart size={11} className="text-red-500 shrink-0" fill="currentColor" />}
-                </div>
-              ))}
-            </div>
-          </div>
-        </aside>
       </div>
 
       {/* Day picker panel */}
@@ -246,6 +247,10 @@ function RepeatMealModal({
   const sourceWeekday = mealPlan ? new Date(`${mealPlan.date}T00:00:00`).getDay() : null;
   const [selected, setSelected] = useState<Set<number>>(() => new Set(sourceWeekday !== null ? [sourceWeekday] : []));
   const [weeks, setWeeks] = useState(4);
+  // "Indefinitely" = repeat for two years' worth of weeks (a practical upper
+  // bound — the planner doesn't surface meals more than a few weeks out anyway).
+  const INDEFINITE_WEEKS = 104;
+  const [indefinite, setIndefinite] = useState(false);
   const dialogRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -266,7 +271,7 @@ function RepeatMealModal({
   const apply = () => {
     // Exclude the source weekday — that day is already on the plan.
     const dest = [...selected].filter((wd) => wd !== sourceWeekday);
-    onApply(dest.length > 0 ? dest : [...selected], weeks);
+    onApply(dest.length > 0 ? dest : [...selected], indefinite ? INDEFINITE_WEEKS : weeks);
   };
 
   return (
@@ -305,10 +310,10 @@ function RepeatMealModal({
             );
           })}
         </div>
-        <div>
-          <label className="text-xs font-medium text-text-muted flex items-center justify-between mb-1">
+        <div className="space-y-2">
+          <label className="text-xs font-medium text-text-muted flex items-center justify-between">
             <span>For how long?</span>
-            <span>{weeks} week{weeks === 1 ? '' : 's'}</span>
+            <span>{indefinite ? 'Indefinitely' : `${weeks} week${weeks === 1 ? '' : 's'}`}</span>
           </label>
           <input
             type="range"
@@ -317,8 +322,18 @@ function RepeatMealModal({
             step="1"
             value={weeks}
             onChange={(e) => setWeeks(Number(e.target.value))}
-            className="w-full"
+            disabled={indefinite}
+            className="w-full disabled:opacity-40"
           />
+          <label className="flex items-center gap-2 text-xs text-text-muted cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={indefinite}
+              onChange={(e) => setIndefinite(e.target.checked)}
+              className="accent-accent"
+            />
+            Repeat indefinitely (~2 years of plans)
+          </label>
         </div>
         <div className="flex gap-2 pt-1">
           <button onClick={onClose} className="btn-secondary flex-1 py-2.5 rounded-xl">Cancel</button>

@@ -141,14 +141,16 @@ export function HabitsPage() {
                   const todayCount = todayCheckIn ? (todayCheckIn.count ?? 1) : 0;
                   const target = habit.daily_target ?? 1;
 
-                  // For count-mode heatmap: a day is "checked" when count >= target
+                  // For count-mode heatmap: a day is "checked" when count >= target.
+                  // We carry the raw count through so the cell can render a
+                  // light "N" overlay when the user has logged more than once.
                   const last7Data = lastNDays(checkIns, habit.id, member.id, 7).map((d) => {
-                    if (!habit.count_mode) return d;
                     const ci = checkIns.find(
                       (c) => c.habit_id === habit.id && c.member_id === member.id && c.for_date === d.date
                     );
                     const dayCount = ci ? (ci.count ?? 1) : 0;
-                    return { date: d.date, checked: dayCount >= target };
+                    if (!habit.count_mode) return { ...d, count: dayCount };
+                    return { date: d.date, checked: dayCount >= target, count: dayCount };
                   });
 
                   const row = (
@@ -167,6 +169,8 @@ export function HabitsPage() {
                       onToggleDate={(iso) => toggleCheckIn(habit.id, member.id, iso)}
                       onIncrement={() => incrementCheckIn(habit.id, member.id, todayISO)}
                       onDecrement={() => decrementCheckIn(habit.id, member.id, todayISO)}
+                      onIncrementDate={(iso) => incrementCheckIn(habit.id, member.id, iso)}
+                      onDecrementDate={(iso) => decrementCheckIn(habit.id, member.id, iso)}
                       onEdit={() => {
                         setEditing(habit);
                         setEditorOpen(true);
@@ -212,12 +216,14 @@ interface HabitRowProps {
   todayISO: string;
   isCheckedToday: boolean;
   streak: number;
-  last7: { date: string; checked: boolean }[];
+  last7: { date: string; checked: boolean; count: number }[];
   todayCount: number;
   onToggle: () => void;
   onToggleDate: (iso: string) => void;
   onIncrement: () => void;
   onDecrement: () => void;
+  onIncrementDate: (iso: string) => void;
+  onDecrementDate: (iso: string) => void;
   onEdit: () => void;
 }
 
@@ -235,58 +241,57 @@ function HabitRow({
   onToggleDate,
   onIncrement,
   onDecrement,
+  onIncrementDate,
+  onDecrementDate,
   onEdit
 }: HabitRowProps) {
+  void onDecrement;
+  void onDecrementDate;
   const milestone = nextStreakMilestone(streak);
   const milestoneTo = milestone - streak;
 
   return (
     <div className="flex items-center gap-3 p-3 rounded-md bg-surface-2/40 hover:bg-surface-2/70 transition-colors">
-      {/* Tick / status circle — or counter row for count-mode habits */}
+      {/* Today's status circle. In count-mode each tap adds another entry
+          (replacing the old +/- buttons); decrements move into the habit
+          edit modal. Boolean mode keeps a single toggle. */}
       {habit.count_mode ? (
-        <div className="flex items-center gap-1 shrink-0">
-          <button
-            onClick={canCheck ? onDecrement : undefined}
-            disabled={!canCheck || todayCount === 0}
+        <button
+          onClick={canCheck ? onIncrement : undefined}
+          disabled={!canCheck}
+          className={
+            'w-11 h-11 rounded-full shrink-0 flex items-center justify-center relative transition-all ' +
+            (canCheck ? 'cursor-pointer active:scale-95' : 'cursor-default')
+          }
+          style={{
+            background: todayCount >= (habit.daily_target ?? 1) ? color.base : color.soft,
+            border: todayCount >= (habit.daily_target ?? 1) ? 'none' : `2px solid ${color.base}40`,
+          }}
+          title={
+            canCheck
+              ? `Tap to log another (${todayCount}/${habit.daily_target ?? 1} today)`
+              : `${todayCount}/${habit.daily_target ?? 1} today`
+          }
+        >
+          <span
             className={
-              'w-8 h-8 rounded-full flex items-center justify-center text-base font-bold transition-all border ' +
-              (canCheck && todayCount > 0
-                ? 'cursor-pointer active:scale-95 hover:bg-surface-2 border-border text-text-muted'
-                : 'cursor-default border-border/40 text-text-faint opacity-40')
-            }
-            title="Decrease count"
-          >
-            −
-          </button>
-          <div
-            className="min-w-[3rem] text-center"
-            style={{ color: todayCount >= (habit.daily_target ?? 1) ? color.base : undefined }}
-          >
-            <span className={
               'text-sm font-bold tabular-nums ' +
-              (todayCount >= (habit.daily_target ?? 1) ? '' : 'text-text-muted')
-            }>
-              {todayCount}
-            </span>
-            <span className="text-[10px] text-text-faint">
-              /{habit.daily_target ?? 1}
-            </span>
-          </div>
-          <button
-            onClick={canCheck ? onIncrement : undefined}
-            disabled={!canCheck}
-            className={
-              'w-8 h-8 rounded-full flex items-center justify-center text-base font-bold transition-all border ' +
-              (canCheck
-                ? 'cursor-pointer active:scale-95 hover:bg-surface-2 border-border text-text-muted'
-                : 'cursor-default border-border/40 text-text-faint opacity-40')
+              (todayCount >= (habit.daily_target ?? 1) ? 'text-white/90' : 'text-text-muted')
             }
-            style={canCheck ? { background: todayCount >= (habit.daily_target ?? 1) ? color.soft : undefined } : undefined}
-            title="Increase count"
           >
-            +
-          </button>
-        </div>
+            {todayCount > 0 ? todayCount : ''}
+          </span>
+          <span
+            className={
+              'absolute bottom-0 right-0 -mb-0.5 -mr-0.5 text-[9px] tabular-nums px-1 rounded-full ' +
+              (todayCount >= (habit.daily_target ?? 1)
+                ? 'text-white/70'
+                : 'text-text-faint')
+            }
+          >
+            /{habit.daily_target ?? 1}
+          </span>
+        </button>
       ) : (
         <button
           onClick={canCheck ? onToggle : undefined}
@@ -349,16 +354,25 @@ function HabitRow({
         </div>
       </div>
 
-      {/* 7-day heatmap — tappable to backfill */}
+      {/* 7-day heatmap. For count-mode habits each tap adds another entry
+          for that day (works for any date, not just today) and shows a
+          light-coloured count overlay once the user has logged more than
+          once. Boolean habits keep tap-to-toggle. */}
       <div className="flex items-end gap-1 shrink-0">
         {last7.map((d, idx) => {
           const isToday = d.date === todayISO;
           const date = new Date(d.date);
           const dayLabel = date.toLocaleDateString(undefined, { weekday: 'narrow' });
+          const target = habit.daily_target ?? 1;
+          const showCount = habit.count_mode && d.count >= 2;
           return (
             <button
               key={d.date}
-              onClick={canCheck ? () => onToggleDate(d.date) : undefined}
+              onClick={
+                canCheck
+                  ? () => (habit.count_mode ? onIncrementDate(d.date) : onToggleDate(d.date))
+                  : undefined
+              }
               disabled={!canCheck}
               className={
                 'flex flex-col items-center gap-0.5 group ' +
@@ -366,21 +380,31 @@ function HabitRow({
               }
               title={
                 d.date +
-                (d.checked ? ' · done' : '') +
-                (canCheck ? (d.checked ? ' (tap to undo)' : ' (tap to mark done)') : '')
+                (habit.count_mode ? ` · ${d.count}/${target}` : (d.checked ? ' · done' : '')) +
+                (canCheck
+                  ? habit.count_mode
+                    ? ' (tap to add another · edit habit to correct)'
+                    : (d.checked ? ' (tap to undo)' : ' (tap to mark done)')
+                  : '')
               }
             >
               <div
                 className={
-                  'w-5 h-5 rounded-sm transition-transform ' +
+                  'w-5 h-5 rounded-sm transition-transform relative flex items-center justify-center ' +
                   (canCheck ? 'group-hover:scale-110' : '') +
                   (isToday ? ' ring-1 ring-text/30' : '')
                 }
                 style={{
                   background: d.checked ? color.base : color.soft,
-                  opacity: d.checked ? 1 : 0.5
+                  opacity: d.checked ? 1 : 0.5,
                 }}
-              />
+              >
+                {showCount && (
+                  <span className="text-[9px] font-bold leading-none text-white/85 tabular-nums">
+                    {d.count}
+                  </span>
+                )}
+              </div>
               <span
                 className={
                   'text-[10px] tabular-nums ' +

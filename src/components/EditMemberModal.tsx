@@ -33,6 +33,10 @@ export function EditMemberModal({ open, member, onClose }: Props) {
   const [showPw, setShowPw] = useState(false);
   const [savingPw, setSavingPw] = useState(false);
   const [pwError, setPwError] = useState('');
+  const [emailEditOpen, setEmailEditOpen] = useState(false);
+  const [newEmail, setNewEmail] = useState('');
+  const [savingEmail, setSavingEmail] = useState(false);
+  const [emailError, setEmailError] = useState('');
 
   useEffect(() => {
     if (!open || !member) return;
@@ -44,6 +48,9 @@ export function EditMemberModal({ open, member, onClose }: Props) {
     setNewPw('');
     setConfirmPw('');
     setPwError('');
+    setEmailEditOpen(false);
+    setNewEmail('');
+    setEmailError('');
   }, [open, member]);
 
   if (!open || !member) return null;
@@ -53,6 +60,35 @@ export function EditMemberModal({ open, member, onClose }: Props) {
   const isParent = activeMember?.role === 'parent';
   const parentCount = members.filter((m) => m.role === 'parent').length;
   const canDelete = isParent && !isSelf && !(member.role === 'parent' && parentCount <= 1);
+
+  const handleChangeEmail = async () => {
+    setEmailError('');
+    const trimmed = newEmail.trim();
+    if (!trimmed || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
+      setEmailError('Enter a valid email address.');
+      return;
+    }
+    setSavingEmail(true);
+    // Always update the member row so the change is reflected in the UI
+    // immediately. For the current user, also update the Supabase Auth
+    // account so future logins use the new email (Supabase will send a
+    // confirmation email to the new address).
+    updateMember(member.id, { email: trimmed });
+    if (isSelf && supabase && isSupabaseConfigured) {
+      const { error } = await supabase.auth.updateUser({ email: trimmed });
+      setSavingEmail(false);
+      if (error) {
+        setEmailError(error.message);
+        return;
+      }
+      show({ message: 'Email updated. Check the new inbox to confirm.' });
+    } else {
+      setSavingEmail(false);
+      show({ message: 'Email saved.' });
+    }
+    setEmailEditOpen(false);
+    setNewEmail('');
+  };
 
   const handleChangePassword = async () => {
     setPwError('');
@@ -175,125 +211,193 @@ export function EditMemberModal({ open, member, onClose }: Props) {
           {isSupabaseConfigured && (
             <div>
               <label className="block text-xs text-text-muted mb-1.5 font-medium">Account</label>
-              {member.auth_user_id ? (
+              {(() => {
+                const linked = !!member.auth_user_id;
+                const displayedEmail =
+                  member.email
+                  || (authUser && member.auth_user_id === authUser.id ? authUser.email : null)
+                  || null;
+                return (
                 <div className="space-y-2">
-                  {/* Email field (read-only). When the member row is missing
-                      its email, fall back to the signed-in auth user's email
-                      so the field never appears blank for the active user. */}
+                  {/* Email — shown for every family member. Editable when the
+                      viewer can act on this row (self, or a parent editing
+                      another member's row). For the self case we also write
+                      the change through to Supabase Auth. */}
                   <div>
                     <div className="text-[10px] uppercase tracking-wider text-text-faint mb-1">Email</div>
-                    <div className="flex items-center gap-2 px-3 py-2.5 bg-surface-2 border border-border rounded-md text-sm text-text">
-                      <Mail size={14} className="text-text-faint shrink-0" />
-                      <span className="truncate flex-1">
-                        {member.email
-                          || (authUser && member.auth_user_id === authUser.id ? authUser.email : null)
-                          || '—'}
-                      </span>
-                      <CheckCircle2 size={14} className="text-green-500 shrink-0" aria-label="Account linked" />
-                    </div>
-                  </div>
-
-                  {/* Password field (masked) + change form */}
-                  <div>
-                    <div className="text-[10px] uppercase tracking-wider text-text-faint mb-1">Password</div>
-                    {!pwOpen ? (
+                    {!emailEditOpen ? (
                       <div className="flex items-center gap-2">
-                        <div className="flex-1 px-3 py-2.5 bg-surface-2 border border-border rounded-md text-sm text-text tracking-widest">
-                          ••••••••
+                        <div className="flex-1 flex items-center gap-2 px-3 py-2.5 bg-surface-2 border border-border rounded-md text-sm text-text">
+                          <Mail size={14} className="text-text-faint shrink-0" />
+                          <span className="truncate flex-1">{displayedEmail || '—'}</span>
+                          {linked && (
+                            <CheckCircle2 size={14} className="text-green-500 shrink-0" aria-label="Account linked" />
+                          )}
                         </div>
-                        {isSelf ? (
+                        {(isSelf || isParent) && (
                           <button
                             type="button"
-                            onClick={() => setPwOpen(true)}
+                            onClick={() => {
+                              setNewEmail(displayedEmail || '');
+                              setEmailError('');
+                              setEmailEditOpen(true);
+                            }}
                             className="px-3 py-2.5 bg-surface-2 border border-border rounded-md text-sm text-text-muted hover:border-accent hover:text-accent transition-colors whitespace-nowrap"
                           >
                             Change
                           </button>
-                        ) : member.email ? (
-                          <button
-                            type="button"
-                            disabled={resettingPw}
-                            onClick={async () => {
-                              if (!member.email) return;
-                              setResettingPw(true);
-                              const { error } = await forgotPassword(member.email);
-                              setResettingPw(false);
-                              show({
-                                message: error
-                                  ? `Could not send reset email: ${error}`
-                                  : `Password reset email sent to ${member.email}`,
-                              });
-                            }}
-                            className="flex items-center gap-1.5 px-3 py-2.5 bg-surface-2 border border-border rounded-md text-sm text-text-muted hover:border-accent hover:text-accent transition-colors disabled:opacity-50 whitespace-nowrap"
-                          >
-                            {resettingPw ? <Loader2 size={14} className="animate-spin" /> : <KeyRound size={14} />}
-                            Reset
-                          </button>
-                        ) : null}
+                        )}
                       </div>
                     ) : (
                       <div className="space-y-2 p-3 bg-surface-2 border border-border rounded-md">
-                        <div className="relative">
-                          <input
-                            type={showPw ? 'text' : 'password'}
-                            value={newPw}
-                            onChange={(e) => setNewPw(e.target.value)}
-                            placeholder="New password (8+ characters)"
-                            autoComplete="new-password"
-                            className="w-full px-3 py-2 bg-surface border border-border rounded-md text-text text-sm placeholder:text-text-faint focus:outline-none focus:border-accent pr-10"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => setShowPw((v) => !v)}
-                            className="absolute right-2 top-1/2 -translate-y-1/2 text-text-faint hover:text-text-muted"
-                            tabIndex={-1}
-                          >
-                            {showPw ? <EyeOff size={14} /> : <Eye size={14} />}
-                          </button>
-                        </div>
                         <input
-                          type={showPw ? 'text' : 'password'}
-                          value={confirmPw}
-                          onChange={(e) => setConfirmPw(e.target.value)}
-                          placeholder="Confirm new password"
-                          autoComplete="new-password"
+                          type="email"
+                          value={newEmail}
+                          onChange={(e) => setNewEmail(e.target.value)}
+                          placeholder="name@example.com"
+                          autoComplete="email"
                           className="w-full px-3 py-2 bg-surface border border-border rounded-md text-text text-sm placeholder:text-text-faint focus:outline-none focus:border-accent"
                         />
-                        {pwError && (
-                          <div className="text-xs text-red-500">{pwError}</div>
+                        {isSelf && (
+                          <p className="text-[11px] text-text-faint">
+                            Supabase will email the new address to confirm before it becomes your sign-in.
+                          </p>
+                        )}
+                        {emailError && (
+                          <div className="text-xs text-red-500">{emailError}</div>
                         )}
                         <div className="flex gap-2">
                           <button
                             type="button"
-                            onClick={() => { setPwOpen(false); setNewPw(''); setConfirmPw(''); setPwError(''); }}
+                            onClick={() => { setEmailEditOpen(false); setNewEmail(''); setEmailError(''); }}
                             className="flex-1 py-2 text-sm text-text-muted hover:text-text"
                           >
                             Cancel
                           </button>
                           <button
                             type="button"
-                            disabled={savingPw || !newPw || !confirmPw}
-                            onClick={handleChangePassword}
+                            disabled={savingEmail || !newEmail.trim()}
+                            onClick={handleChangeEmail}
                             className="flex-1 py-2 bg-accent text-white rounded-md text-sm font-semibold hover:opacity-90 disabled:opacity-50 flex items-center justify-center gap-1.5"
                           >
-                            {savingPw && <Loader2 size={14} className="animate-spin" />}
-                            Save password
+                            {savingEmail && <Loader2 size={14} className="animate-spin" />}
+                            Save email
                           </button>
                         </div>
                       </div>
                     )}
                   </div>
+
+                  {/* Password — only meaningful for members with a linked auth
+                      account. For self: change inline. For others: send a
+                      reset email if we have one on file. */}
+                  {linked && (
+                    <div>
+                      <div className="text-[10px] uppercase tracking-wider text-text-faint mb-1">Password</div>
+                      {!pwOpen ? (
+                        <div className="flex items-center gap-2">
+                          <div className="flex-1 px-3 py-2.5 bg-surface-2 border border-border rounded-md text-sm text-text tracking-widest">
+                            ••••••••
+                          </div>
+                          {isSelf ? (
+                            <button
+                              type="button"
+                              onClick={() => setPwOpen(true)}
+                              className="px-3 py-2.5 bg-surface-2 border border-border rounded-md text-sm text-text-muted hover:border-accent hover:text-accent transition-colors whitespace-nowrap"
+                            >
+                              Change
+                            </button>
+                          ) : displayedEmail ? (
+                            <button
+                              type="button"
+                              disabled={resettingPw}
+                              onClick={async () => {
+                                if (!displayedEmail) return;
+                                setResettingPw(true);
+                                const { error } = await forgotPassword(displayedEmail);
+                                setResettingPw(false);
+                                show({
+                                  message: error
+                                    ? `Could not send reset email: ${error}`
+                                    : `Password reset email sent to ${displayedEmail}`,
+                                });
+                              }}
+                              className="flex items-center gap-1.5 px-3 py-2.5 bg-surface-2 border border-border rounded-md text-sm text-text-muted hover:border-accent hover:text-accent transition-colors disabled:opacity-50 whitespace-nowrap"
+                            >
+                              {resettingPw ? <Loader2 size={14} className="animate-spin" /> : <KeyRound size={14} />}
+                              Reset
+                            </button>
+                          ) : null}
+                        </div>
+                      ) : (
+                        <div className="space-y-2 p-3 bg-surface-2 border border-border rounded-md">
+                          <div className="relative">
+                            <input
+                              type={showPw ? 'text' : 'password'}
+                              value={newPw}
+                              onChange={(e) => setNewPw(e.target.value)}
+                              placeholder="New password (8+ characters)"
+                              autoComplete="new-password"
+                              className="w-full px-3 py-2 bg-surface border border-border rounded-md text-text text-sm placeholder:text-text-faint focus:outline-none focus:border-accent pr-10"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setShowPw((v) => !v)}
+                              className="absolute right-2 top-1/2 -translate-y-1/2 text-text-faint hover:text-text-muted"
+                              tabIndex={-1}
+                            >
+                              {showPw ? <EyeOff size={14} /> : <Eye size={14} />}
+                            </button>
+                          </div>
+                          <input
+                            type={showPw ? 'text' : 'password'}
+                            value={confirmPw}
+                            onChange={(e) => setConfirmPw(e.target.value)}
+                            placeholder="Confirm new password"
+                            autoComplete="new-password"
+                            className="w-full px-3 py-2 bg-surface border border-border rounded-md text-text text-sm placeholder:text-text-faint focus:outline-none focus:border-accent"
+                          />
+                          {pwError && (
+                            <div className="text-xs text-red-500">{pwError}</div>
+                          )}
+                          <div className="flex gap-2">
+                            <button
+                              type="button"
+                              onClick={() => { setPwOpen(false); setNewPw(''); setConfirmPw(''); setPwError(''); }}
+                              className="flex-1 py-2 text-sm text-text-muted hover:text-text"
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              type="button"
+                              disabled={savingPw || !newPw || !confirmPw}
+                              onClick={handleChangePassword}
+                              className="flex-1 py-2 bg-accent text-white rounded-md text-sm font-semibold hover:opacity-90 disabled:opacity-50 flex items-center justify-center gap-1.5"
+                            >
+                              {savingPw && <Loader2 size={14} className="animate-spin" />}
+                              Save password
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* If this member has no linked login yet, offer to send
+                      them an invite (parent-only). */}
+                  {!linked && isParent && (
+                    <button
+                      type="button"
+                      onClick={() => setInviteOpen(true)}
+                      className="flex items-center gap-2 px-3 py-2 bg-surface-2 border border-border rounded-md text-sm text-text-muted hover:border-accent hover:text-accent transition-colors"
+                    >
+                      <Mail size={14} />
+                      Send invite to join Home+
+                    </button>
+                  )}
                 </div>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => setInviteOpen(true)}
-                  className="flex items-center gap-2 px-3 py-2 bg-surface-2 border border-border rounded-md text-sm text-text-muted hover:border-accent hover:text-accent transition-colors"
-                >
-                  <Mail size={14} />
-                  Send invite to join Home+
-                </button>
-              )}
+                );
+              })()}
             </div>
           )}
 

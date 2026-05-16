@@ -9,6 +9,7 @@ import {
   Pencil,
   ChevronLeft,
   ChevronRight,
+  Search,
   Circle,
   BookOpen,
   Music,
@@ -629,13 +630,20 @@ export function MyDayPage() {
   const [focusMode, setFocusMode] = useState(false);
   const [modalState, setModalState] = useState<{ mode: 'add' } | { mode: 'edit'; item: ActivityPoolItem } | null>(null);
   const [date, setDate] = useState<string>(localISO());
+  const [poolQuery, setPoolQuery] = useState('');
 
   if (!activeMember) return null;
 
   const memberBlocks = blocksForMemberDate(dayPlanBlocks, activeMember.id, date);
-  const memberPool = activityPool
+  const allPool = activityPool
     .filter((ap) => ap.member_id === activeMember.id && !ap.archived)
     .sort((a, b) => b.usage_count - a.usage_count);
+  const q = poolQuery.trim().toLowerCase();
+  // Mirror the meal planner: show the top 6 most-used by default; search
+  // expands to the full filtered set.
+  const memberPool = q
+    ? allPool.filter((a) => a.title.toLowerCase().includes(q))
+    : allPool.slice(0, 6);
 
   const isToday = date === localISO();
 
@@ -643,7 +651,7 @@ export function MyDayPage() {
   const total = memberBlocks.length;
 
   const handleDropPoolItem = (poolItemId: string, startMin: number) => {
-    const item = memberPool.find((p) => p.id === poolItemId);
+    const item = allPool.find((p) => p.id === poolItemId);
     if (!item) return;
     const startSafe = clampStartMin(startMin, item.default_duration_min);
     addDayPlanBlock({
@@ -683,12 +691,28 @@ export function MyDayPage() {
               <Plus size={14} />
             </button>
           </div>
+          <div className="flex items-center gap-2 px-2 py-1.5 rounded-md bg-surface-2 border border-border focus-within:border-accent">
+            <Search size={13} className="text-text-faint shrink-0" />
+            <input
+              value={poolQuery}
+              onChange={(e) => setPoolQuery(e.target.value)}
+              placeholder="Search…"
+              className="flex-1 bg-transparent text-sm text-text placeholder:text-text-faint focus:outline-none min-w-0"
+            />
+          </div>
+          <p className="text-[10px] text-text-faint leading-snug">
+            {poolQuery.trim() ? 'Search results' : 'Most used — search for more'}
+          </p>
           {memberPool.length === 0 && (
             <div className="text-xs text-text-faint text-center py-4">
-              No activities yet.{' '}
-              <button onClick={() => setModalState({ mode: 'add' })} className="text-accent underline">
-                Add one
-              </button>
+              {poolQuery.trim() ? 'No activities match.' : (
+                <>
+                  No activities yet.{' '}
+                  <button onClick={() => setModalState({ mode: 'add' })} className="text-accent underline">
+                    Add one
+                  </button>
+                </>
+              )}
             </div>
           )}
           {memberPool.map((item) => (
@@ -750,6 +774,15 @@ export function MyDayPage() {
               >
                 <Plus size={14} />
               </button>
+            </div>
+            <div className="flex items-center gap-2 px-2 py-1.5 mb-2 rounded-md bg-surface-2 border border-border focus-within:border-accent">
+              <Search size={13} className="text-text-faint shrink-0" />
+              <input
+                value={poolQuery}
+                onChange={(e) => setPoolQuery(e.target.value)}
+                placeholder="Search…"
+                className="flex-1 bg-transparent text-sm text-text placeholder:text-text-faint focus:outline-none min-w-0"
+              />
             </div>
             <div className="grid grid-cols-2 gap-2">
               {memberPool.map((item) => (

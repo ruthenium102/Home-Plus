@@ -50,12 +50,12 @@ export function RecipesView() {
       {/* Toolbar */}
       <div className="flex items-center gap-2 mb-4 flex-wrap">
         <div className="relative flex-1 min-w-40">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-faint" />
+          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-faint pointer-events-none" />
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search recipes…"
-            className="input pl-9 w-full"
+            className="input !pl-9 w-full"
           />
         </div>
         <button
