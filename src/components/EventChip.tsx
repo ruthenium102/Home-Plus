@@ -63,11 +63,11 @@ export function EventChip({ event, onClick, variant = 'list' }: Props) {
     );
   }
 
-  // Week variant — compact pill
+  // Week variant — compact pill. Parent provides vertical gap.
   return (
     <button
       onClick={onClick}
-      className="block w-full text-left rounded-sm px-1.5 py-1 mb-1 transition-opacity hover:opacity-90"
+      className="block w-full text-left rounded-sm px-1.5 py-1 transition-opacity hover:opacity-90"
       style={{
         background: tokens.soft,
         borderLeft: `3px solid ${tokens.base}`,

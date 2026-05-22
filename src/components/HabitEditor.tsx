@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react';
-import { X, Trash2, Lock, Users, Sparkles } from 'lucide-react';
+import { X, Trash2, Lock, Users, Sparkles, Check, Minus } from 'lucide-react';
 import { format, subDays } from 'date-fns';
 import { useFamily } from '@/context/FamilyContext';
+import { useTheme } from '@/context/ThemeContext';
 import { Avatar } from './Avatar';
 import { localISO } from '@/lib/dates';
+import { getColorTokens } from '@/lib/colors';
 import type { Habit, HabitCadence } from '@/types';
 
 interface Props {
@@ -16,11 +18,16 @@ const CADENCE_OPTIONS: { v: HabitCadence; label: string }[] = [
   { v: 'daily', label: 'Every day' },
   { v: 'weekdays', label: 'Weekdays' },
   { v: 'weekend', label: 'Weekends' },
-  { v: 'weekly', label: 'Weekly' }
+  { v: 'pick_days', label: 'Pick days' },
+  { v: 'weekly', label: 'Weekly' },
 ];
+
+const WEEKDAY_LABELS = ['S', 'M', 'T', 'W', 'T', 'F', 'S']; // Sun-first
 
 export function HabitEditor({ open, editing, onClose }: Props) {
   const { activeMember, members, checkIns, addHabit, updateHabit, deleteHabit, incrementCheckIn, decrementCheckIn } = useFamily();
+  const { resolved } = useTheme();
+  const isDark = resolved === 'dark';
 
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -31,6 +38,7 @@ export function HabitEditor({ open, editing, onClose }: Props) {
   // editing.
   const [selectedMemberIds, setSelectedMemberIds] = useState<string[]>([]);
   const [cadence, setCadence] = useState<HabitCadence>('daily');
+  const [weekdays, setWeekdays] = useState<number[]>([]);
   const [visibility, setVisibility] = useState<'private' | 'shared'>('private');
   const [streakRewards, setStreakRewards] = useState(false);
   const [dailyTarget, setDailyTarget] = useState(1);
@@ -43,6 +51,7 @@ export function HabitEditor({ open, editing, onClose }: Props) {
       setMemberId(editing.member_id);
       setSelectedMemberIds([editing.member_id]);
       setCadence(editing.cadence);
+      setWeekdays(editing.weekdays ?? []);
       setVisibility(editing.visibility);
       setStreakRewards(editing.streak_rewards);
       setDailyTarget(editing.daily_target ?? 1);
@@ -52,6 +61,7 @@ export function HabitEditor({ open, editing, onClose }: Props) {
       setMemberId(activeMember?.id || '');
       setSelectedMemberIds(activeMember?.id ? [activeMember.id] : []);
       setCadence('daily');
+      setWeekdays([]);
       setVisibility('private');
       setStreakRewards(false);
       setDailyTarget(1);
@@ -80,6 +90,7 @@ export function HabitEditor({ open, editing, onClose }: Props) {
         description: description.trim() || null,
         member_id: memberId,
         cadence,
+        weekdays: cadence === 'pick_days' ? weekdays : [],
         visibility,
         streak_rewards: owner?.role === 'child' ? streakRewards : false,
         archived: false,
@@ -95,6 +106,7 @@ export function HabitEditor({ open, editing, onClose }: Props) {
           description: description.trim() || null,
           member_id: mid,
           cadence,
+          weekdays: cadence === 'pick_days' ? weekdays : [],
           visibility,
           streak_rewards: m?.role === 'child' ? streakRewards : false,
           archived: false,
@@ -166,6 +178,7 @@ export function HabitEditor({ open, editing, onClose }: Props) {
                 return (
                   <button
                     key={m.id}
+                    type="button"
                     onClick={() => {
                       if (editing) {
                         setMemberId(m.id);
@@ -178,14 +191,22 @@ export function HabitEditor({ open, editing, onClose }: Props) {
                       }
                     }}
                     className={
-                      'flex items-center gap-2 pl-1 pr-3 py-1 rounded-full border transition-colors ' +
+                      'flex items-center gap-2 pl-1 pr-3 py-1.5 rounded-full border-2 transition-colors ' +
                       (selected
-                        ? 'bg-surface-2 border-accent'
-                        : 'border-border opacity-70 hover:opacity-100')
+                        ? 'bg-accent-soft border-accent'
+                        : 'border-border opacity-60 hover:opacity-100')
                     }
+                    aria-pressed={selected}
                   >
-                    <Avatar member={m} size={26} />
-                    <span className="text-sm text-text">{m.name}</span>
+                    <span className="relative">
+                      <Avatar member={m} size={26} />
+                      {selected && (
+                        <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-accent text-white flex items-center justify-center shadow-sm">
+                          <Check size={10} strokeWidth={3} />
+                        </span>
+                      )}
+                    </span>
+                    <span className={'text-sm ' + (selected ? 'text-text font-medium' : 'text-text-muted')}>{m.name}</span>
                   </button>
                 );
               })}
@@ -200,10 +221,11 @@ export function HabitEditor({ open, editing, onClose }: Props) {
           {/* Cadence */}
           <div>
             <div className="text-sm text-text-muted mb-2">How often</div>
-            <div className="flex flex-wrap gap-1.5">
+            <div className="flex flex-wrap gap-1.5 mb-2">
               {CADENCE_OPTIONS.map((opt) => (
                 <button
                   key={opt.v}
+                  type="button"
                   onClick={() => setCadence(opt.v)}
                   className={
                     'px-3 py-1.5 rounded-full text-xs border transition-colors ' +
@@ -216,6 +238,34 @@ export function HabitEditor({ open, editing, onClose }: Props) {
                 </button>
               ))}
             </div>
+            {cadence === 'pick_days' && (
+              <div className="flex gap-1.5">
+                {WEEKDAY_LABELS.map((label, i) => {
+                  const selected = weekdays.includes(i);
+                  return (
+                    <button
+                      key={i}
+                      type="button"
+                      onClick={() =>
+                        setWeekdays((prev) =>
+                          prev.includes(i)
+                            ? prev.filter((x) => x !== i)
+                            : [...prev, i].sort()
+                        )
+                      }
+                      className={
+                        'w-9 h-9 rounded-full text-xs font-medium transition-colors ' +
+                        (selected
+                          ? 'bg-accent text-white'
+                          : 'bg-surface-2 border border-border text-text-muted hover:border-border-strong')
+                      }
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
           {/* Visibility */}
@@ -313,57 +363,84 @@ export function HabitEditor({ open, editing, onClose }: Props) {
             </div>
           </div>
 
-          {/* Recent counts — only when editing an existing habit. Lets the
-              user correct over-counts (the inline +/- was removed from the
-              main view per design). */}
-          {editing && (
-            <div className="space-y-2">
-              <div className="text-sm text-text-muted">Recent counts</div>
-              <div className="rounded-md border border-border divide-y divide-border overflow-hidden">
-                {Array.from({ length: 7 }, (_, i) => {
-                  const day = subDays(new Date(`${localISO()}T00:00:00`), 6 - i);
-                  const iso = format(day, 'yyyy-MM-dd');
-                  const ci = checkIns.find(
-                    (c) => c.habit_id === editing.id && c.member_id === memberId && c.for_date === iso,
-                  );
-                  const count = ci ? (ci.count ?? 1) : 0;
-                  const isToday = iso === localISO();
-                  return (
-                    <div key={iso} className="flex items-center justify-between px-3 py-2 bg-surface-2/40">
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm text-text">{format(day, 'EEE d MMM')}</span>
-                        {isToday && (
-                          <span className="text-[10px] uppercase tracking-wider text-accent font-semibold">Today</span>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-2">
+          {/* Recent counts — only when editing an existing habit. Tap a box to
+              add a count; tap the small − to remove one. Visually mirrors the
+              7-day heatmap on the Habits page so the editor feels like the
+              same logging surface. */}
+          {editing && (() => {
+            const ownerMember = members.find((m) => m.id === memberId);
+            const tokens = ownerMember
+              ? getColorTokens(ownerMember.color, isDark)
+              : { base: 'rgb(var(--accent))', soft: 'rgb(var(--accent-soft))', text: '#fff' };
+            const todayIso = localISO();
+            return (
+              <div className="space-y-2">
+                <div className="text-sm text-text-muted">Recent counts — tap to add, − to remove</div>
+                <div className="grid grid-cols-7 gap-1.5">
+                  {Array.from({ length: 7 }, (_, i) => {
+                    const day = subDays(new Date(`${todayIso}T00:00:00`), 6 - i);
+                    const iso = format(day, 'yyyy-MM-dd');
+                    const ci = checkIns.find(
+                      (c) => c.habit_id === editing.id && c.member_id === memberId && c.for_date === iso,
+                    );
+                    const count = ci ? (ci.count ?? 1) : 0;
+                    const isToday = iso === todayIso;
+                    const target = Math.max(1, dailyTarget);
+                    const progress = Math.min(1, count / target);
+                    const targetMet = count >= target;
+                    return (
+                      <div key={iso} className="flex flex-col items-stretch gap-1">
+                        <button
+                          type="button"
+                          onClick={() => incrementCheckIn(editing.id, memberId, iso)}
+                          className={
+                            'relative h-14 rounded-md flex flex-col items-center justify-center transition-all active:scale-95 ' +
+                            (isToday ? 'ring-2 ring-text/20 ' : '')
+                          }
+                          style={{
+                            background: targetMet
+                              ? tokens.base
+                              : count > 0
+                                ? `color-mix(in srgb, ${tokens.base} ${progress * 80}%, ${tokens.soft})`
+                                : tokens.soft,
+                            opacity: count === 0 ? 0.5 : 1,
+                          }}
+                          title={`${format(day, 'EEE d MMM')} — ${count}/${target}`}
+                        >
+                          <span
+                            className={
+                              'text-lg font-bold tabular-nums leading-none ' +
+                              (count > 0 ? 'text-white' : 'text-text-faint')
+                            }
+                          >
+                            {count > 0 ? count : ''}
+                          </span>
+                          <span
+                            className={
+                              'text-[9px] uppercase tracking-wider mt-0.5 leading-none ' +
+                              (count > 0 ? 'text-white/80' : 'text-text-faint')
+                            }
+                          >
+                            {isToday ? 'Today' : format(day, 'EEE')}
+                          </span>
+                        </button>
                         <button
                           type="button"
                           onClick={() => decrementCheckIn(editing.id, memberId, iso)}
                           disabled={count === 0}
-                          className="w-7 h-7 rounded-md border border-border flex items-center justify-center text-text-muted hover:bg-surface-2 hover:text-text text-base leading-none disabled:opacity-30 disabled:cursor-not-allowed"
-                          title="Decrease"
+                          className="h-5 rounded-sm border border-border flex items-center justify-center text-text-faint hover:text-text hover:bg-surface-2 disabled:opacity-20 disabled:cursor-not-allowed"
+                          title="Remove one"
+                          aria-label={`Decrement ${format(day, 'EEE d MMM')}`}
                         >
-                          −
-                        </button>
-                        <span className="min-w-[2.5rem] text-center text-sm font-semibold tabular-nums">
-                          {count}<span className="text-text-faint font-normal">/{dailyTarget}</span>
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => incrementCheckIn(editing.id, memberId, iso)}
-                          className="w-7 h-7 rounded-md border border-border flex items-center justify-center text-text-muted hover:bg-surface-2 hover:text-text text-base leading-none"
-                          title="Increase"
-                        >
-                          +
+                          <Minus size={11} />
                         </button>
                       </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+                </div>
               </div>
-            </div>
-          )}
+            );
+          })()}
         </div>
 
         <div className="flex items-center justify-between p-4 border-t border-border shrink-0 bg-surface">

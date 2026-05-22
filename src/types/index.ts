@@ -272,7 +272,7 @@ export interface TodoItem {
 // Habits (Phase 3)
 // ============================================================================
 
-export type HabitCadence = 'daily' | 'weekdays' | 'weekend' | 'weekly';
+export type HabitCadence = 'daily' | 'weekdays' | 'weekend' | 'weekly' | 'pick_days';
 
 /**
  * A habit being tracked. Owner picks private or shared at creation.
@@ -285,6 +285,9 @@ export interface Habit {
   title: string;
   description: string | null;
   cadence: HabitCadence;
+  // For cadence='pick_days', specific weekdays (0=Sun..6=Sat). Empty/missing
+  // for other cadences. Optional so older Habit rows still parse.
+  weekdays?: number[];
   // 'private' = only owner sees it. 'shared' = visible to whole family.
   visibility: 'private' | 'shared';
   // Optional: pay X stars when streak hits 7, 30, 100. Only relevant for kids.

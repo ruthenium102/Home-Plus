@@ -757,29 +757,33 @@ function HistoryView({
               if (!chore || !m) return null;
               const isApproved = c.status === 'approved';
               const when = c.approved_at ?? c.created_at;
+              const approverLabel = approver ? approver.name : 'Auto';
               return (
                 <div key={c.id} className="flex items-center gap-3 p-3">
                   <Avatar member={m} size={36} />
                   <div className="flex-1 min-w-0">
                     <div className="text-sm font-medium text-text truncate">{chore.title}</div>
                     <div className="text-xs text-text-faint">
-                      {m.name} · {formatPayout(c.payout)}
-                      {approver && ` · by ${approver.name}`}
-                      {' · '}
-                      {formatDistanceToNow(new Date(when), { addSuffix: true })}
+                      {m.name} · {formatPayout(c.payout)} · {formatDistanceToNow(new Date(when), { addSuffix: true })}
                     </div>
                   </div>
-                  <span
-                    className={
-                      'flex items-center gap-1 text-[10px] uppercase tracking-wider font-semibold px-2 py-1 rounded ' +
-                      (isApproved
-                        ? 'text-green-700 dark:text-green-300 bg-green-500/10'
-                        : 'text-text-muted bg-surface-2')
-                    }
-                  >
-                    {isApproved ? <Check size={11} /> : <X size={11} />}
-                    {isApproved ? 'Approved' : 'Rejected'}
-                  </span>
+                  <div className="flex flex-col items-end gap-1 shrink-0">
+                    <span
+                      className={
+                        'flex items-center gap-1 text-[10px] uppercase tracking-wider font-semibold px-2 py-1 rounded ' +
+                        (isApproved
+                          ? 'text-green-700 dark:text-green-300 bg-green-500/10'
+                          : 'text-text-muted bg-surface-2')
+                      }
+                    >
+                      {isApproved ? <Check size={11} /> : <X size={11} />}
+                      {isApproved ? 'Approved' : 'Rejected'}
+                    </span>
+                    <div className="flex items-center gap-1 text-[11px] text-text-muted">
+                      {approver && <Avatar member={approver} size={16} />}
+                      <span>{approverLabel}</span>
+                    </div>
+                  </div>
                 </div>
               );
             })}
@@ -799,6 +803,7 @@ function HistoryView({
               if (!m) return null;
               const isApproved = r.status === 'approved';
               const when = r.approved_at ?? r.created_at;
+              const approverLabel = approver ? approver.name : 'Auto';
               return (
                 <div key={r.id} className="flex items-center gap-3 p-3">
                   <Avatar member={m} size={36} />
@@ -807,23 +812,26 @@ function HistoryView({
                       {m.name}: {r.reason}
                     </div>
                     <div className="text-xs text-text-faint">
-                      {formatBalance(r.category, r.amount)}
-                      {approver && ` · by ${approver.name}`}
-                      {' · '}
-                      {formatDistanceToNow(new Date(when), { addSuffix: true })}
+                      {formatBalance(r.category, r.amount)} · {formatDistanceToNow(new Date(when), { addSuffix: true })}
                     </div>
                   </div>
-                  <span
-                    className={
-                      'flex items-center gap-1 text-[10px] uppercase tracking-wider font-semibold px-2 py-1 rounded ' +
-                      (isApproved
-                        ? 'text-green-700 dark:text-green-300 bg-green-500/10'
-                        : 'text-text-muted bg-surface-2')
-                    }
-                  >
-                    {isApproved ? <Check size={11} /> : <X size={11} />}
-                    {isApproved ? 'Approved' : 'Rejected'}
-                  </span>
+                  <div className="flex flex-col items-end gap-1 shrink-0">
+                    <span
+                      className={
+                        'flex items-center gap-1 text-[10px] uppercase tracking-wider font-semibold px-2 py-1 rounded ' +
+                        (isApproved
+                          ? 'text-green-700 dark:text-green-300 bg-green-500/10'
+                          : 'text-text-muted bg-surface-2')
+                      }
+                    >
+                      {isApproved ? <Check size={11} /> : <X size={11} />}
+                      {isApproved ? 'Approved' : 'Rejected'}
+                    </span>
+                    <div className="flex items-center gap-1 text-[11px] text-text-muted">
+                      {approver && <Avatar member={approver} size={16} />}
+                      <span>{approverLabel}</span>
+                    </div>
+                  </div>
                 </div>
               );
             })}

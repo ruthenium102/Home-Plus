@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { localISO } from '@/lib/dates';
-import { X, Trash2, Camera, ShieldCheck, RotateCw } from 'lucide-react';
+import { X, Trash2, Camera, ShieldCheck, RotateCw, Check } from 'lucide-react';
 import { useFamily } from '@/context/FamilyContext';
 import { isoWeekStr } from '@/lib/rotation';
 import { Avatar } from './Avatar';
@@ -164,13 +164,14 @@ export function ChoreEditor({ open, onClose, editing }: Props) {
 
           {/* Assigned to */}
           <div>
-            <div className="text-sm text-text-muted mb-2">Assigned to</div>
+            <div className="text-sm text-text-muted mb-2">Assigned to — tap one or more</div>
             <div className="flex flex-wrap gap-2">
               {kids.map((m) => {
                 const selected = assigned.includes(m.id);
                 return (
                   <button
                     key={m.id}
+                    type="button"
                     onClick={() =>
                       setAssigned((prev) =>
                         prev.includes(m.id)
@@ -179,18 +180,31 @@ export function ChoreEditor({ open, onClose, editing }: Props) {
                       )
                     }
                     className={
-                      'flex items-center gap-2 pl-1 pr-3 py-1 rounded-full border transition-all ' +
+                      'flex items-center gap-2 pl-1 pr-3 py-1.5 rounded-full border-2 transition-all ' +
                       (selected
-                        ? 'bg-surface-2 border-accent'
-                        : 'border-border hover:border-border-strong opacity-70')
+                        ? 'bg-accent-soft border-accent'
+                        : 'border-border hover:border-border-strong opacity-60')
                     }
+                    aria-pressed={selected}
                   >
-                    <Avatar member={m} size={26} />
-                    <span className="text-sm text-text">{m.name}</span>
+                    <span className="relative">
+                      <Avatar member={m} size={26} />
+                      {selected && (
+                        <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-accent text-white flex items-center justify-center shadow-sm">
+                          <Check size={10} strokeWidth={3} />
+                        </span>
+                      )}
+                    </span>
+                    <span className={'text-sm ' + (selected ? 'text-text font-medium' : 'text-text-muted')}>{m.name}</span>
                   </button>
                 );
               })}
             </div>
+            {assigned.length > 1 && (
+              <div className="text-[11px] text-text-faint mt-1.5">
+                {assigned.length} kids selected — all of them will see this chore.
+              </div>
+            )}
           </div>
 
           {/* Frequency */}

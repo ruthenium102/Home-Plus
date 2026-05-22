@@ -18,6 +18,11 @@ export function isHabitDue(habit: Habit, date: Date): boolean {
     case 'weekly':
       // Weekly habits are "due" any day in the week — UI can decide where to show
       return true;
+    case 'pick_days':
+      // Empty weekdays = treat like daily (defensive fallback).
+      return !habit.weekdays || habit.weekdays.length === 0
+        ? true
+        : habit.weekdays.includes(dow);
     default:
       return false;
   }
