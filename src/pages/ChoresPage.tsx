@@ -35,7 +35,8 @@ import {
   type ChoreItem
 } from '@/lib/chores';
 import { currentRotationAssignee } from '@/lib/rotation';
-import type { Chore, FamilyMember, RewardCategoryKey } from '@/types';
+import type { Chore, ChoreCompletion, FamilyMember, Redemption, RewardCategoryKey } from '@/types';
+import { formatDistanceToNow } from 'date-fns';
 
 export function ChoresPage() {
   const { activeMember } = useFamily();
@@ -537,19 +538,97 @@ function ParentApprovals() {
     rejectRedemption
   } = useFamily();
 
+  const [view, setView] = useState<'pending' | 'history'>('pending');
+
   const pendingCompletions = completions.filter((c) => c.status === 'pending_approval');
   const pendingRedemptions = redemptions.filter((r) => r.status === 'pending_approval');
 
-  if (pendingCompletions.length === 0 && pendingRedemptions.length === 0) {
-    return (
-      <div className="card p-12 text-center">
-        <Check size={36} className="mx-auto mb-3 text-text-faint opacity-50" />
-        <div className="font-display text-lg text-text mb-1">All caught up</div>
-        <div className="text-sm text-text-faint">No approvals waiting.</div>
-      </div>
-    );
-  }
+  const historyCompletions = completions
+    .filter((c) => c.status === 'approved' || c.status === 'rejected')
+    .sort((a, b) => (b.approved_at ?? b.created_at).localeCompare(a.approved_at ?? a.created_at))
+    .slice(0, 50);
+  const historyRedemptions = redemptions
+    .filter((r) => r.status === 'approved' || r.status === 'rejected')
+    .sort((a, b) => (b.approved_at ?? b.created_at).localeCompare(a.approved_at ?? a.created_at))
+    .slice(0, 50);
 
+  return (
+    <div className="space-y-4">
+      <div className="flex bg-surface-2 rounded-md p-0.5 self-start">
+        {(
+          [
+            { v: 'pending' as const, label: pendingCompletions.length + pendingRedemptions.length > 0
+              ? `Pending (${pendingCompletions.length + pendingRedemptions.length})`
+              : 'Pending' },
+            { v: 'history' as const, label: 'History' },
+          ]
+        ).map((t) => (
+          <button
+            key={t.v}
+            onClick={() => setView(t.v)}
+            className={
+              'px-3 py-1.5 rounded-sm text-xs font-medium transition-colors ' +
+              (view === t.v
+                ? 'bg-surface text-text shadow-sm'
+                : 'text-text-muted')
+            }
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {view === 'history' ? (
+        <HistoryView
+          completions={historyCompletions}
+          redemptions={historyRedemptions}
+          chores={chores}
+          members={members}
+        />
+      ) : pendingCompletions.length === 0 && pendingRedemptions.length === 0 ? (
+        <div className="card p-12 text-center">
+          <Check size={36} className="mx-auto mb-3 text-text-faint opacity-50" />
+          <div className="font-display text-lg text-text mb-1">All caught up</div>
+          <div className="text-sm text-text-faint">No approvals waiting.</div>
+        </div>
+      ) : (
+        <PendingView
+          pendingCompletions={pendingCompletions}
+          pendingRedemptions={pendingRedemptions}
+          chores={chores}
+          members={members}
+          activeMemberId={activeMember?.id || ''}
+          approveCompletion={approveCompletion}
+          rejectCompletion={rejectCompletion}
+          approveRedemption={approveRedemption}
+          rejectRedemption={rejectRedemption}
+        />
+      )}
+    </div>
+  );
+}
+
+function PendingView({
+  pendingCompletions,
+  pendingRedemptions,
+  chores,
+  members,
+  activeMemberId,
+  approveCompletion,
+  rejectCompletion,
+  approveRedemption,
+  rejectRedemption,
+}: {
+  pendingCompletions: ChoreCompletion[];
+  pendingRedemptions: Redemption[];
+  chores: Chore[];
+  members: FamilyMember[];
+  activeMemberId: string;
+  approveCompletion: (id: string, approverId: string) => void;
+  rejectCompletion: (id: string, approverId: string) => void;
+  approveRedemption: (id: string, approverId: string) => void;
+  rejectRedemption: (id: string, approverId: string) => void;
+}) {
   return (
     <div className="space-y-4">
       {pendingCompletions.length > 0 && (
@@ -574,14 +653,14 @@ function ParentApprovals() {
                   </div>
                   <div className="flex gap-1.5">
                     <button
-                      onClick={() => rejectCompletion(c.id, activeMember?.id || '')}
+                      onClick={() => rejectCompletion(c.id, activeMemberId)}
                       className="w-9 h-9 rounded-md border border-border hover:bg-surface-2 flex items-center justify-center text-text-muted hover:text-accent"
                       title="Reject"
                     >
                       <X size={16} />
                     </button>
                     <button
-                      onClick={() => approveCompletion(c.id, activeMember?.id || '')}
+                      onClick={() => approveCompletion(c.id, activeMemberId)}
                       className="w-9 h-9 rounded-md bg-accent text-white hover:opacity-90 flex items-center justify-center"
                       title="Approve"
                     >
@@ -617,20 +696,134 @@ function ParentApprovals() {
                   </div>
                   <div className="flex gap-1.5">
                     <button
-                      onClick={() => rejectRedemption(r.id, activeMember?.id || '')}
+                      onClick={() => rejectRedemption(r.id, activeMemberId)}
                       className="w-9 h-9 rounded-md border border-border hover:bg-surface-2 flex items-center justify-center text-text-muted hover:text-accent"
                       title="Reject"
                     >
                       <X size={16} />
                     </button>
                     <button
-                      onClick={() => approveRedemption(r.id, activeMember?.id || '')}
+                      onClick={() => approveRedemption(r.id, activeMemberId)}
                       className="w-9 h-9 rounded-md bg-accent text-white hover:opacity-90 flex items-center justify-center"
                       title="Approve"
                     >
                       <Check size={16} />
                     </button>
                   </div>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
+    </div>
+  );
+}
+
+function HistoryView({
+  completions,
+  redemptions,
+  chores,
+  members,
+}: {
+  completions: ChoreCompletion[];
+  redemptions: Redemption[];
+  chores: Chore[];
+  members: FamilyMember[];
+}) {
+  if (completions.length === 0 && redemptions.length === 0) {
+    return (
+      <div className="card p-12 text-center">
+        <div className="font-display text-lg text-text mb-1">No history yet</div>
+        <div className="text-sm text-text-faint">
+          Approvals and rejections from chores and spending requests will appear here.
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      {completions.length > 0 && (
+        <section>
+          <div className="text-xs uppercase tracking-wider text-text-faint mb-2">
+            Chore completions
+          </div>
+          <div className="card divide-y divide-border">
+            {completions.map((c) => {
+              const chore = chores.find((x) => x.id === c.chore_id);
+              const m = members.find((x) => x.id === c.member_id);
+              const approver = c.approved_by ? members.find((x) => x.id === c.approved_by) : null;
+              if (!chore || !m) return null;
+              const isApproved = c.status === 'approved';
+              const when = c.approved_at ?? c.created_at;
+              return (
+                <div key={c.id} className="flex items-center gap-3 p-3">
+                  <Avatar member={m} size={36} />
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-medium text-text truncate">{chore.title}</div>
+                    <div className="text-xs text-text-faint">
+                      {m.name} · {formatPayout(c.payout)}
+                      {approver && ` · by ${approver.name}`}
+                      {' · '}
+                      {formatDistanceToNow(new Date(when), { addSuffix: true })}
+                    </div>
+                  </div>
+                  <span
+                    className={
+                      'flex items-center gap-1 text-[10px] uppercase tracking-wider font-semibold px-2 py-1 rounded ' +
+                      (isApproved
+                        ? 'text-green-700 dark:text-green-300 bg-green-500/10'
+                        : 'text-text-muted bg-surface-2')
+                    }
+                  >
+                    {isApproved ? <Check size={11} /> : <X size={11} />}
+                    {isApproved ? 'Approved' : 'Rejected'}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
+      {redemptions.length > 0 && (
+        <section>
+          <div className="text-xs uppercase tracking-wider text-text-faint mb-2">
+            Spending requests
+          </div>
+          <div className="card divide-y divide-border">
+            {redemptions.map((r) => {
+              const m = members.find((x) => x.id === r.member_id);
+              const approver = r.approved_by ? members.find((x) => x.id === r.approved_by) : null;
+              if (!m) return null;
+              const isApproved = r.status === 'approved';
+              const when = r.approved_at ?? r.created_at;
+              return (
+                <div key={r.id} className="flex items-center gap-3 p-3">
+                  <Avatar member={m} size={36} />
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-medium text-text truncate">
+                      {m.name}: {r.reason}
+                    </div>
+                    <div className="text-xs text-text-faint">
+                      {formatBalance(r.category, r.amount)}
+                      {approver && ` · by ${approver.name}`}
+                      {' · '}
+                      {formatDistanceToNow(new Date(when), { addSuffix: true })}
+                    </div>
+                  </div>
+                  <span
+                    className={
+                      'flex items-center gap-1 text-[10px] uppercase tracking-wider font-semibold px-2 py-1 rounded ' +
+                      (isApproved
+                        ? 'text-green-700 dark:text-green-300 bg-green-500/10'
+                        : 'text-text-muted bg-surface-2')
+                    }
+                  >
+                    {isApproved ? <Check size={11} /> : <X size={11} />}
+                    {isApproved ? 'Approved' : 'Rejected'}
+                  </span>
                 </div>
               );
             })}

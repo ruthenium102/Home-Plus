@@ -25,6 +25,11 @@ export function HabitEditor({ open, editing, onClose }: Props) {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [memberId, setMemberId] = useState<string>('');
+  // For new habits we allow tagging multiple members; on save we create one
+  // habit per selected member. Editing stays single-member (each habit is its
+  // own row with its own streak). memberId still holds the single owner when
+  // editing.
+  const [selectedMemberIds, setSelectedMemberIds] = useState<string[]>([]);
   const [cadence, setCadence] = useState<HabitCadence>('daily');
   const [visibility, setVisibility] = useState<'private' | 'shared'>('private');
   const [streakRewards, setStreakRewards] = useState(false);
@@ -36,6 +41,7 @@ export function HabitEditor({ open, editing, onClose }: Props) {
       setTitle(editing.title);
       setDescription(editing.description || '');
       setMemberId(editing.member_id);
+      setSelectedMemberIds([editing.member_id]);
       setCadence(editing.cadence);
       setVisibility(editing.visibility);
       setStreakRewards(editing.streak_rewards);
@@ -44,6 +50,7 @@ export function HabitEditor({ open, editing, onClose }: Props) {
       setTitle('');
       setDescription('');
       setMemberId(activeMember?.id || '');
+      setSelectedMemberIds(activeMember?.id ? [activeMember.id] : []);
       setCadence('daily');
       setVisibility('private');
       setStreakRewards(false);
@@ -53,26 +60,48 @@ export function HabitEditor({ open, editing, onClose }: Props) {
 
   if (!open) return null;
 
+  // While editing, owner is the single member_id. While creating, "owner" for
+  // streak-rewards eligibility is "are ANY selected members kids" — we apply
+  // streak rewards only to those that are kids (parent-assigned habits still
+  // get created but with streak_rewards forced to false on those copies).
   const owner = members.find((m) => m.id === memberId);
-  const isKid = owner?.role === 'child';
+  const anySelectedIsKid = selectedMemberIds
+    .map((id) => members.find((m) => m.id === id))
+    .some((m) => m?.role === 'child');
+  const isKid = editing ? owner?.role === 'child' : anySelectedIsKid;
 
   const handleSave = () => {
-    if (!title.trim() || !memberId) return;
-    const payload = {
-      title: title.trim(),
-      description: description.trim() || null,
-      member_id: memberId,
-      cadence,
-      visibility,
-      streak_rewards: isKid ? streakRewards : false,
-      archived: false,
-      count_mode: true,
-      daily_target: Math.max(1, dailyTarget)
-    };
+    if (!title.trim()) return;
+
     if (editing) {
-      updateHabit(editing.id, payload);
+      if (!memberId) return;
+      updateHabit(editing.id, {
+        title: title.trim(),
+        description: description.trim() || null,
+        member_id: memberId,
+        cadence,
+        visibility,
+        streak_rewards: owner?.role === 'child' ? streakRewards : false,
+        archived: false,
+        count_mode: true,
+        daily_target: Math.max(1, dailyTarget),
+      });
     } else {
-      addHabit(payload);
+      if (selectedMemberIds.length === 0) return;
+      for (const mid of selectedMemberIds) {
+        const m = members.find((x) => x.id === mid);
+        addHabit({
+          title: title.trim(),
+          description: description.trim() || null,
+          member_id: mid,
+          cadence,
+          visibility,
+          streak_rewards: m?.role === 'child' ? streakRewards : false,
+          archived: false,
+          count_mode: true,
+          daily_target: Math.max(1, dailyTarget),
+        });
+      }
     }
     onClose();
   };
@@ -126,24 +155,46 @@ export function HabitEditor({ open, editing, onClose }: Props) {
 
           {/* Owner */}
           <div>
-            <div className="text-sm text-text-muted mb-2">Whose habit is this?</div>
-            <div className="flex flex-wrap gap-2">
-              {members.map((m) => (
-                <button
-                  key={m.id}
-                  onClick={() => setMemberId(m.id)}
-                  className={
-                    'flex items-center gap-2 pl-1 pr-3 py-1 rounded-full border transition-colors ' +
-                    (memberId === m.id
-                      ? 'bg-surface-2 border-accent'
-                      : 'border-border opacity-70 hover:opacity-100')
-                  }
-                >
-                  <Avatar member={m} size={26} />
-                  <span className="text-sm text-text">{m.name}</span>
-                </button>
-              ))}
+            <div className="text-sm text-text-muted mb-2">
+              {editing ? 'Whose habit is this?' : 'Tag one or more people'}
             </div>
+            <div className="flex flex-wrap gap-2">
+              {members.map((m) => {
+                const selected = editing
+                  ? memberId === m.id
+                  : selectedMemberIds.includes(m.id);
+                return (
+                  <button
+                    key={m.id}
+                    onClick={() => {
+                      if (editing) {
+                        setMemberId(m.id);
+                      } else {
+                        setSelectedMemberIds((prev) =>
+                          prev.includes(m.id)
+                            ? prev.filter((x) => x !== m.id)
+                            : [...prev, m.id]
+                        );
+                      }
+                    }}
+                    className={
+                      'flex items-center gap-2 pl-1 pr-3 py-1 rounded-full border transition-colors ' +
+                      (selected
+                        ? 'bg-surface-2 border-accent'
+                        : 'border-border opacity-70 hover:opacity-100')
+                    }
+                  >
+                    <Avatar member={m} size={26} />
+                    <span className="text-sm text-text">{m.name}</span>
+                  </button>
+                );
+              })}
+            </div>
+            {!editing && selectedMemberIds.length > 1 && (
+              <div className="text-[11px] text-text-faint mt-1.5">
+                Creates {selectedMemberIds.length} habits — each person gets their own with independent streaks.
+              </div>
+            )}
           </div>
 
           {/* Cadence */}
@@ -335,7 +386,10 @@ export function HabitEditor({ open, editing, onClose }: Props) {
             </button>
             <button
               onClick={handleSave}
-              disabled={!title.trim() || !memberId}
+              disabled={
+                !title.trim() ||
+                (editing ? !memberId : selectedMemberIds.length === 0)
+              }
               className="px-5 py-2 bg-accent text-white text-sm font-medium rounded-md hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed"
             >
               Save
