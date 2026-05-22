@@ -316,27 +316,19 @@ export function ChoreEditor({ open, onClose, editing }: Props) {
 
             <div>
               <div className="text-sm text-text-muted mb-2">Approval</div>
-              <div className="space-y-1.5">
-                <label className="flex items-center gap-2 cursor-pointer p-2 rounded-md hover:bg-surface-2/50">
-                  <input
-                    type="checkbox"
-                    checked={requiresPhoto}
-                    onChange={(e) => setRequiresPhoto(e.target.checked)}
-                    className="accent-accent w-4 h-4"
-                  />
-                  <Camera size={14} className="text-text-muted" />
-                  <span className="text-sm text-text flex-1">Photo proof</span>
-                </label>
-                <label className="flex items-center gap-2 cursor-pointer p-2 rounded-md hover:bg-surface-2/50">
-                  <input
-                    type="checkbox"
-                    checked={requiresApproval}
-                    onChange={(e) => setRequiresApproval(e.target.checked)}
-                    className="accent-accent w-4 h-4"
-                  />
-                  <ShieldCheck size={14} className="text-text-muted" />
-                  <span className="text-sm text-text flex-1">Parent approves</span>
-                </label>
+              <div className="space-y-2">
+                <SegmentedToggle
+                  icon={<Camera size={14} />}
+                  label="Photo proof"
+                  value={requiresPhoto}
+                  onChange={setRequiresPhoto}
+                />
+                <SegmentedToggle
+                  icon={<ShieldCheck size={14} />}
+                  label="Parent approves"
+                  value={requiresApproval}
+                  onChange={setRequiresApproval}
+                />
               </div>
             </div>
           </div>
@@ -369,6 +361,50 @@ export function ChoreEditor({ open, onClose, editing }: Props) {
             </button>
           </div>
         </div>
+      </div>
+    </div>
+  );
+}
+
+// ---- Segmented on/off toggle (used for Photo proof + Parent approves) ------
+
+function SegmentedToggle({
+  icon,
+  label,
+  value,
+  onChange,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: boolean;
+  onChange: (next: boolean) => void;
+}) {
+  return (
+    <div className="flex items-center gap-2 p-2 rounded-md bg-surface-2/40 border border-border">
+      <span className="text-text-muted">{icon}</span>
+      <span className="text-sm text-text flex-1">{label}</span>
+      <div className="flex bg-surface-2 border border-border rounded-md p-0.5">
+        {(
+          [
+            { v: false, label: 'Off' },
+            { v: true, label: 'On' },
+          ] as const
+        ).map((opt) => (
+          <button
+            key={String(opt.v)}
+            type="button"
+            onClick={() => onChange(opt.v)}
+            className={
+              'px-3 py-1 rounded text-xs font-semibold transition-colors ' +
+              (value === opt.v
+                ? 'bg-accent text-white'
+                : 'text-text-muted hover:text-text')
+            }
+            aria-pressed={value === opt.v}
+          >
+            {opt.label}
+          </button>
+        ))}
       </div>
     </div>
   );

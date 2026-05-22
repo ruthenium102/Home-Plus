@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <!-- Warm dark background (matches app theme-color #1a1815) -->
+  <rect width="1024" height="1024" fill="#1a1815"/>
+
+  <!-- House silhouette: gable roof + body with rounded bottom corners, soft top corners on roof -->
+  <path d="
+    M 512 168
+    L 836 460
+    Q 856 478 856 506
+    L 856 808
+    Q 856 868 796 868
+    L 228 868
+    Q 168 868 168 808
+    L 168 506
+    Q 168 478 188 460
+    Z
+  " fill="#F2EAD8"/>
+
+  <!-- Subtle warm shadow at base of house (terracotta tint) -->
+  <rect x="168" y="820" width="688" height="48" fill="#E8DCC4" opacity="0.6"/>
+
+  <!-- Plus mark centred inside the house, terracotta -->
+  <g transform="translate(512, 600)">
+    <rect x="-150" y="-44" width="300" height="88" rx="20" fill="#C97B5C"/>
+    <rect x="-44" y="-150" width="88" height="300" rx="20" fill="#C97B5C"/>
+  </g>
+</svg>

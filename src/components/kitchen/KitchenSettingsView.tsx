@@ -90,7 +90,7 @@ export function KitchenSettingsView() {
               onChange={(e) => updateKitchenSettings({ mid_week_shop_enabled: e.target.checked })}
               className="w-4 h-4 accent-accent"
             />
-            <label htmlFor="midweek" className="text-sm text-text">Enable mid-week shop</label>
+            <label htmlFor="midweek" className="text-sm text-text">Mid-week shop</label>
           </div>
 
           {kitchenSettings.mid_week_shop_enabled && (

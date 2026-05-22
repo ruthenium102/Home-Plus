@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { X, Trash2, Lock, Users, Sparkles, Hash } from 'lucide-react';
+import { X, Trash2, Lock, Users, Sparkles } from 'lucide-react';
 import { format, subDays } from 'date-fns';
 import { useFamily } from '@/context/FamilyContext';
 import { Avatar } from './Avatar';
@@ -232,7 +232,6 @@ export function HabitEditor({ open, editing, onClose }: Props) {
           {/* Daily target — every habit has one (default 1). Count mode is
               now implicit. */}
           <div className="flex items-center gap-3 px-3 py-2.5 rounded-md bg-surface-2/60 border border-border">
-            <Hash size={15} className="text-accent" />
             <span className="text-sm text-text-muted flex-1">Daily target</span>
             <div className="flex items-center gap-2">
               <button

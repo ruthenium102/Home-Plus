@@ -571,7 +571,7 @@ function MonthView({
                 )}
               </div>
 
-              <div className="flex-1 flex flex-col gap-0.5 overflow-hidden">
+              <div className="flex-1 flex flex-col gap-1 overflow-hidden">
                 {visible.map((e) => {
                   const owner = e.member_ids[0]
                     ? members.find((m) => m.id === e.member_ids[0])

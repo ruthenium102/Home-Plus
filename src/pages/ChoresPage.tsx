@@ -93,7 +93,7 @@ function KidView({ member }: { member: FamilyMember }) {
         <div className="flex items-center gap-4 mb-5">
           <Avatar member={member} size={64} />
           <div className="flex-1 min-w-0">
-            <div className="text-xs uppercase tracking-widest text-text-faint mb-0.5">
+            <div className="text-xs tracking-widest text-text-faint mb-0.5">
               Hi
             </div>
             <h1 className="font-display text-3xl text-text">{member.name}</h1>

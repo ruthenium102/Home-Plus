@@ -46,6 +46,27 @@ html, body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   font-feature-settings: 'cv11', 'ss01', 'ss03';
+  /* iOS momentum scrolling — explicit even though it's the modern default,
+     because Capacitor WKWebView can disable it depending on inset config. */
+  -webkit-overflow-scrolling: touch;
+  /* Avoids the iOS pull-to-refresh / chain-scroll that snaps the rubber band
+     when scrolling near a nested overflow container. */
+  overscroll-behavior-y: contain;
+}
+
+/* Promote the document scroller onto its own composite layer so iOS uses
+   GPU for the scroll. Keeps fixed elements (tab bar) from causing whole-page
+   repaints on every frame. */
+body {
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
+}
+
+/* Native selects render shorter than text inputs by default — force a
+   matching min-height so dropdowns sit at the same row-height as <input>. */
+select {
+  min-height: 2.5rem;
+  line-height: 1.25rem;
 }
 
 /* Touch-friendly defaults */
@@ -68,6 +89,10 @@ button, [role="button"] {
   background: rgb(var(--surface));
   border: 1px solid rgb(var(--border));
   border-radius: 16px;
+  /* Clip child rows / strips so their backgrounds don't extend past the
+     rounded corners. Without this, list cards with full-bleed rows render
+     with flat-looking bottom corners. */
+  overflow: hidden;
 }
 
 /* PIN dot animation */
@@ -173,6 +198,14 @@ button, [role="button"] {
   transition: transform 180ms cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 .treat-drag:active { cursor: grabbing; transform: scale(1.12); }
+
+/* Reorder polish — slightly lift dragged rows and smooth drop transitions
+   so HTML5 drag feels less mechanical. */
+[draggable="true"] {
+  transition: transform 140ms cubic-bezier(0.16, 1, 0.3, 1),
+              box-shadow 140ms cubic-bezier(0.16, 1, 0.3, 1),
+              opacity 140ms ease-out;
+}
 
 /* Pet container — used as drop target highlight */
 .pet-drop-hot {

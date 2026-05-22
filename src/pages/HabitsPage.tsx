@@ -257,11 +257,12 @@ function HabitRow({
   void onDecrement;
   void onDecrementDate;
   void onToggle;
+  void onIncrement;
   void isCheckedToday;
+  void todayCount;
   const milestone = nextStreakMilestone(streak);
   const milestoneTo = milestone - streak;
   const target = habit.daily_target ?? 1;
-  const targetMet = todayCount >= target;
 
   const { isDragging, isOver: _ignoredIsOver, dropEdge, ...rowHandlers } =
     dragProps ?? { isDragging: false, isOver: false, dropEdge: null as 'top' | 'bottom' | null };
@@ -276,35 +277,6 @@ function HabitRow({
       }
     >
       {dragProps && <DragHandle />}
-      {/* Today's status circle — tap to log another entry. Target lives
-          in the subtitle under the habit name, not on the circle. */}
-      <button
-        onClick={canCheck ? onIncrement : undefined}
-        disabled={!canCheck}
-        className={
-          'w-11 h-11 rounded-full shrink-0 flex items-center justify-center transition-all ' +
-          (canCheck ? 'cursor-pointer active:scale-95' : 'cursor-default')
-        }
-        style={{
-          background: targetMet ? color.base : color.soft,
-          border: targetMet ? 'none' : `2px solid ${color.base}40`,
-        }}
-        title={
-          canCheck
-            ? `Tap to log another (${todayCount}/${target} today)`
-            : `${todayCount}/${target} today`
-        }
-      >
-        <span
-          className={
-            'text-base font-bold tabular-nums ' +
-            (targetMet ? 'text-white' : 'text-text-muted')
-          }
-        >
-          {todayCount > 0 ? todayCount : ''}
-        </span>
-      </button>
-
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
           <div className="text-sm font-medium text-text truncate">{habit.title}</div>

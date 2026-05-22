@@ -287,7 +287,7 @@ export function SettingsPage() {
       {isParent && (
         <section className="card p-5">
           <h2 className="font-display text-lg text-text mb-1">Kitchen+</h2>
-          <p className="text-xs text-text-faint mb-4">Cupboard staples, shopping days, and meal-event colour.</p>
+          <p className="text-xs text-text-faint mb-4">Cupboard staples, shopping days, and meal colour.</p>
 
           <div className="mb-5">
             <h3 className="text-sm font-medium text-text mb-1">Cupboard staples</h3>
@@ -304,7 +304,7 @@ export function SettingsPage() {
           </div>
 
           <div>
-            <h3 className="text-sm font-medium text-text mb-1">Meal-event colour</h3>
+            <h3 className="text-sm font-medium text-text mb-1">Meal Colour</h3>
             <p className="text-xs text-text-faint mb-3">Colour used when meal plans appear on the calendar.</p>
             <div className="flex flex-wrap gap-2">
               {['#3b82f6','#8b5cf6','#ec4899','#f97316','#22c55e','#14b8a6','#f59e0b','#ef4444'].map((hex) => {
@@ -614,7 +614,7 @@ function ShopDaysEditor() {
           onChange={(e) => updateKitchenSettings({ mid_week_shop_enabled: e.target.checked })}
           className="accent-accent w-4 h-4"
         />
-        Enable mid-week shop
+        Mid-week shop
       </label>
       {kitchenSettings.mid_week_shop_enabled && (
         <div>
