@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { X, Trash2, Lock, Users, Sparkles, Check, Minus } from 'lucide-react';
+import { X, Trash2, Lock, Users, Sparkles, Minus, Plus } from 'lucide-react';
 import { format, subDays } from 'date-fns';
 import { useFamily } from '@/context/FamilyContext';
 import { useTheme } from '@/context/ThemeContext';
@@ -191,22 +191,15 @@ export function HabitEditor({ open, editing, onClose }: Props) {
                       }
                     }}
                     className={
-                      'flex items-center gap-2 pl-1 pr-3 py-1.5 rounded-full border-2 transition-colors ' +
+                      'flex items-center gap-2 pl-1 pr-3 py-1 rounded-full border transition-all ' +
                       (selected
-                        ? 'bg-accent-soft border-accent'
-                        : 'border-border opacity-60 hover:opacity-100')
+                        ? 'bg-surface-2 border-accent'
+                        : 'border-border hover:border-border-strong opacity-70')
                     }
                     aria-pressed={selected}
                   >
-                    <span className="relative">
-                      <Avatar member={m} size={26} />
-                      {selected && (
-                        <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-accent text-white flex items-center justify-center shadow-sm">
-                          <Check size={10} strokeWidth={3} />
-                        </span>
-                      )}
-                    </span>
-                    <span className={'text-sm ' + (selected ? 'text-text font-medium' : 'text-text-muted')}>{m.name}</span>
+                    <Avatar member={m} size={26} />
+                    <span className="text-sm text-text">{m.name}</span>
                   </button>
                 );
               })}
@@ -363,10 +356,10 @@ export function HabitEditor({ open, editing, onClose }: Props) {
             </div>
           </div>
 
-          {/* Recent counts — only when editing an existing habit. Tap a box to
-              add a count; tap the small − to remove one. Visually mirrors the
-              7-day heatmap on the Habits page so the editor feels like the
-              same logging surface. */}
+          {/* Recent counts — only when editing an existing habit. Display-only
+              boxes (member colour scales with progress) with explicit − / +
+              buttons beneath. Mirrors the heatmap visual style from the
+              Habits page, with corrections handled by the buttons. */}
           {editing && (() => {
             const ownerMember = members.find((m) => m.id === memberId);
             const tokens = ownerMember
@@ -375,7 +368,7 @@ export function HabitEditor({ open, editing, onClose }: Props) {
             const todayIso = localISO();
             return (
               <div className="space-y-2">
-                <div className="text-sm text-text-muted">Recent counts — tap to add, − to remove</div>
+                <div className="text-sm text-text-muted">Recent counts</div>
                 <div className="grid grid-cols-7 gap-1.5">
                   {Array.from({ length: 7 }, (_, i) => {
                     const day = subDays(new Date(`${todayIso}T00:00:00`), 6 - i);
@@ -390,11 +383,9 @@ export function HabitEditor({ open, editing, onClose }: Props) {
                     const targetMet = count >= target;
                     return (
                       <div key={iso} className="flex flex-col items-stretch gap-1">
-                        <button
-                          type="button"
-                          onClick={() => incrementCheckIn(editing.id, memberId, iso)}
+                        <div
                           className={
-                            'relative h-14 rounded-md flex flex-col items-center justify-center transition-all active:scale-95 ' +
+                            'relative h-14 rounded-md flex flex-col items-center justify-center ' +
                             (isToday ? 'ring-2 ring-text/20 ' : '')
                           }
                           style={{
@@ -423,17 +414,26 @@ export function HabitEditor({ open, editing, onClose }: Props) {
                           >
                             {isToday ? 'Today' : format(day, 'EEE')}
                           </span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => decrementCheckIn(editing.id, memberId, iso)}
-                          disabled={count === 0}
-                          className="h-5 rounded-sm border border-border flex items-center justify-center text-text-faint hover:text-text hover:bg-surface-2 disabled:opacity-20 disabled:cursor-not-allowed"
-                          title="Remove one"
-                          aria-label={`Decrement ${format(day, 'EEE d MMM')}`}
-                        >
-                          <Minus size={11} />
-                        </button>
+                        </div>
+                        <div className="flex gap-0.5">
+                          <button
+                            type="button"
+                            onClick={() => decrementCheckIn(editing.id, memberId, iso)}
+                            disabled={count === 0}
+                            className="flex-1 h-6 rounded-sm border border-border flex items-center justify-center text-text-faint hover:text-text hover:bg-surface-2 disabled:opacity-20 disabled:cursor-not-allowed"
+                            aria-label={`Decrement ${format(day, 'EEE d MMM')}`}
+                          >
+                            <Minus size={11} />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => incrementCheckIn(editing.id, memberId, iso)}
+                            className="flex-1 h-6 rounded-sm border border-border flex items-center justify-center text-text-faint hover:text-text hover:bg-surface-2"
+                            aria-label={`Increment ${format(day, 'EEE d MMM')}`}
+                          >
+                            <Plus size={11} />
+                          </button>
+                        </div>
                       </div>
                     );
                   })}

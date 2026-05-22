@@ -51,7 +51,8 @@ export type EventCategory =
   | 'medical'
   | 'social'
   | 'travel'
-  | 'meal';
+  | 'meal'
+  | 'wfh';
 
 export interface CalendarEvent {
   id: string;
@@ -396,6 +397,7 @@ export interface KitchenSettings {
   mid_week_shop_enabled: boolean;
   mid_week_shop_day: number | null;
   meal_color?: string; // hex colour for meal events in calendar
+  wfh_color?: string;  // hex colour for work-from-home events in calendar
 }
 
 // ============================================================================

@@ -303,7 +303,7 @@ export function SettingsPage() {
             <ShopDaysEditor />
           </div>
 
-          <div>
+          <div className="mb-5">
             <h3 className="text-sm font-medium text-text mb-1">Meal Colour</h3>
             <p className="text-xs text-text-faint mb-3">Colour used when meal plans appear on the calendar.</p>
             <div className="flex flex-wrap gap-2">
@@ -313,6 +313,25 @@ export function SettingsPage() {
                   <button
                     key={hex}
                     onClick={() => updateKitchenSettings({ meal_color: hex })}
+                    className={'w-8 h-8 rounded-full border-2 transition-all ' + (active ? 'border-text scale-110' : 'border-transparent hover:scale-105')}
+                    style={{ background: hex }}
+                    title={hex}
+                  />
+                );
+              })}
+            </div>
+          </div>
+
+          <div>
+            <h3 className="text-sm font-medium text-text mb-1">WFH Colour</h3>
+            <p className="text-xs text-text-faint mb-3">Colour used when work-from-home appears on the calendar.</p>
+            <div className="flex flex-wrap gap-2">
+              {['#8b5cf6','#3b82f6','#ec4899','#f97316','#22c55e','#14b8a6','#f59e0b','#ef4444'].map((hex) => {
+                const active = (kitchenSettings.wfh_color ?? '#8b5cf6') === hex;
+                return (
+                  <button
+                    key={hex}
+                    onClick={() => updateKitchenSettings({ wfh_color: hex })}
                     className={'w-8 h-8 rounded-full border-2 transition-all ' + (active ? 'border-text scale-110' : 'border-transparent hover:scale-105')}
                     style={{ background: hex }}
                     title={hex}

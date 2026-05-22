@@ -14,7 +14,7 @@ interface Props {
 }
 
 const CATEGORIES: EventCategory[] = [
-  'general', 'school', 'work', 'sport', 'medical', 'social', 'travel', 'meal'
+  'general', 'school', 'work', 'sport', 'medical', 'social', 'travel', 'meal', 'wfh'
 ];
 
 const QUICK_DURATIONS = [
@@ -159,6 +159,11 @@ export function EventEditor({ open, onClose, editing, initialStart }: Props) {
 
   const handleCategoryChange = (c: EventCategory) => {
     setCategory(c);
+    // WFH defaults to an all-day event so parents can drop it on a day
+    // without fiddling with start/end times.
+    if (c === 'wfh' && !editing) {
+      setAllDay(true);
+    }
     if (!editing && !userChangedEndRef.current && startDate && startTime) {
       const mins = suggestDuration(events, title, c);
       const end = applyMins(startDate, startTime, mins);

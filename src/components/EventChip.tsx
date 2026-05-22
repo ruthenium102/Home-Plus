@@ -30,7 +30,13 @@ export function EventChip({ event, onClick, variant = 'list' }: Props) {
   const mealBase = kitchenSettings.meal_color ?? (isDark ? '#60a5fa' : '#3b82f6');
   const mealTokens = { base: mealBase, soft: mealBase + '28', text: '#fff' };
 
-  const tokens = event.category === 'meal' ? mealTokens : memberTokens;
+  const wfhBase = kitchenSettings.wfh_color ?? (isDark ? '#a78bfa' : '#8b5cf6');
+  const wfhTokens = { base: wfhBase, soft: wfhBase + '28', text: '#fff' };
+
+  const tokens =
+    event.category === 'meal' ? mealTokens
+    : event.category === 'wfh' ? wfhTokens
+    : memberTokens;
 
   const start = new Date(event.occurrence_start);
   const end = new Date(event.occurrence_end);

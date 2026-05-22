@@ -17,7 +17,7 @@ import {
 function eventSpansDay(occurrenceStart: string, occurrenceEnd: string, day: Date): boolean {
   return new Date(occurrenceStart) < endOfDay(day) && new Date(occurrenceEnd) > startOfDay(day);
 }
-import { ChevronLeft, ChevronRight, Plus, Sparkles, UtensilsCrossed } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, Sparkles, UtensilsCrossed, Briefcase } from 'lucide-react';
 import { useFamily } from '@/context/FamilyContext';
 import { expandEvents, type ExpandedEvent } from '@/lib/recurrence';
 import { EventChip } from '@/components/EventChip';
@@ -36,6 +36,7 @@ export function CalendarPage() {
   const [cursor, setCursor] = useState<Date>(new Date());
   const [memberFilter, setMemberFilter] = useState<string | null>(null);
   const [showMeals, setShowMeals] = useState(true);
+  const [showWfh, setShowWfh] = useState(true);
   const [editorOpen, setEditorOpen] = useState(false);
   const [editing, setEditing] = useState<CalendarEvent | null>(null);
   const [createInitial, setCreateInitial] = useState<Date | undefined>();
@@ -69,8 +70,11 @@ export function CalendarPage() {
     if (!showMeals) {
       list = list.filter((e) => e.category !== 'meal');
     }
+    if (!showWfh) {
+      list = list.filter((e) => e.category !== 'wfh');
+    }
     return list;
-  }, [events, range, memberFilter, showMeals]);
+  }, [events, range, memberFilter, showMeals, showWfh]);
 
   const goPrev = () => {
     if (view === 'day') setCursor(addDays(cursor, -1));
@@ -231,6 +235,17 @@ export function CalendarPage() {
           }
         >
           <UtensilsCrossed size={12} /> Meals
+        </button>
+        <button
+          onClick={() => setShowWfh((v) => !v)}
+          className={
+            'flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border whitespace-nowrap transition-colors ' +
+            (showWfh
+              ? 'bg-surface border-border text-text-muted'
+              : 'bg-surface border-border text-text-faint/60')
+          }
+        >
+          <Briefcase size={12} /> WFH
         </button>
       </div>
 
