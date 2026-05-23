@@ -30,9 +30,7 @@ function Placeholder({ title, description, icon: Icon, bullets }: PlaceholderPro
         </ul>
       </div>
 
-      <div className="mt-6 text-xs text-text-faint">
-        We'll wire this up in the next phase.
-      </div>
+      <div className="mt-6 text-xs text-text-faint">We'll wire this up in the next phase.</div>
     </div>
   );
 }
@@ -48,7 +46,7 @@ export function KitchenPage() {
         'KP routes become components inside this tab',
         'Meal plan reads family member dietary prefs',
         'Shopping list items can be assigned as a chore',
-        'Planned meals appear on the family calendar'
+        'Planned meals appear on the family calendar',
       ]}
     />
   );

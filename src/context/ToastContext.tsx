@@ -1,11 +1,4 @@
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useState,
-  type ReactNode
-} from 'react';
+import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
 
 interface Toast {
   id: string;
@@ -30,17 +23,14 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   }, []);
 
-  const show = useCallback(
-    (toast: Omit<Toast, 'id'>) => {
-      const id = 't-' + Math.random().toString(36).slice(2, 10);
-      setToasts((prev) => [...prev, { ...toast, id }]);
-      const duration = toast.duration ?? 4000;
-      setTimeout(() => {
-        setToasts((prev) => prev.filter((t) => t.id !== id));
-      }, duration);
-    },
-    []
-  );
+  const show = useCallback((toast: Omit<Toast, 'id'>) => {
+    const id = 't-' + Math.random().toString(36).slice(2, 10);
+    setToasts((prev) => [...prev, { ...toast, id }]);
+    const duration = toast.duration ?? 4000;
+    setTimeout(() => {
+      setToasts((prev) => prev.filter((t) => t.id !== id));
+    }, duration);
+  }, []);
 
   return (
     <ToastContext.Provider value={{ show, dismiss }}>
@@ -52,7 +42,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
 
 function ToastViewport({
   toasts,
-  onDismiss
+  onDismiss,
 }: {
   toasts: Toast[];
   onDismiss: (id: string) => void;

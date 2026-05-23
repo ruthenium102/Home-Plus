@@ -32,12 +32,15 @@ export function KitchenSettingsView() {
           <input
             value={newItem}
             onChange={(e) => setNewItem(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter') addCupboardItem(); }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') addCupboardItem();
+            }}
             placeholder="e.g. olive oil, salt, garlic"
             className="input flex-1"
           />
           <button onClick={addCupboardItem} className="btn-primary flex items-center gap-1">
-            <Plus size={14} />Add
+            <Plus size={14} />
+            Add
           </button>
         </div>
 
@@ -74,11 +77,19 @@ export function KitchenSettingsView() {
             <label className="text-xs text-text-faint block mb-1">Main shop day</label>
             <select
               value={kitchenSettings.primary_shop_day ?? ''}
-              onChange={(e) => updateKitchenSettings({ primary_shop_day: e.target.value === '' ? null : Number(e.target.value) })}
+              onChange={(e) =>
+                updateKitchenSettings({
+                  primary_shop_day: e.target.value === '' ? null : Number(e.target.value),
+                })
+              }
               className="input w-full"
             >
               <option value="">None</option>
-              {DAYS.map((d, i) => <option key={i} value={i}>{d}</option>)}
+              {DAYS.map((d, i) => (
+                <option key={i} value={i}>
+                  {d}
+                </option>
+              ))}
             </select>
           </div>
 
@@ -90,7 +101,9 @@ export function KitchenSettingsView() {
               onChange={(e) => updateKitchenSettings({ mid_week_shop_enabled: e.target.checked })}
               className="w-4 h-4 accent-accent"
             />
-            <label htmlFor="midweek" className="text-sm text-text">Mid-week shop</label>
+            <label htmlFor="midweek" className="text-sm text-text">
+              Mid-week shop
+            </label>
           </div>
 
           {kitchenSettings.mid_week_shop_enabled && (
@@ -98,11 +111,19 @@ export function KitchenSettingsView() {
               <label className="text-xs text-text-faint block mb-1">Mid-week shop day</label>
               <select
                 value={kitchenSettings.mid_week_shop_day ?? ''}
-                onChange={(e) => updateKitchenSettings({ mid_week_shop_day: e.target.value === '' ? null : Number(e.target.value) })}
+                onChange={(e) =>
+                  updateKitchenSettings({
+                    mid_week_shop_day: e.target.value === '' ? null : Number(e.target.value),
+                  })
+                }
                 className="input w-full"
               >
                 <option value="">None</option>
-                {DAYS.map((d, i) => <option key={i} value={i}>{d}</option>)}
+                {DAYS.map((d, i) => (
+                  <option key={i} value={i}>
+                    {d}
+                  </option>
+                ))}
               </select>
             </div>
           )}

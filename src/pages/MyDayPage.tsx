@@ -57,9 +57,29 @@ import type { ActivityPoolItem, DayPlanBlock, DayPlanSection } from '@/types';
 // ---- Icon resolver --------------------------------------------------------
 
 const ICON_MAP: Record<string, LucideIcon> = {
-  Circle, BookOpen, Music, Pencil, TreePine, Gamepad2,
-  Bike, Heart, Star, Dumbbell, Brush, Coffee, Apple,
-  Utensils, Bath, Dog, ShoppingCart, Laptop, Bed, Pill, Leaf, Film, Waves,
+  Circle,
+  BookOpen,
+  Music,
+  Pencil,
+  TreePine,
+  Gamepad2,
+  Bike,
+  Heart,
+  Star,
+  Dumbbell,
+  Brush,
+  Coffee,
+  Apple,
+  Utensils,
+  Bath,
+  Dog,
+  ShoppingCart,
+  Laptop,
+  Bed,
+  Pill,
+  Leaf,
+  Film,
+  Waves,
 };
 
 function resolveIcon(name: string | null): LucideIcon {
@@ -84,7 +104,10 @@ function FocusMode({ blocks, onClose, onToggleDone }: FocusModeProps) {
 
   return (
     <div className="fixed inset-0 z-50 bg-bg flex flex-col" onClick={onClose}>
-      <div className="flex-1 flex flex-col items-center justify-center p-8" onClick={(e) => e.stopPropagation()}>
+      <div
+        className="flex-1 flex flex-col items-center justify-center p-8"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="text-xs uppercase tracking-widest text-text-faint mb-8">
           {SECTION_LABELS[sectionForHour(now.getHours())]} · {format(now, 'h:mm a')}
         </div>
@@ -100,7 +123,9 @@ function FocusMode({ blocks, onClose, onToggleDone }: FocusModeProps) {
             <h2 className="font-display text-5xl sm:text-6xl text-text text-center mb-3 leading-tight">
               {current.title}
             </h2>
-            <div className="text-text-faint text-lg mb-10">{formatDuration(current.duration_min)}</div>
+            <div className="text-text-faint text-lg mb-10">
+              {formatDuration(current.duration_min)}
+            </div>
             <button
               onClick={() => onToggleDone(current.id)}
               className={
@@ -125,7 +150,9 @@ function FocusMode({ blocks, onClose, onToggleDone }: FocusModeProps) {
         {next && (
           <div className="mt-10 text-center">
             <div className="text-xs text-text-faint uppercase tracking-wider mb-1">Up next</div>
-            <div className="text-text-muted text-base">{next.title} · {formatDuration(next.duration_min)}</div>
+            <div className="text-text-muted text-base">
+              {next.title} · {formatDuration(next.duration_min)}
+            </div>
           </div>
         )}
       </div>
@@ -168,40 +195,45 @@ function BlockOnTimeline({ block, onCommit, onToggleDone, onRemove }: BlockOnTim
   const height = renderDur * PX_PER_MIN;
 
   // Generic pointer-gesture helper used by move/top-resize/bottom-resize.
-  const useGesture = (
-    onStart: () => { origStart: number; origDur: number },
-    onMove: (deltaMin: number, orig: { origStart: number; origDur: number }) => { start: number; duration: number },
-  ) => (e: React.PointerEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    const target = e.currentTarget as HTMLElement;
-    target.setPointerCapture(e.pointerId);
-    const startY = e.clientY;
-    const orig = onStart();
+  const useGesture =
+    (
+      onStart: () => { origStart: number; origDur: number },
+      onMove: (
+        deltaMin: number,
+        orig: { origStart: number; origDur: number },
+      ) => { start: number; duration: number },
+    ) =>
+    (e: React.PointerEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const target = e.currentTarget as HTMLElement;
+      target.setPointerCapture(e.pointerId);
+      const startY = e.clientY;
+      const orig = onStart();
 
-    let latest = { start: orig.origStart, duration: orig.origDur };
-    const move = (ev: PointerEvent) => {
-      const deltaMin = snapMin((ev.clientY - startY) / PX_PER_MIN);
-      latest = onMove(deltaMin, orig);
-      setPreviewStart(latest.start);
-      setPreviewDur(latest.duration);
+      let latest = { start: orig.origStart, duration: orig.origDur };
+      const move = (ev: PointerEvent) => {
+        const deltaMin = snapMin((ev.clientY - startY) / PX_PER_MIN);
+        latest = onMove(deltaMin, orig);
+        setPreviewStart(latest.start);
+        setPreviewDur(latest.duration);
+      };
+      const up = () => {
+        target.removeEventListener('pointermove', move);
+        target.removeEventListener('pointerup', up);
+        target.removeEventListener('pointercancel', up);
+        setPreviewStart(null);
+        setPreviewDur(null);
+        // Only commit if anything actually changed.
+        const patch: { start_min?: number; duration_min?: number } = {};
+        if (latest.start !== orig.origStart) patch.start_min = latest.start;
+        if (latest.duration !== orig.origDur) patch.duration_min = latest.duration;
+        if (patch.start_min !== undefined || patch.duration_min !== undefined) onCommit(patch);
+      };
+      target.addEventListener('pointermove', move);
+      target.addEventListener('pointerup', up);
+      target.addEventListener('pointercancel', up);
     };
-    const up = () => {
-      target.removeEventListener('pointermove', move);
-      target.removeEventListener('pointerup', up);
-      target.removeEventListener('pointercancel', up);
-      setPreviewStart(null);
-      setPreviewDur(null);
-      // Only commit if anything actually changed.
-      const patch: { start_min?: number; duration_min?: number } = {};
-      if (latest.start !== orig.origStart) patch.start_min = latest.start;
-      if (latest.duration !== orig.origDur) patch.duration_min = latest.duration;
-      if (patch.start_min !== undefined || patch.duration_min !== undefined) onCommit(patch);
-    };
-    target.addEventListener('pointermove', move);
-    target.addEventListener('pointerup', up);
-    target.addEventListener('pointercancel', up);
-  };
 
   // Body drag — moves the whole block.
   const onBodyDown = useGesture(
@@ -218,7 +250,10 @@ function BlockOnTimeline({ block, onCommit, onToggleDone, onRemove }: BlockOnTim
     (delta, orig) => {
       const minDur = 15;
       const maxDelta = orig.origDur - minDur;
-      const clampedDelta = Math.max(-(orig.origStart - TIMELINE_START_MIN), Math.min(maxDelta, delta));
+      const clampedDelta = Math.max(
+        -(orig.origStart - TIMELINE_START_MIN),
+        Math.min(maxDelta, delta),
+      );
       return {
         start: orig.origStart + clampedDelta,
         duration: orig.origDur - clampedDelta,
@@ -277,9 +312,12 @@ function BlockOnTimeline({ block, onCommit, onToggleDone, onRemove }: BlockOnTim
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5 leading-tight">
             <Icon size={12} className="text-accent shrink-0" />
-            <span className={
-              'text-xs font-medium truncate ' + (block.done ? 'line-through text-text-muted' : 'text-text')
-            }>
+            <span
+              className={
+                'text-xs font-medium truncate ' +
+                (block.done ? 'line-through text-text-muted' : 'text-text')
+              }
+            >
               {block.title}
             </span>
           </div>
@@ -320,7 +358,14 @@ interface TimelineProps {
   onRemove: (id: string) => void;
 }
 
-function Timeline({ blocks, isToday, onDropPoolItem, onUpdateBlock, onToggleDone, onRemove }: TimelineProps) {
+function Timeline({
+  blocks,
+  isToday,
+  onDropPoolItem,
+  onUpdateBlock,
+  onToggleDone,
+  onRemove,
+}: TimelineProps) {
   const gridRef = useRef<HTMLDivElement>(null);
   const [dragOver, setDragOver] = useState(false);
   const [now, setNow] = useState(new Date());
@@ -351,7 +396,10 @@ function Timeline({ blocks, isToday, onDropPoolItem, onUpdateBlock, onToggleDone
   return (
     <div
       ref={gridRef}
-      onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+      onDragOver={(e) => {
+        e.preventDefault();
+        setDragOver(true);
+      }}
       onDragLeave={() => setDragOver(false)}
       onDrop={(e) => {
         e.preventDefault();
@@ -363,11 +411,11 @@ function Timeline({ blocks, isToday, onDropPoolItem, onUpdateBlock, onToggleDone
           if (data.type === 'pool') {
             onDropPoolItem(data.id, minForClientY(e.clientY));
           }
-        } catch { /* ignore */ }
+        } catch {
+          /* ignore */
+        }
       }}
-      className={
-        'card relative overflow-hidden ' + (dragOver ? 'ring-2 ring-accent/40' : '')
-      }
+      className={'card relative overflow-hidden ' + (dragOver ? 'ring-2 ring-accent/40' : '')}
       style={{ height: totalHeight + 20 /* small bottom pad */ }}
     >
       {/* Hour rows */}
@@ -376,7 +424,11 @@ function Timeline({ blocks, isToday, onDropPoolItem, onUpdateBlock, onToggleDone
         const ampm = h < 12 ? 'am' : 'pm';
         const h12 = h % 12 === 0 ? 12 : h % 12;
         return (
-          <div key={h} className="absolute left-0 right-0 flex items-start" style={{ top, height: 60 * PX_PER_MIN }}>
+          <div
+            key={h}
+            className="absolute left-0 right-0 flex items-start"
+            style={{ top, height: 60 * PX_PER_MIN }}
+          >
             <div className="w-12 -mt-2 text-[10px] text-text-faint text-right pr-2 select-none">
               {idx === 0 ? '' : `${h12} ${ampm}`}
             </div>
@@ -389,13 +441,20 @@ function Timeline({ blocks, isToday, onDropPoolItem, onUpdateBlock, onToggleDone
       {hours.slice(0, -1).map((h) => {
         const top = (h * 60 + 30 - TIMELINE_START_MIN) * PX_PER_MIN;
         return (
-          <div key={`half-${h}`} className="absolute left-12 right-0 border-t border-border/40 border-dashed" style={{ top }} />
+          <div
+            key={`half-${h}`}
+            className="absolute left-12 right-0 border-t border-border/40 border-dashed"
+            style={{ top }}
+          />
         );
       })}
 
       {/* Now line */}
       {showNow && (
-        <div className="absolute left-0 right-0 z-20 flex items-center pointer-events-none" style={{ top: nowTop }}>
+        <div
+          className="absolute left-0 right-0 z-20 flex items-center pointer-events-none"
+          style={{ top: nowTop }}
+        >
           <div className="w-12 pr-1 text-[10px] font-semibold text-red-500 text-right">
             {format(now, 'h:mm')}
           </div>
@@ -441,7 +500,9 @@ function PoolItemChip({ item, onEdit, onDelete }: PoolItemProps) {
       <Icon size={14} className="text-accent shrink-0" />
       <div className="flex-1 min-w-0">
         <div className="text-xs font-medium text-text truncate">{item.title}</div>
-        <div className="text-[10px] text-text-faint">{formatDuration(item.default_duration_min)}</div>
+        <div className="text-[10px] text-text-faint">
+          {formatDuration(item.default_duration_min)}
+        </div>
       </div>
       <button
         onClick={onEdit}
@@ -472,9 +533,28 @@ interface ActivityModalProps {
 }
 
 const QUICK_ICONS = [
-  'BookOpen', 'Music', 'Pencil', 'TreePine', 'Gamepad2', 'Bike',
-  'Heart', 'Star', 'Dumbbell', 'Brush', 'Coffee', 'Apple',
-  'Utensils', 'Bath', 'Dog', 'ShoppingCart', 'Laptop', 'Bed', 'Pill', 'Leaf', 'Film', 'Waves',
+  'BookOpen',
+  'Music',
+  'Pencil',
+  'TreePine',
+  'Gamepad2',
+  'Bike',
+  'Heart',
+  'Star',
+  'Dumbbell',
+  'Brush',
+  'Coffee',
+  'Apple',
+  'Utensils',
+  'Bath',
+  'Dog',
+  'ShoppingCart',
+  'Laptop',
+  'Bed',
+  'Pill',
+  'Leaf',
+  'Film',
+  'Waves',
 ];
 
 function ActivityModal({ initial, onSave, onClose }: ActivityModalProps) {
@@ -489,10 +569,15 @@ function ActivityModal({ initial, onSave, onClose }: ActivityModalProps) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4" onClick={onClose}>
+    <div
+      className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4"
+      onClick={onClose}
+    >
       <div className="card w-full max-w-sm" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between p-4 border-b border-border">
-          <h3 className="font-display text-lg text-text">{initial ? 'Edit activity' : 'Add activity'}</h3>
+          <h3 className="font-display text-lg text-text">
+            {initial ? 'Edit activity' : 'Add activity'}
+          </h3>
           <button onClick={onClose} className="text-text-muted hover:text-text" aria-label="Close">
             <X size={18} />
           </button>
@@ -532,7 +617,9 @@ function ActivityModal({ initial, onSave, onClose }: ActivityModalProps) {
                     onClick={() => setIcon(name)}
                     className={
                       'w-8 h-8 rounded flex items-center justify-center transition-colors ' +
-                      (icon === name ? 'bg-accent text-white' : 'bg-surface-2 text-text-muted hover:bg-surface')
+                      (icon === name
+                        ? 'bg-accent text-white'
+                        : 'bg-surface-2 text-text-muted hover:bg-surface')
                     }
                   >
                     <Icon size={15} />
@@ -576,7 +663,9 @@ export function MyDayPage() {
   } = useFamily();
 
   const [focusMode, setFocusMode] = useState(false);
-  const [modalState, setModalState] = useState<{ mode: 'add' } | { mode: 'edit'; item: ActivityPoolItem } | null>(null);
+  const [modalState, setModalState] = useState<
+    { mode: 'add' } | { mode: 'edit'; item: ActivityPoolItem } | null
+  >(null);
   const [date, setDate] = useState<string>(localISO());
   const [poolQuery, setPoolQuery] = useState('');
 
@@ -630,7 +719,9 @@ export function MyDayPage() {
         {/* Activity pool sidebar — desktop only */}
         <aside className="hidden lg:flex flex-col w-52 shrink-0 gap-2">
           <div className="flex items-center justify-between mb-1">
-            <span className="text-xs font-medium text-text-muted uppercase tracking-wider">Activities</span>
+            <span className="text-xs font-medium text-text-muted uppercase tracking-wider">
+              Activities
+            </span>
             <button
               onClick={() => setModalState({ mode: 'add' })}
               className="w-6 h-6 rounded flex items-center justify-center text-text-faint hover:text-accent hover:bg-accent/10 transition-colors"
@@ -653,10 +744,15 @@ export function MyDayPage() {
           </p>
           {memberPool.length === 0 && (
             <div className="text-xs text-text-faint text-center py-4">
-              {poolQuery.trim() ? 'No activities match.' : (
+              {poolQuery.trim() ? (
+                'No activities match.'
+              ) : (
                 <>
                   No activities yet.{' '}
-                  <button onClick={() => setModalState({ mode: 'add' })} className="text-accent underline">
+                  <button
+                    onClick={() => setModalState({ mode: 'add' })}
+                    className="text-accent underline"
+                  >
                     Add one
                   </button>
                 </>
@@ -747,7 +843,9 @@ export function MyDayPage() {
           {/* Mobile pool — collapsed list under the timeline */}
           <div className="lg:hidden card p-3">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-medium text-text-muted uppercase tracking-wider">Activities</span>
+              <span className="text-xs font-medium text-text-muted uppercase tracking-wider">
+                Activities
+              </span>
               <button
                 onClick={() => setModalState({ mode: 'add' })}
                 className="w-6 h-6 rounded flex items-center justify-center text-text-faint hover:text-accent hover:bg-accent/10 transition-colors"
@@ -785,7 +883,9 @@ export function MyDayPage() {
         <FocusMode
           blocks={memberBlocks}
           onClose={() => setFocusMode(false)}
-          onToggleDone={(id) => { toggleBlockDone(id); }}
+          onToggleDone={(id) => {
+            toggleBlockDone(id);
+          }}
         />
       )}
 

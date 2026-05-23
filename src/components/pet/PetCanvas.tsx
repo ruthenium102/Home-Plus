@@ -111,11 +111,15 @@ export const PetCanvas = forwardRef<PetCanvasHandle, Props>(function PetCanvas(
     window.setTimeout(() => el.classList.remove('pet-squish'), 800);
   }, []);
 
-  useImperativeHandle(ref, () => ({
-    reactSquash,
-    reactSquish,
-    blink: () => eyesRef.current?.blink(),
-  }), [reactSquash, reactSquish]);
+  useImperativeHandle(
+    ref,
+    () => ({
+      reactSquash,
+      reactSquish,
+      blink: () => eyesRef.current?.blink(),
+    }),
+    [reactSquash, reactSquish],
+  );
 
   // ---- Cursor tracking (window mousemove → imperatively update iris cx/cy) ----
 
@@ -158,7 +162,9 @@ export const PetCanvas = forwardRef<PetCanvasHandle, Props>(function PetCanvas(
       }, delay);
     };
     schedule();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [paused, mood]);
 
   // ---- Attention behavior on cue ----
@@ -186,14 +192,18 @@ export const PetCanvas = forwardRef<PetCanvasHandle, Props>(function PetCanvas(
 
   // Tail wag speed scales with mood
   const tailWagCls =
-    mood === 'happy' ? 'tail-wag-fast' :
-    mood === 'sad' || mood === 'sleeping' ? '' :
-    'tail-wag-slow';
+    mood === 'happy'
+      ? 'tail-wag-fast'
+      : mood === 'sad' || mood === 'sleeping'
+        ? ''
+        : 'tail-wag-slow';
 
   const attentionCls =
-    attentionAnim === 'yawn' ? 'pet-yawn' :
-    attentionAnim === 'look-around' ? 'pet-look-around' :
-    '';
+    attentionAnim === 'yawn'
+      ? 'pet-yawn'
+      : attentionAnim === 'look-around'
+        ? 'pet-look-around'
+        : '';
 
   // ---- Drop-zone handlers ----
 
@@ -213,11 +223,16 @@ export const PetCanvas = forwardRef<PetCanvasHandle, Props>(function PetCanvas(
 
   // ---- Render ----
 
-  const cx = 100, cy = 95, r = 60;
+  const cx = 100,
+    cy = 95,
+    r = 60;
 
   const isCustom = animal === 'custom';
   // Custom-pet image fills (mostly) the 200x200 viewBox.
-  const CI_X = 5, CI_Y = 5, CI_W = 190, CI_H = 190;
+  const CI_X = 5,
+    CI_Y = 5,
+    CI_W = 190,
+    CI_H = 190;
   const customEyeLayout =
     isCustom && customEyes
       ? {
@@ -231,7 +246,13 @@ export const PetCanvas = forwardRef<PetCanvasHandle, Props>(function PetCanvas(
   return (
     <div
       ref={rootRef}
-      style={{ width: size, height: size, display: 'inline-block', lineHeight: 0, position: 'relative' }}
+      style={{
+        width: size,
+        height: size,
+        display: 'inline-block',
+        lineHeight: 0,
+        position: 'relative',
+      }}
       className={paused ? 'pet-paused' : undefined}
     >
       {/* Floor shadow — sits behind the pet, scales subtly on bounce */}
@@ -240,7 +261,13 @@ export const PetCanvas = forwardRef<PetCanvasHandle, Props>(function PetCanvas(
           viewBox="0 0 200 30"
           width={size}
           height={size * 0.18}
-          style={{ position: 'absolute', bottom: -size * 0.02, left: 0, zIndex: 0, overflow: 'visible' }}
+          style={{
+            position: 'absolute',
+            bottom: -size * 0.02,
+            left: 0,
+            zIndex: 0,
+            overflow: 'visible',
+          }}
           aria-hidden
         >
           <ellipse
@@ -271,12 +298,7 @@ export const PetCanvas = forwardRef<PetCanvasHandle, Props>(function PetCanvas(
         onDragLeave={interactive ? handleDragLeave : undefined}
         onDrop={interactive ? handleDrop : undefined}
       >
-        <svg
-          viewBox="0 0 200 200"
-          width={size}
-          height={size}
-          style={{ overflow: 'visible' }}
-        >
+        <svg viewBox="0 0 200 200" width={size} height={size} style={{ overflow: 'visible' }}>
           {/* Gradients & filters — shared by all animals */}
           <defs>
             <radialGradient id="head-grad" cx="35%" cy="30%" r="75%">
@@ -304,12 +326,14 @@ export const PetCanvas = forwardRef<PetCanvasHandle, Props>(function PetCanvas(
           </defs>
 
           {/* Stage scaling applied to the whole pet */}
-          <g style={{
-            transformBox: 'fill-box',
-            transformOrigin: '100px 160px',
-            transform: `scale(${scale})`,
-            transition: 'transform 600ms cubic-bezier(0.34, 1.56, 0.64, 1)',
-          }}>
+          <g
+            style={{
+              transformBox: 'fill-box',
+              transformOrigin: '100px 160px',
+              transform: `scale(${scale})`,
+              transition: 'transform 600ms cubic-bezier(0.34, 1.56, 0.64, 1)',
+            }}
+          >
             {isCustom ? (
               customImage ? (
                 <image
@@ -345,7 +369,9 @@ export const PetCanvas = forwardRef<PetCanvasHandle, Props>(function PetCanvas(
             {(!isCustom || customEyeLayout) && (
               <PetEyes
                 ref={eyesRef}
-                cx={cx} cy={cy} r={r}
+                cx={cx}
+                cy={cy}
+                r={r}
                 mood={mood}
                 rootRef={rootRef}
                 layout={customEyeLayout}
@@ -356,8 +382,22 @@ export const PetCanvas = forwardRef<PetCanvasHandle, Props>(function PetCanvas(
                 drawing has its own mouth/cheeks/nose. */}
             {!isCustom && (
               <>
-                <ellipse cx={cx - r * 0.42} cy={cy + r * 0.12} rx={r * 0.16} ry={r * 0.1} fill="#ffb3c1" opacity="0.55" />
-                <ellipse cx={cx + r * 0.42} cy={cy + r * 0.12} rx={r * 0.16} ry={r * 0.1} fill="#ffb3c1" opacity="0.55" />
+                <ellipse
+                  cx={cx - r * 0.42}
+                  cy={cy + r * 0.12}
+                  rx={r * 0.16}
+                  ry={r * 0.1}
+                  fill="#ffb3c1"
+                  opacity="0.55"
+                />
+                <ellipse
+                  cx={cx + r * 0.42}
+                  cy={cy + r * 0.12}
+                  rx={r * 0.16}
+                  ry={r * 0.1}
+                  fill="#ffb3c1"
+                  opacity="0.55"
+                />
                 <ellipse cx={cx} cy={cy + r * 0.04} rx={r * 0.05} ry={r * 0.034} fill="#e88fa0" />
                 <Mouth mood={mood} cx={cx} cy={cy} r={r} />
               </>
@@ -371,19 +411,41 @@ export const PetCanvas = forwardRef<PetCanvasHandle, Props>(function PetCanvas(
 
             {/* Mood overlays */}
             {mood === 'eating' && (
-              <text x={cx + r * 0.85} y={cy + r * 0.25} fontSize={r * 0.4} textAnchor="middle">🍎</text>
+              <text x={cx + r * 0.85} y={cy + r * 0.25} fontSize={r * 0.4} textAnchor="middle">
+                🍎
+              </text>
             )}
             {mood === 'drinking' && (
-              <text x={cx + r * 0.85} y={cy + r * 0.25} fontSize={r * 0.4} textAnchor="middle">💧</text>
+              <text x={cx + r * 0.85} y={cy + r * 0.25} fontSize={r * 0.4} textAnchor="middle">
+                💧
+              </text>
             )}
             {mood === 'happy' && (
               <>
-                <text x={cx - r * 0.9} y={cy - r * 0.6} fontSize={r * 0.3} className="pet-sparkle" style={{ animationDelay: '0s' }}>⭐</text>
-                <text x={cx + r * 0.85} y={cy - r * 0.7} fontSize={r * 0.25} className="pet-sparkle" style={{ animationDelay: '0.4s' }}>⭐</text>
+                <text
+                  x={cx - r * 0.9}
+                  y={cy - r * 0.6}
+                  fontSize={r * 0.3}
+                  className="pet-sparkle"
+                  style={{ animationDelay: '0s' }}
+                >
+                  ⭐
+                </text>
+                <text
+                  x={cx + r * 0.85}
+                  y={cy - r * 0.7}
+                  fontSize={r * 0.25}
+                  className="pet-sparkle"
+                  style={{ animationDelay: '0.4s' }}
+                >
+                  ⭐
+                </text>
               </>
             )}
             {attentionAnim === 'yawn' && (
-              <text x={cx + r * 0.7} y={cy - r * 0.6} fontSize={r * 0.3}>💤</text>
+              <text x={cx + r * 0.7} y={cy - r * 0.6} fontSize={r * 0.3}>
+                💤
+              </text>
             )}
           </g>
         </svg>
@@ -398,36 +460,61 @@ function Mouth({ mood, cx, cy, r }: { mood: PetMood; cx: number; cy: number; r: 
   const mouthY = cy + r * 0.22;
   if (mood === 'sad') {
     return (
-      <path d={`M ${cx - r * 0.14} ${mouthY + r * 0.04} Q ${cx} ${mouthY - r * 0.06} ${cx + r * 0.14} ${mouthY + r * 0.04}`}
-        fill="none" stroke="#e88fa0" strokeWidth="2" strokeLinecap="round" />
+      <path
+        d={`M ${cx - r * 0.14} ${mouthY + r * 0.04} Q ${cx} ${mouthY - r * 0.06} ${cx + r * 0.14} ${mouthY + r * 0.04}`}
+        fill="none"
+        stroke="#e88fa0"
+        strokeWidth="2"
+        strokeLinecap="round"
+      />
     );
   }
   const happyMouth = mood === 'happy' || mood === 'eating';
   return (
-    <path d={`M ${cx - r * 0.14} ${mouthY} Q ${cx} ${mouthY + r * (happyMouth ? 0.16 : 0.08)} ${cx + r * 0.14} ${mouthY}`}
-      fill="none" stroke="#e88fa0" strokeWidth="2" strokeLinecap="round" />
+    <path
+      d={`M ${cx - r * 0.14} ${mouthY} Q ${cx} ${mouthY + r * (happyMouth ? 0.16 : 0.08)} ${cx + r * 0.14} ${mouthY}`}
+      fill="none"
+      stroke="#e88fa0"
+      strokeWidth="2"
+      strokeLinecap="round"
+    />
   );
 }
 
 // ---- Per-animal layered SVG body parts ----
 
 function AnimalLayers({
-  animal, mood, tailWagCls,
-}: { animal: PetAnimal; mood: PetMood; tailWagCls: string }) {
+  animal,
+  mood,
+  tailWagCls,
+}: {
+  animal: PetAnimal;
+  mood: PetMood;
+  tailWagCls: string;
+}) {
   switch (animal) {
-    case 'cat':    return <CatLayers mood={mood} tailWagCls={tailWagCls} />;
-    case 'dog':    return <DogLayers mood={mood} tailWagCls={tailWagCls} />;
-    case 'bunny':  return <BunnyLayers mood={mood} tailWagCls={tailWagCls} />;
-    case 'hamster':return <HamsterLayers mood={mood} tailWagCls={tailWagCls} />;
-    case 'axolotl':return <AxolotlLayers mood={mood} tailWagCls={tailWagCls} />;
-    case 'dragon': return <DragonLayers mood={mood} tailWagCls={tailWagCls} />;
+    case 'cat':
+      return <CatLayers mood={mood} tailWagCls={tailWagCls} />;
+    case 'dog':
+      return <DogLayers mood={mood} tailWagCls={tailWagCls} />;
+    case 'bunny':
+      return <BunnyLayers mood={mood} tailWagCls={tailWagCls} />;
+    case 'hamster':
+      return <HamsterLayers mood={mood} tailWagCls={tailWagCls} />;
+    case 'axolotl':
+      return <AxolotlLayers mood={mood} tailWagCls={tailWagCls} />;
+    case 'dragon':
+      return <DragonLayers mood={mood} tailWagCls={tailWagCls} />;
     // 'custom' is handled by the caller before this point.
-    default: return null;
+    default:
+      return null;
   }
 }
 
 // Common geometry
-const CX = 100, CY = 95, R = 60;
+const CX = 100,
+  CY = 95,
+  R = 60;
 
 interface LayerProps {
   mood: PetMood;
@@ -448,28 +535,93 @@ function CatLayers({ mood, tailWagCls }: LayerProps) {
     <>
       {/* Tail — wraps in its own <g> for wag */}
       <g className={tailWagCls} style={{ transformOrigin: '155px 155px' }}>
-        <path d="M 145 155 Q 175 170 170 140 Q 165 120 155 130"
-          fill="none" stroke="url(#body-grad)" strokeWidth="9" strokeLinecap="round" />
+        <path
+          d="M 145 155 Q 175 170 170 140 Q 165 120 155 130"
+          fill="none"
+          stroke="url(#body-grad)"
+          strokeWidth="9"
+          strokeLinecap="round"
+        />
       </g>
       <Body />
       <Head />
       {/* Ears — twitch on left */}
       <g className="ear-twitch" style={{ animationDelay: '2s' }}>
-        <polygon points={`${CX - R * 0.65},${CY - R * 0.78} ${CX - R * 0.85},${CY - R * 1.18} ${CX - R * 0.35},${CY - R * 0.98}`} fill="url(#ear-grad)" />
-        <polygon points={`${CX - R * 0.65},${CY - R * 0.82} ${CX - R * 0.8},${CY - R * 1.1} ${CX - R * 0.42},${CY - R * 0.98}`} fill="#ffc0cb" />
+        <polygon
+          points={`${CX - R * 0.65},${CY - R * 0.78} ${CX - R * 0.85},${CY - R * 1.18} ${CX - R * 0.35},${CY - R * 0.98}`}
+          fill="url(#ear-grad)"
+        />
+        <polygon
+          points={`${CX - R * 0.65},${CY - R * 0.82} ${CX - R * 0.8},${CY - R * 1.1} ${CX - R * 0.42},${CY - R * 0.98}`}
+          fill="#ffc0cb"
+        />
       </g>
       <g className="ear-twitch" style={{ animationDelay: '7s' }}>
-        <polygon points={`${CX + R * 0.65},${CY - R * 0.78} ${CX + R * 0.85},${CY - R * 1.18} ${CX + R * 0.35},${CY - R * 0.98}`} fill="url(#ear-grad)" />
-        <polygon points={`${CX + R * 0.65},${CY - R * 0.82} ${CX + R * 0.8},${CY - R * 1.1} ${CX + R * 0.42},${CY - R * 0.98}`} fill="#ffc0cb" />
+        <polygon
+          points={`${CX + R * 0.65},${CY - R * 0.78} ${CX + R * 0.85},${CY - R * 1.18} ${CX + R * 0.35},${CY - R * 0.98}`}
+          fill="url(#ear-grad)"
+        />
+        <polygon
+          points={`${CX + R * 0.65},${CY - R * 0.82} ${CX + R * 0.8},${CY - R * 1.1} ${CX + R * 0.42},${CY - R * 0.98}`}
+          fill="#ffc0cb"
+        />
       </g>
       {/* Whiskers */}
       <g>
-        <line x1={CX - R * 0.08} y1={CY + R * 0.06} x2={CX - R * 0.6} y2={CY + R * 0.01} stroke="#c8bfb0" strokeWidth="1.2" strokeLinecap="round" />
-        <line x1={CX - R * 0.08} y1={CY + R * 0.1} x2={CX - R * 0.62} y2={CY + R * 0.12} stroke="#c8bfb0" strokeWidth="1.2" strokeLinecap="round" />
-        <line x1={CX - R * 0.08} y1={CY + R * 0.14} x2={CX - R * 0.58} y2={CY + R * 0.22} stroke="#c8bfb0" strokeWidth="1.2" strokeLinecap="round" />
-        <line x1={CX + R * 0.08} y1={CY + R * 0.06} x2={CX + R * 0.6} y2={CY + R * 0.01} stroke="#c8bfb0" strokeWidth="1.2" strokeLinecap="round" />
-        <line x1={CX + R * 0.08} y1={CY + R * 0.1} x2={CX + R * 0.62} y2={CY + R * 0.12} stroke="#c8bfb0" strokeWidth="1.2" strokeLinecap="round" />
-        <line x1={CX + R * 0.08} y1={CY + R * 0.14} x2={CX + R * 0.58} y2={CY + R * 0.22} stroke="#c8bfb0" strokeWidth="1.2" strokeLinecap="round" />
+        <line
+          x1={CX - R * 0.08}
+          y1={CY + R * 0.06}
+          x2={CX - R * 0.6}
+          y2={CY + R * 0.01}
+          stroke="#c8bfb0"
+          strokeWidth="1.2"
+          strokeLinecap="round"
+        />
+        <line
+          x1={CX - R * 0.08}
+          y1={CY + R * 0.1}
+          x2={CX - R * 0.62}
+          y2={CY + R * 0.12}
+          stroke="#c8bfb0"
+          strokeWidth="1.2"
+          strokeLinecap="round"
+        />
+        <line
+          x1={CX - R * 0.08}
+          y1={CY + R * 0.14}
+          x2={CX - R * 0.58}
+          y2={CY + R * 0.22}
+          stroke="#c8bfb0"
+          strokeWidth="1.2"
+          strokeLinecap="round"
+        />
+        <line
+          x1={CX + R * 0.08}
+          y1={CY + R * 0.06}
+          x2={CX + R * 0.6}
+          y2={CY + R * 0.01}
+          stroke="#c8bfb0"
+          strokeWidth="1.2"
+          strokeLinecap="round"
+        />
+        <line
+          x1={CX + R * 0.08}
+          y1={CY + R * 0.1}
+          x2={CX + R * 0.62}
+          y2={CY + R * 0.12}
+          stroke="#c8bfb0"
+          strokeWidth="1.2"
+          strokeLinecap="round"
+        />
+        <line
+          x1={CX + R * 0.08}
+          y1={CY + R * 0.14}
+          x2={CX + R * 0.58}
+          y2={CY + R * 0.22}
+          stroke="#c8bfb0"
+          strokeWidth="1.2"
+          strokeLinecap="round"
+        />
       </g>
     </>
   );
@@ -479,16 +631,35 @@ function DogLayers({ mood, tailWagCls }: LayerProps) {
   return (
     <>
       <g className={tailWagCls} style={{ transformOrigin: '155px 148px' }}>
-        <ellipse cx={155} cy={148} rx={10} ry={7} fill="url(#body-grad)" transform="rotate(-30 155 148)" />
+        <ellipse
+          cx={155}
+          cy={148}
+          rx={10}
+          ry={7}
+          fill="url(#body-grad)"
+          transform="rotate(-30 155 148)"
+        />
       </g>
       <Body />
       <Head />
       {/* Floppy ears with twitch */}
       <g className="ear-twitch" style={{ animationDelay: '3s' }}>
-        <ellipse cx={CX - R * 0.72} cy={CY - R * 0.55} rx={R * 0.26} ry={R * 0.38} fill="url(#ear-grad)" />
+        <ellipse
+          cx={CX - R * 0.72}
+          cy={CY - R * 0.55}
+          rx={R * 0.26}
+          ry={R * 0.38}
+          fill="url(#ear-grad)"
+        />
       </g>
       <g className="ear-twitch" style={{ animationDelay: '9s' }}>
-        <ellipse cx={CX + R * 0.72} cy={CY - R * 0.55} rx={R * 0.26} ry={R * 0.38} fill="url(#ear-grad)" />
+        <ellipse
+          cx={CX + R * 0.72}
+          cy={CY - R * 0.55}
+          rx={R * 0.26}
+          ry={R * 0.38}
+          fill="url(#ear-grad)"
+        />
       </g>
       {/* Tongue (only when not sleeping/sad) */}
       {mood !== 'sleeping' && mood !== 'sad' && (
@@ -508,11 +679,23 @@ function BunnyLayers({ mood, tailWagCls }: LayerProps) {
       <Body />
       <Head />
       <g className="ear-twitch" style={{ animationDelay: '4s' }}>
-        <ellipse cx={CX - R * 0.42} cy={CY - R * 1.15} rx={R * 0.2} ry={R * 0.5} fill="url(#ear-grad)" />
+        <ellipse
+          cx={CX - R * 0.42}
+          cy={CY - R * 1.15}
+          rx={R * 0.2}
+          ry={R * 0.5}
+          fill="url(#ear-grad)"
+        />
         <ellipse cx={CX - R * 0.42} cy={CY - R * 1.15} rx={R * 0.11} ry={R * 0.38} fill="#ffc0cb" />
       </g>
       <g className="ear-twitch" style={{ animationDelay: '11s' }}>
-        <ellipse cx={CX + R * 0.42} cy={CY - R * 1.15} rx={R * 0.2} ry={R * 0.5} fill="url(#ear-grad)" />
+        <ellipse
+          cx={CX + R * 0.42}
+          cy={CY - R * 1.15}
+          rx={R * 0.2}
+          ry={R * 0.5}
+          fill="url(#ear-grad)"
+        />
         <ellipse cx={CX + R * 0.42} cy={CY - R * 1.15} rx={R * 0.11} ry={R * 0.38} fill="#ffc0cb" />
       </g>
     </>
@@ -520,7 +703,8 @@ function BunnyLayers({ mood, tailWagCls }: LayerProps) {
 }
 
 function HamsterLayers({ mood, tailWagCls }: LayerProps) {
-  void mood; void tailWagCls;
+  void mood;
+  void tailWagCls;
   return (
     <>
       <Body />
@@ -534,57 +718,188 @@ function HamsterLayers({ mood, tailWagCls }: LayerProps) {
         <circle cx={CX + R * 0.78} cy={CY - R * 0.7} r={R * 0.14} fill="#ffc0cb" />
       </g>
       {/* Chubby cheek pouches */}
-      <ellipse cx={CX - R * 0.7} cy={CY + R * 0.15} rx={R * 0.26} ry={R * 0.22} fill="#ffd8b0" opacity="0.7" />
-      <ellipse cx={CX + R * 0.7} cy={CY + R * 0.15} rx={R * 0.26} ry={R * 0.22} fill="#ffd8b0" opacity="0.7" />
+      <ellipse
+        cx={CX - R * 0.7}
+        cy={CY + R * 0.15}
+        rx={R * 0.26}
+        ry={R * 0.22}
+        fill="#ffd8b0"
+        opacity="0.7"
+      />
+      <ellipse
+        cx={CX + R * 0.7}
+        cy={CY + R * 0.15}
+        rx={R * 0.26}
+        ry={R * 0.22}
+        fill="#ffd8b0"
+        opacity="0.7"
+      />
     </>
   );
 }
 
 function AxolotlLayers({ mood, tailWagCls }: LayerProps) {
-  void mood; void tailWagCls;
+  void mood;
+  void tailWagCls;
   return (
     <>
       {/* Body fins */}
-      <ellipse cx={CX - R * 0.85} cy={CY + R * 0.65} rx={R * 0.12} ry={R * 0.25} fill="url(#pink-grad)" transform={`rotate(-20 ${CX - R * 0.85} ${CY + R * 0.65})`} />
-      <ellipse cx={CX + R * 0.85} cy={CY + R * 0.65} rx={R * 0.12} ry={R * 0.25} fill="url(#pink-grad)" transform={`rotate(20 ${CX + R * 0.85} ${CY + R * 0.65})`} />
+      <ellipse
+        cx={CX - R * 0.85}
+        cy={CY + R * 0.65}
+        rx={R * 0.12}
+        ry={R * 0.25}
+        fill="url(#pink-grad)"
+        transform={`rotate(-20 ${CX - R * 0.85} ${CY + R * 0.65})`}
+      />
+      <ellipse
+        cx={CX + R * 0.85}
+        cy={CY + R * 0.65}
+        rx={R * 0.12}
+        ry={R * 0.25}
+        fill="url(#pink-grad)"
+        transform={`rotate(20 ${CX + R * 0.85} ${CY + R * 0.65})`}
+      />
       <Body fill="url(#pink-grad)" />
       <Head fill="url(#pink-grad)" />
       {/* External gills, left */}
       <g className="ear-twitch" style={{ animationDelay: '6s' }}>
-        <line x1={CX - R * 0.72} y1={CY - R * 0.55} x2={CX - R * 0.95} y2={CY - R * 1.05} stroke="#ff9eb5" strokeWidth="3" strokeLinecap="round" />
-        <line x1={CX - R * 0.84} y1={CY - R * 0.8} x2={CX - R * 1.1} y2={CY - R * 1.0} stroke="#ff9eb5" strokeWidth="2" strokeLinecap="round" />
-        <line x1={CX - R * 0.84} y1={CY - R * 0.8} x2={CX - R * 0.82} y2={CY - R * 1.08} stroke="#ff9eb5" strokeWidth="2" strokeLinecap="round" />
-        <line x1={CX - R * 0.88} y1={CY - R * 0.95} x2={CX - R * 1.05} y2={CY - R * 1.15} stroke="#ff9eb5" strokeWidth="1.5" strokeLinecap="round" />
-        <line x1={CX - R * 0.9} y1={CY - R * 0.98} x2={CX - R * 0.78} y2={CY - R * 1.18} stroke="#ff9eb5" strokeWidth="1.5" strokeLinecap="round" />
+        <line
+          x1={CX - R * 0.72}
+          y1={CY - R * 0.55}
+          x2={CX - R * 0.95}
+          y2={CY - R * 1.05}
+          stroke="#ff9eb5"
+          strokeWidth="3"
+          strokeLinecap="round"
+        />
+        <line
+          x1={CX - R * 0.84}
+          y1={CY - R * 0.8}
+          x2={CX - R * 1.1}
+          y2={CY - R * 1.0}
+          stroke="#ff9eb5"
+          strokeWidth="2"
+          strokeLinecap="round"
+        />
+        <line
+          x1={CX - R * 0.84}
+          y1={CY - R * 0.8}
+          x2={CX - R * 0.82}
+          y2={CY - R * 1.08}
+          stroke="#ff9eb5"
+          strokeWidth="2"
+          strokeLinecap="round"
+        />
+        <line
+          x1={CX - R * 0.88}
+          y1={CY - R * 0.95}
+          x2={CX - R * 1.05}
+          y2={CY - R * 1.15}
+          stroke="#ff9eb5"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+        />
+        <line
+          x1={CX - R * 0.9}
+          y1={CY - R * 0.98}
+          x2={CX - R * 0.78}
+          y2={CY - R * 1.18}
+          stroke="#ff9eb5"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+        />
       </g>
       <g className="ear-twitch" style={{ animationDelay: '13s' }}>
-        <line x1={CX + R * 0.72} y1={CY - R * 0.55} x2={CX + R * 0.95} y2={CY - R * 1.05} stroke="#ff9eb5" strokeWidth="3" strokeLinecap="round" />
-        <line x1={CX + R * 0.84} y1={CY - R * 0.8} x2={CX + R * 1.1} y2={CY - R * 1.0} stroke="#ff9eb5" strokeWidth="2" strokeLinecap="round" />
-        <line x1={CX + R * 0.84} y1={CY - R * 0.8} x2={CX + R * 0.82} y2={CY - R * 1.08} stroke="#ff9eb5" strokeWidth="2" strokeLinecap="round" />
-        <line x1={CX + R * 0.88} y1={CY - R * 0.95} x2={CX + R * 1.05} y2={CY - R * 1.15} stroke="#ff9eb5" strokeWidth="1.5" strokeLinecap="round" />
-        <line x1={CX + R * 0.9} y1={CY - R * 0.98} x2={CX + R * 0.78} y2={CY - R * 1.18} stroke="#ff9eb5" strokeWidth="1.5" strokeLinecap="round" />
+        <line
+          x1={CX + R * 0.72}
+          y1={CY - R * 0.55}
+          x2={CX + R * 0.95}
+          y2={CY - R * 1.05}
+          stroke="#ff9eb5"
+          strokeWidth="3"
+          strokeLinecap="round"
+        />
+        <line
+          x1={CX + R * 0.84}
+          y1={CY - R * 0.8}
+          x2={CX + R * 1.1}
+          y2={CY - R * 1.0}
+          stroke="#ff9eb5"
+          strokeWidth="2"
+          strokeLinecap="round"
+        />
+        <line
+          x1={CX + R * 0.84}
+          y1={CY - R * 0.8}
+          x2={CX + R * 0.82}
+          y2={CY - R * 1.08}
+          stroke="#ff9eb5"
+          strokeWidth="2"
+          strokeLinecap="round"
+        />
+        <line
+          x1={CX + R * 0.88}
+          y1={CY - R * 0.95}
+          x2={CX + R * 1.05}
+          y2={CY - R * 1.15}
+          stroke="#ff9eb5"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+        />
+        <line
+          x1={CX + R * 0.9}
+          y1={CY - R * 0.98}
+          x2={CX + R * 0.78}
+          y2={CY - R * 1.18}
+          stroke="#ff9eb5"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+        />
       </g>
       {/* Wide smile */}
-      <path d={`M ${CX - R * 0.18} ${CY + R * 0.22} Q ${CX} ${CY + R * 0.36} ${CX + R * 0.18} ${CY + R * 0.22}`}
-        fill="none" stroke="#e88fa0" strokeWidth="2.5" strokeLinecap="round" />
+      <path
+        d={`M ${CX - R * 0.18} ${CY + R * 0.22} Q ${CX} ${CY + R * 0.36} ${CX + R * 0.18} ${CY + R * 0.22}`}
+        fill="none"
+        stroke="#e88fa0"
+        strokeWidth="2.5"
+        strokeLinecap="round"
+      />
     </>
   );
 }
 
 function DragonLayers({ mood, tailWagCls }: LayerProps) {
-  void mood; void tailWagCls;
+  void mood;
+  void tailWagCls;
   return (
     <>
       {/* Wings */}
-      <polygon points={`${CX - R * 0.6},${CY + R * 0.2} ${CX - R * 1.2},${CY - R * 0.4} ${CX - R * 0.3},${CY - R * 0.1}`} fill="url(#green-grad)" opacity="0.85" />
-      <polygon points={`${CX + R * 0.6},${CY + R * 0.2} ${CX + R * 1.2},${CY - R * 0.4} ${CX + R * 0.3},${CY - R * 0.1}`} fill="url(#green-grad)" opacity="0.85" />
+      <polygon
+        points={`${CX - R * 0.6},${CY + R * 0.2} ${CX - R * 1.2},${CY - R * 0.4} ${CX - R * 0.3},${CY - R * 0.1}`}
+        fill="url(#green-grad)"
+        opacity="0.85"
+      />
+      <polygon
+        points={`${CX + R * 0.6},${CY + R * 0.2} ${CX + R * 1.2},${CY - R * 0.4} ${CX + R * 0.3},${CY - R * 0.1}`}
+        fill="url(#green-grad)"
+        opacity="0.85"
+      />
       <Body fill="url(#green-grad)" />
       <Head fill="url(#green-grad)" />
       {/* Head spikes */}
-      <polygon points={`${CX - R * 0.3},${CY - R * 0.98} ${CX - R * 0.22},${CY - R * 1.3} ${CX - R * 0.14},${CY - R * 0.98}`} fill="#a8d8a0" />
-      <polygon points={`${CX - R * 0.06},${CY - R * 1.0} ${CX},${CY - R * 1.38} ${CX + R * 0.06},${CY - R * 1.0}`} fill="#a8d8a0" />
-      <polygon points={`${CX + R * 0.14},${CY - R * 0.98} ${CX + R * 0.22},${CY - R * 1.3} ${CX + R * 0.3},${CY - R * 0.98}`} fill="#a8d8a0" />
+      <polygon
+        points={`${CX - R * 0.3},${CY - R * 0.98} ${CX - R * 0.22},${CY - R * 1.3} ${CX - R * 0.14},${CY - R * 0.98}`}
+        fill="#a8d8a0"
+      />
+      <polygon
+        points={`${CX - R * 0.06},${CY - R * 1.0} ${CX},${CY - R * 1.38} ${CX + R * 0.06},${CY - R * 1.0}`}
+        fill="#a8d8a0"
+      />
+      <polygon
+        points={`${CX + R * 0.14},${CY - R * 0.98} ${CX + R * 0.22},${CY - R * 1.3} ${CX + R * 0.3},${CY - R * 0.98}`}
+        fill="#a8d8a0"
+      />
     </>
   );
 }
-

@@ -11,7 +11,7 @@ import {
   Heart,
   Plane,
   ChefHat,
-  ListChecks
+  ListChecks,
 } from 'lucide-react';
 import { useFamily } from '@/context/FamilyContext';
 import { COLOR_OPTIONS, MEMBER_COLORS } from '@/lib/colors';
@@ -33,7 +33,7 @@ const ICON_OPTIONS = [
   { name: 'Briefcase', Icon: Briefcase },
   { name: 'Heart', Icon: Heart },
   { name: 'Plane', Icon: Plane },
-  { name: 'ChefHat', Icon: ChefHat }
+  { name: 'ChefHat', Icon: ChefHat },
 ];
 
 export function ListEditor({ open, onClose, editing }: Props) {
@@ -72,7 +72,7 @@ export function ListEditor({ open, onClose, editing }: Props) {
       icon,
       color,
       owner_id: ownerId,
-      archived: false
+      archived: false,
     };
     if (editing) {
       updateList(editing.id, payload);
@@ -100,9 +100,7 @@ export function ListEditor({ open, onClose, editing }: Props) {
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between p-4 border-b border-border shrink-0">
-          <h2 className="font-display text-xl text-text">
-            {editing ? 'Edit list' : 'New list'}
-          </h2>
+          <h2 className="font-display text-xl text-text">{editing ? 'Edit list' : 'New list'}</h2>
           <button
             onClick={onClose}
             className="w-9 h-9 rounded-md hover:bg-surface-2 flex items-center justify-center text-text-muted"
@@ -218,10 +216,7 @@ export function ListEditor({ open, onClose, editing }: Props) {
             <span />
           )}
           <div className="flex gap-2">
-            <button
-              onClick={onClose}
-              className="px-4 py-2 text-sm text-text-muted hover:text-text"
-            >
+            <button onClick={onClose} className="px-4 py-2 text-sm text-text-muted hover:text-text">
               Cancel
             </button>
             <button

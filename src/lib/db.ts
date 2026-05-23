@@ -47,7 +47,10 @@ const pending: Map<string, Map<string, number>> = new Map();
 
 function markPending(table: string, id: string) {
   let m = pending.get(table);
-  if (!m) { m = new Map(); pending.set(table, m); }
+  if (!m) {
+    m = new Map();
+    pending.set(table, m);
+  }
   m.set(id, Date.now());
 }
 
@@ -63,7 +66,10 @@ export function isPendingWrite(table: string, id: string): boolean {
   if (!m) return false;
   const t = m.get(id);
   if (t === undefined) return false;
-  if (Date.now() - t > PENDING_TTL_MS) { m.delete(id); return false; }
+  if (Date.now() - t > PENDING_TTL_MS) {
+    m.delete(id);
+    return false;
+  }
   return true;
 }
 
@@ -75,19 +81,26 @@ export function dbUpsert(table: string, data: Record<string, unknown>): void {
   const id = typeof data.id === 'string' ? data.id : null;
   if (id) markPending(table, id);
   if (!supabase) return;
-  supabase.from(table).upsert(data).then(({ error }) => {
-    if (error) console.warn(`[db] upsert ${table}:`, error.message);
-    if (id) tailPending(table, id);
-  });
+  supabase
+    .from(table)
+    .upsert(data)
+    .then(({ error }) => {
+      if (error) console.warn(`[db] upsert ${table}:`, error.message);
+      if (id) tailPending(table, id);
+    });
 }
 
 export function dbDelete(table: string, id: string): void {
   markPending(table, id);
   if (!supabase) return;
-  supabase.from(table).delete().eq('id', id).then(({ error }) => {
-    if (error) console.warn(`[db] delete ${table}:`, error.message);
-    tailPending(table, id);
-  });
+  supabase
+    .from(table)
+    .delete()
+    .eq('id', id)
+    .then(({ error }) => {
+      if (error) console.warn(`[db] delete ${table}:`, error.message);
+      tailPending(table, id);
+    });
 }
 
 // ---------------------------------------------------------------------------
@@ -191,7 +204,10 @@ export async function dbCreateFamily(
     owner_user_id: ownerUserId,
     created_at: family.created_at,
   });
-  if (fe) { console.warn('[db] createFamily:', fe.message); return; }
+  if (fe) {
+    console.warn('[db] createFamily:', fe.message);
+    return;
+  }
 
   const { error: me } = await supabase.from('family_members').insert({
     ...member,

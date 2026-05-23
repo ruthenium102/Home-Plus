@@ -1,5 +1,24 @@
 import { useEffect, useState } from 'react';
-import { Sun, Moon, Monitor, Lock, LockOpen, MapPin, Search, X, UserPlus, LogOut, Pencil, Home, Calendar, ListChecks, Trophy, Sparkles, ChefHat, PawPrint } from 'lucide-react';
+import {
+  Sun,
+  Moon,
+  Monitor,
+  Lock,
+  LockOpen,
+  MapPin,
+  Search,
+  X,
+  UserPlus,
+  LogOut,
+  Pencil,
+  Home,
+  Calendar,
+  ListChecks,
+  Trophy,
+  Sparkles,
+  ChefHat,
+  PawPrint,
+} from 'lucide-react';
 import { DragHandle } from '@/components/DragHandle';
 import { useListDragReorder } from '@/hooks/useListDragReorder';
 import { useFamily } from '@/context/FamilyContext';
@@ -39,7 +58,8 @@ export function SettingsPage() {
   const { authSignOut } = useAuth();
   const memberDnd = useListDragReorder(members, reorderMembers);
   const { mode, setMode } = useTheme();
-  const { temp, locationName, locationStatus, resetLocation, setManualLocation, unit, setUnit } = useWeather();
+  const { temp, locationName, locationStatus, resetLocation, setManualLocation, unit, setUnit } =
+    useWeather();
   const [pinTarget, setPinTarget] = useState<FamilyMember | null>(null);
   const [editTarget, setEditTarget] = useState<FamilyMember | null>(null);
   const [inviteOpen, setInviteOpen] = useState(false);
@@ -50,16 +70,22 @@ export function SettingsPage() {
   const [citySearching, setCitySearching] = useState(false);
 
   useEffect(() => {
-    if (cityQuery.length < 2) { setCityResults([]); return; }
+    if (cityQuery.length < 2) {
+      setCityResults([]);
+      return;
+    }
     const t = setTimeout(async () => {
       setCitySearching(true);
       try {
         const r = await fetch(
-          `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(cityQuery)}&count=6&language=en&format=json`
+          `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(cityQuery)}&count=6&language=en&format=json`,
         ).then((x) => x.json());
         setCityResults((r.results as GeoResult[]) || []);
-      } catch { setCityResults([]); }
-      finally { setCitySearching(false); }
+      } catch {
+        setCityResults([]);
+      } finally {
+        setCitySearching(false);
+      }
     }, 400);
     return () => clearTimeout(t);
   }, [cityQuery]);
@@ -68,12 +94,10 @@ export function SettingsPage() {
     <div className="space-y-5 max-w-3xl mx-auto">
       {isDemoMode && (
         <div className="card p-4 border-accent/40 bg-accent-soft/40">
-          <div className="text-sm text-text font-medium mb-1">
-            Running in demo mode
-          </div>
+          <div className="text-sm text-text font-medium mb-1">Running in demo mode</div>
           <div className="text-xs text-text-muted leading-relaxed">
-            Supabase isn't configured yet. Your changes are saved to this device only.
-            To enable cloud sync across devices, set <code>VITE_SUPABASE_URL</code> and
+            Supabase isn't configured yet. Your changes are saved to this device only. To enable
+            cloud sync across devices, set <code>VITE_SUPABASE_URL</code> and
             <code> VITE_SUPABASE_ANON_KEY</code> in <code>.env</code> and restart the dev server.
           </div>
         </div>
@@ -88,9 +112,7 @@ export function SettingsPage() {
             <div className="text-text">{family.name}</div>
           </div>
           <div>
-            <div className="text-text-faint text-xs uppercase tracking-wider mb-1">
-              Timezone
-            </div>
+            <div className="text-text-faint text-xs uppercase tracking-wider mb-1">Timezone</div>
             <div className="text-text">{family.timezone}</div>
           </div>
         </div>
@@ -104,7 +126,7 @@ export function SettingsPage() {
             [
               { v: 'light', icon: Sun, label: 'Light' },
               { v: 'dark', icon: Moon, label: 'Dark' },
-              { v: 'system', icon: Monitor, label: 'System' }
+              { v: 'system', icon: Monitor, label: 'System' },
             ] as const
           ).map(({ v, icon: Icon, label }) => (
             <button
@@ -119,9 +141,7 @@ export function SettingsPage() {
             >
               <Icon size={22} className={mode === v ? 'text-accent' : 'text-text-muted'} />
               <span
-                className={
-                  'text-sm font-medium ' + (mode === v ? 'text-text' : 'text-text-muted')
-                }
+                className={'text-sm font-medium ' + (mode === v ? 'text-text' : 'text-text-muted')}
               >
                 {label}
               </span>
@@ -174,7 +194,8 @@ export function SettingsPage() {
       <section className="card p-5">
         <h2 className="font-display text-lg text-text mb-1">Pages</h2>
         <p className="text-xs text-text-faint mb-4">
-          Control which pages each family member can access. Tick the "All users" row to apply to everyone.
+          Control which pages each family member can access. Tick the "All users" row to apply to
+          everyone.
         </p>
         <div className="overflow-x-auto">
           <table className="w-full text-xs">
@@ -186,12 +207,30 @@ export function SettingsPage() {
                   { icon: Calendar, label: 'Calendar', locked: true },
                   { icon: ListChecks, label: 'Lists', locked: true },
                   { icon: Sun, label: 'My Day', locked: false, field: 'my_day_enabled' as const },
-                  { icon: Trophy, label: 'Chores', locked: false, field: 'chores_enabled' as const },
-                  { icon: Sparkles, label: 'Habits', locked: false, field: 'habits_enabled' as const },
+                  {
+                    icon: Trophy,
+                    label: 'Chores',
+                    locked: false,
+                    field: 'chores_enabled' as const,
+                  },
+                  {
+                    icon: Sparkles,
+                    label: 'Habits',
+                    locked: false,
+                    field: 'habits_enabled' as const,
+                  },
                   { icon: PawPrint, label: 'Pet', locked: false, field: 'pet_enabled' as const },
-                  { icon: ChefHat, label: 'Kitchen+', locked: false, field: 'kitchen_enabled' as const },
+                  {
+                    icon: ChefHat,
+                    label: 'Kitchen+',
+                    locked: false,
+                    field: 'kitchen_enabled' as const,
+                  },
                 ].map(({ icon: Icon, label }) => (
-                  <th key={label} className="text-center pb-2 px-1 text-text-faint font-medium min-w-[52px]">
+                  <th
+                    key={label}
+                    className="text-center pb-2 px-1 text-text-faint font-medium min-w-[52px]"
+                  >
                     <div className="flex flex-col items-center gap-0.5">
                       <Icon size={13} />
                       <span className="text-[10px]">{label}</span>
@@ -257,11 +296,27 @@ export function SettingsPage() {
                     { locked: true },
                     { locked: true },
                     { locked: true },
-                    { locked: false, field: 'my_day_enabled' as keyof typeof m, value: m.my_day_enabled },
-                    { locked: false, field: 'chores_enabled' as keyof typeof m, value: m.chores_enabled },
-                    { locked: false, field: 'habits_enabled' as keyof typeof m, value: m.habits_enabled },
+                    {
+                      locked: false,
+                      field: 'my_day_enabled' as keyof typeof m,
+                      value: m.my_day_enabled,
+                    },
+                    {
+                      locked: false,
+                      field: 'chores_enabled' as keyof typeof m,
+                      value: m.chores_enabled,
+                    },
+                    {
+                      locked: false,
+                      field: 'habits_enabled' as keyof typeof m,
+                      value: m.habits_enabled,
+                    },
                     { locked: false, field: 'pet_enabled' as keyof typeof m, value: m.pet_enabled },
-                    { locked: false, field: 'kitchen_enabled' as keyof typeof m, value: m.kitchen_enabled },
+                    {
+                      locked: false,
+                      field: 'kitchen_enabled' as keyof typeof m,
+                      value: m.kitchen_enabled,
+                    },
                   ].map((col, idx) => (
                     <td key={idx} className="text-center py-2 px-1">
                       {col.locked ? (
@@ -287,7 +342,9 @@ export function SettingsPage() {
       {isParent && (
         <section className="card p-5">
           <h2 className="font-display text-lg text-text mb-1">Kitchen+</h2>
-          <p className="text-xs text-text-faint mb-4">Cupboard staples, shopping days, and meal colour.</p>
+          <p className="text-xs text-text-faint mb-4">
+            Cupboard staples, shopping days, and meal colour.
+          </p>
 
           <div className="mb-5">
             <h3 className="text-sm font-medium text-text mb-1">Cupboard staples</h3>
@@ -299,21 +356,37 @@ export function SettingsPage() {
 
           <div className="mb-5">
             <h3 className="text-sm font-medium text-text mb-1">Shopping days</h3>
-            <p className="text-xs text-text-faint mb-3">Used to split the shopping list into two shops.</p>
+            <p className="text-xs text-text-faint mb-3">
+              Used to split the shopping list into two shops.
+            </p>
             <ShopDaysEditor />
           </div>
 
           <div className="mb-5">
             <h3 className="text-sm font-medium text-text mb-1">Meal Colour</h3>
-            <p className="text-xs text-text-faint mb-3">Colour used when meal plans appear on the calendar.</p>
+            <p className="text-xs text-text-faint mb-3">
+              Colour used when meal plans appear on the calendar.
+            </p>
             <div className="flex flex-wrap gap-2">
-              {['#3b82f6','#8b5cf6','#ec4899','#f97316','#22c55e','#14b8a6','#f59e0b','#ef4444'].map((hex) => {
+              {[
+                '#3b82f6',
+                '#8b5cf6',
+                '#ec4899',
+                '#f97316',
+                '#22c55e',
+                '#14b8a6',
+                '#f59e0b',
+                '#ef4444',
+              ].map((hex) => {
                 const active = (kitchenSettings.meal_color ?? '#3b82f6') === hex;
                 return (
                   <button
                     key={hex}
                     onClick={() => updateKitchenSettings({ meal_color: hex })}
-                    className={'w-8 h-8 rounded-full border-2 transition-all ' + (active ? 'border-text scale-110' : 'border-transparent hover:scale-105')}
+                    className={
+                      'w-8 h-8 rounded-full border-2 transition-all ' +
+                      (active ? 'border-text scale-110' : 'border-transparent hover:scale-105')
+                    }
                     style={{ background: hex }}
                     title={hex}
                   />
@@ -324,15 +397,29 @@ export function SettingsPage() {
 
           <div>
             <h3 className="text-sm font-medium text-text mb-1">WFH Colour</h3>
-            <p className="text-xs text-text-faint mb-3">Colour used when work-from-home appears on the calendar.</p>
+            <p className="text-xs text-text-faint mb-3">
+              Colour used when work-from-home appears on the calendar.
+            </p>
             <div className="flex flex-wrap gap-2">
-              {['#8b5cf6','#3b82f6','#ec4899','#f97316','#22c55e','#14b8a6','#f59e0b','#ef4444'].map((hex) => {
+              {[
+                '#8b5cf6',
+                '#3b82f6',
+                '#ec4899',
+                '#f97316',
+                '#22c55e',
+                '#14b8a6',
+                '#f59e0b',
+                '#ef4444',
+              ].map((hex) => {
                 const active = (kitchenSettings.wfh_color ?? '#8b5cf6') === hex;
                 return (
                   <button
                     key={hex}
                     onClick={() => updateKitchenSettings({ wfh_color: hex })}
-                    className={'w-8 h-8 rounded-full border-2 transition-all ' + (active ? 'border-text scale-110' : 'border-transparent hover:scale-105')}
+                    className={
+                      'w-8 h-8 rounded-full border-2 transition-all ' +
+                      (active ? 'border-text scale-110' : 'border-transparent hover:scale-105')
+                    }
                     style={{ background: hex }}
                     title={hex}
                   />
@@ -373,9 +460,7 @@ export function SettingsPage() {
                 onClick={() => setUnit(u)}
                 className={
                   'px-3 py-1 rounded text-xs font-semibold transition-colors ' +
-                  (unit === u
-                    ? 'bg-accent text-white'
-                    : 'text-text-muted hover:text-text')
+                  (unit === u ? 'bg-accent text-white' : 'text-text-muted hover:text-text')
                 }
                 aria-pressed={unit === u}
               >
@@ -398,7 +483,12 @@ export function SettingsPage() {
             />
             {citySearching && <span className="text-[10px] text-text-faint">…</span>}
             {cityQuery && (
-              <button onClick={() => { setCityQuery(''); setCityResults([]); }}>
+              <button
+                onClick={() => {
+                  setCityQuery('');
+                  setCityResults([]);
+                }}
+              >
                 <X size={12} className="text-text-faint" />
               </button>
             )}
@@ -481,7 +571,7 @@ function MemberRow({
   isActive,
   dragProps,
   onEdit,
-  onSetPin
+  onSetPin,
 }: {
   member: FamilyMember;
   isActive: boolean;
@@ -490,8 +580,12 @@ function MemberRow({
   onSetPin: () => void;
 }) {
   const hasLogin = !!member.auth_user_id;
-  const { isDragging, isOver: _ignoredIsOver, dropEdge, ...rowHandlers } =
-    dragProps ?? { isDragging: false, isOver: false, dropEdge: null as 'top' | 'bottom' | null };
+  const {
+    isDragging,
+    isOver: _ignoredIsOver,
+    dropEdge,
+    ...rowHandlers
+  } = dragProps ?? { isDragging: false, isOver: false, dropEdge: null as 'top' | 'bottom' | null };
   return (
     <div
       {...(dragProps ? rowHandlers : {})}
@@ -539,9 +633,13 @@ function MemberRow({
         title={member.pin_hash ? 'Change or remove PIN' : 'Set a PIN'}
       >
         {member.pin_hash ? (
-          <><Lock size={12} /> PIN set</>
+          <>
+            <Lock size={12} /> PIN set
+          </>
         ) : (
-          <><LockOpen size={12} /> No PIN</>
+          <>
+            <LockOpen size={12} /> No PIN
+          </>
         )}
       </button>
       <button
@@ -561,7 +659,10 @@ function CupboardEditor() {
 
   const add = () => {
     const item = newItem.trim().toLowerCase();
-    if (!item || kitchenSettings.cupboard.includes(item)) { setNewItem(''); return; }
+    if (!item || kitchenSettings.cupboard.includes(item)) {
+      setNewItem('');
+      return;
+    }
     updateKitchenSettings({ cupboard: [...kitchenSettings.cupboard, item] });
     setNewItem('');
   };
@@ -574,7 +675,9 @@ function CupboardEditor() {
         <input
           value={newItem}
           onChange={(e) => setNewItem(e.target.value)}
-          onKeyDown={(e) => { if (e.key === 'Enter') add(); }}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') add();
+          }}
           placeholder="e.g. olive oil, salt, garlic"
           className="flex-1 min-w-0 px-3 py-2 bg-surface-2 border border-border rounded-md text-text text-sm focus:outline-none focus:border-accent"
         />
@@ -619,11 +722,19 @@ function ShopDaysEditor() {
         <label className="text-xs text-text-faint block mb-1">Main shop day</label>
         <select
           value={kitchenSettings.primary_shop_day ?? ''}
-          onChange={(e) => updateKitchenSettings({ primary_shop_day: e.target.value === '' ? null : Number(e.target.value) })}
+          onChange={(e) =>
+            updateKitchenSettings({
+              primary_shop_day: e.target.value === '' ? null : Number(e.target.value),
+            })
+          }
           className="w-full px-3 py-2 bg-surface-2 border border-border rounded-md text-text text-sm focus:outline-none focus:border-accent"
         >
           <option value="">None</option>
-          {DAYS.map((d, i) => <option key={i} value={i}>{d}</option>)}
+          {DAYS.map((d, i) => (
+            <option key={i} value={i}>
+              {d}
+            </option>
+          ))}
         </select>
       </div>
       <label className="flex items-center gap-2 cursor-pointer text-sm text-text">
@@ -640,11 +751,19 @@ function ShopDaysEditor() {
           <label className="text-xs text-text-faint block mb-1">Mid-week shop day</label>
           <select
             value={kitchenSettings.mid_week_shop_day ?? ''}
-            onChange={(e) => updateKitchenSettings({ mid_week_shop_day: e.target.value === '' ? null : Number(e.target.value) })}
+            onChange={(e) =>
+              updateKitchenSettings({
+                mid_week_shop_day: e.target.value === '' ? null : Number(e.target.value),
+              })
+            }
             className="w-full px-3 py-2 bg-surface-2 border border-border rounded-md text-text text-sm focus:outline-none focus:border-accent"
           >
             <option value="">None</option>
-            {DAYS.map((d, i) => <option key={i} value={i}>{d}</option>)}
+            {DAYS.map((d, i) => (
+              <option key={i} value={i}>
+                {d}
+              </option>
+            ))}
           </select>
         </div>
       )}

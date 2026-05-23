@@ -34,7 +34,7 @@ function isMemberAway(member: FamilyMember): boolean {
 export function currentRotationAssignee(
   chore: Chore,
   members: FamilyMember[],
-  date: Date = new Date()
+  date: Date = new Date(),
 ): string | null {
   const { rotation_roster, rotation_pointer, rotation_anchor_iso_week } = chore;
   if (!rotation_roster || rotation_roster.length === 0) return null;
@@ -63,7 +63,7 @@ export function currentRotationAssignee(
 export function rosterRoleAssignments(
   chores: Chore[],
   members: FamilyMember[],
-  date: Date = new Date()
+  date: Date = new Date(),
 ): Map<string, string[]> {
   const result = new Map<string, string[]>();
 

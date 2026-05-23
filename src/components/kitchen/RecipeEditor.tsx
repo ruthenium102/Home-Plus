@@ -14,13 +14,21 @@ export function RecipeEditor({ recipe, onSave, onDelete, onClose }: Props) {
   const [title, setTitle] = useState(recipe.title ?? '');
   const [icon, setIcon] = useState(recipe.icon ?? '');
   const [servings, setServings] = useState(recipe.servings ?? 4);
-  const [prepMinutes, setPrepMinutes] = useState<string>(recipe.prep_minutes != null ? String(recipe.prep_minutes) : '');
-  const [cookMinutes, setCookMinutes] = useState<string>(recipe.cook_minutes != null ? String(recipe.cook_minutes) : '');
+  const [prepMinutes, setPrepMinutes] = useState<string>(
+    recipe.prep_minutes != null ? String(recipe.prep_minutes) : '',
+  );
+  const [cookMinutes, setCookMinutes] = useState<string>(
+    recipe.cook_minutes != null ? String(recipe.cook_minutes) : '',
+  );
   const [sourceUrl, setSourceUrl] = useState(recipe.source_url ?? '');
   const [ingredients, setIngredients] = useState<Ingredient[]>(
     recipe.ingredients?.length
-      ? recipe.ingredients.map((i) => ({ quantity: i.quantity, unit: i.unit || '', item: i.item || '' }))
-      : [{ quantity: null, unit: '', item: '' }]
+      ? recipe.ingredients.map((i) => ({
+          quantity: i.quantity,
+          unit: i.unit || '',
+          item: i.item || '',
+        }))
+      : [{ quantity: null, unit: '', item: '' }],
   );
   const [steps, setSteps] = useState<string[]>(recipe.steps?.length ? recipe.steps : ['']);
   const [notes, setNotes] = useState(recipe.notes ?? '');
@@ -57,11 +65,13 @@ export function RecipeEditor({ recipe, onSave, onDelete, onClose }: Props) {
     if (prepMinutes) lines.push(`Prep: ${prepMinutes} min`);
     if (cookMinutes) lines.push(`Cook: ${cookMinutes} min`);
     lines.push('', 'INGREDIENTS');
-    ingredients.filter((i) => i.item.trim()).forEach((i) => {
-      const qty = i.quantity != null ? `${i.quantity} ` : '';
-      const unit = i.unit ? `${i.unit} ` : '';
-      lines.push(`- ${qty}${unit}${i.item}`);
-    });
+    ingredients
+      .filter((i) => i.item.trim())
+      .forEach((i) => {
+        const qty = i.quantity != null ? `${i.quantity} ` : '';
+        const unit = i.unit ? `${i.unit} ` : '';
+        lines.push(`- ${qty}${unit}${i.item}`);
+      });
     lines.push('', 'METHOD');
     steps.filter((s) => s.trim()).forEach((s, idx) => lines.push(`${idx + 1}. ${s}`));
     if (notes.trim()) lines.push('', 'NOTES', notes);
@@ -99,11 +109,19 @@ export function RecipeEditor({ recipe, onSave, onDelete, onClose }: Props) {
   }
 
   return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={onClose}>
-      <div className="card max-w-2xl w-full max-h-[85vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+    <div
+      className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
+      onClick={onClose}
+    >
+      <div
+        className="card max-w-2xl w-full max-h-[85vh] overflow-y-auto"
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Header */}
         <div className="p-5 border-b border-border flex justify-between items-center sticky top-0 bg-surface z-10">
-          <h2 className="font-display text-xl text-text">{recipe.id ? 'Edit Recipe' : 'New Recipe'}</h2>
+          <h2 className="font-display text-xl text-text">
+            {recipe.id ? 'Edit Recipe' : 'New Recipe'}
+          </h2>
           <div className="flex items-center gap-2">
             {recipe.id && (
               <button
@@ -111,15 +129,22 @@ export function RecipeEditor({ recipe, onSave, onDelete, onClose }: Props) {
                 className="btn-ghost flex items-center gap-1 text-sm"
                 title="Email recipe"
               >
-                <Mail size={14} />Email
+                <Mail size={14} />
+                Email
               </button>
             )}
             {onDelete && (
-              <button onClick={onDelete} className="btn-ghost text-red-500 hover:text-red-700 flex items-center gap-1 text-sm">
-                <Trash2 size={14} />Delete
+              <button
+                onClick={onDelete}
+                className="btn-ghost text-red-500 hover:text-red-700 flex items-center gap-1 text-sm"
+              >
+                <Trash2 size={14} />
+                Delete
               </button>
             )}
-            <button onClick={onClose} className="text-text-faint hover:text-text"><X size={20} /></button>
+            <button onClick={onClose} className="text-text-faint hover:text-text">
+              <X size={20} />
+            </button>
           </div>
         </div>
 
@@ -191,7 +216,12 @@ export function RecipeEditor({ recipe, onSave, onDelete, onClose }: Props) {
                 className="input flex-1"
               />
               {sourceUrl && (
-                <a href={sourceUrl} target="_blank" rel="noreferrer" className="btn-ghost flex items-center gap-1 text-sm">
+                <a
+                  href={sourceUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="btn-ghost flex items-center gap-1 text-sm"
+                >
                   <ExternalLink size={14} />
                   {tryHostname(sourceUrl)}
                 </a>
@@ -204,7 +234,8 @@ export function RecipeEditor({ recipe, onSave, onDelete, onClose }: Props) {
             <div className="flex justify-between items-center mb-2">
               <label className="text-sm font-medium text-text">Ingredients</label>
               <button onClick={addIngredient} className="btn-ghost text-sm flex items-center gap-1">
-                <Plus size={14} />Add
+                <Plus size={14} />
+                Add
               </button>
             </div>
             <div className="space-y-2">
@@ -213,7 +244,13 @@ export function RecipeEditor({ recipe, onSave, onDelete, onClose }: Props) {
                   <input
                     type="number"
                     value={ing.quantity ?? ''}
-                    onChange={(e) => updateIngredient(i, 'quantity', e.target.value === '' ? null : Number(e.target.value))}
+                    onChange={(e) =>
+                      updateIngredient(
+                        i,
+                        'quantity',
+                        e.target.value === '' ? null : Number(e.target.value),
+                      )
+                    }
                     placeholder="Qty"
                     className="input w-16 text-center"
                   />
@@ -245,13 +282,16 @@ export function RecipeEditor({ recipe, onSave, onDelete, onClose }: Props) {
             <div className="flex justify-between items-center mb-2">
               <label className="text-sm font-medium text-text">Method</label>
               <button onClick={addStep} className="btn-ghost text-sm flex items-center gap-1">
-                <Plus size={14} />Add step
+                <Plus size={14} />
+                Add step
               </button>
             </div>
             <div className="space-y-2">
               {steps.map((step, i) => (
                 <div key={i} className="flex gap-2 items-start">
-                  <span className="text-xs text-text-faint mt-2.5 w-5 text-right flex-shrink-0">{i + 1}.</span>
+                  <span className="text-xs text-text-faint mt-2.5 w-5 text-right flex-shrink-0">
+                    {i + 1}.
+                  </span>
                   <textarea
                     value={step}
                     onChange={(e) => updateStep(i, e.target.value)}
@@ -285,7 +325,9 @@ export function RecipeEditor({ recipe, onSave, onDelete, onClose }: Props) {
 
         {/* Footer */}
         <div className="p-5 border-t border-border flex justify-end gap-2 sticky bottom-0 bg-surface">
-          <button onClick={onClose} className="btn-ghost">Cancel</button>
+          <button onClick={onClose} className="btn-ghost">
+            Cancel
+          </button>
           <button onClick={handleSave} disabled={!title.trim()} className="btn-primary">
             Save recipe
           </button>

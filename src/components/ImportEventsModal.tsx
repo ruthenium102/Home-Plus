@@ -7,16 +7,12 @@ import {
   CheckSquare,
   Square,
   Loader2,
-  AlertCircle
+  AlertCircle,
 } from 'lucide-react';
 import { useFamily } from '@/context/FamilyContext';
 import { useToast } from '@/context/ToastContext';
 import { Avatar } from './Avatar';
-import {
-  getAusPublicHolidays,
-  getWASchoolTerms,
-  type ImportableEvent
-} from '@/lib/holidays';
+import { getAusPublicHolidays, getWASchoolTerms, type ImportableEvent } from '@/lib/holidays';
 import type { CalendarEvent } from '@/types';
 
 interface Props {
@@ -159,7 +155,7 @@ export function ImportEventsModal({ open, onClose }: Props) {
         member_ids: assignToMembers,
         recurrence: null,
         reminder_offsets: [],
-        created_by: null
+        created_by: null,
       });
       added++;
     }
@@ -168,7 +164,7 @@ export function ImportEventsModal({ open, onClose }: Props) {
   };
 
   const selectedCount = candidates.filter(
-    (c) => selectedIds.has(c.source_id) && !isDuplicate(c)
+    (c) => selectedIds.has(c.source_id) && !isDuplicate(c),
   ).length;
 
   return (
@@ -331,8 +327,8 @@ export function ImportEventsModal({ open, onClose }: Props) {
                 </div>
               )}
               <div className="text-[11px] text-text-faint">
-                Note: some calendar feeds block cross-origin requests. If yours fails,
-                paste the URL contents into the Paste tab instead.
+                Note: some calendar feeds block cross-origin requests. If yours fails, paste the URL
+                contents into the Paste tab instead.
               </div>
             </div>
           )}
@@ -368,9 +364,7 @@ export function ImportEventsModal({ open, onClose }: Props) {
                       disabled={dup}
                       className={
                         'w-full flex items-center gap-2.5 p-2.5 text-left transition-colors ' +
-                        (dup
-                          ? 'opacity-40 cursor-not-allowed'
-                          : 'hover:bg-surface-2/60')
+                        (dup ? 'opacity-40 cursor-not-allowed' : 'hover:bg-surface-2/60')
                       }
                     >
                       {checked && !dup ? (
@@ -385,7 +379,7 @@ export function ImportEventsModal({ open, onClose }: Props) {
                             weekday: 'short',
                             day: 'numeric',
                             month: 'short',
-                            year: 'numeric'
+                            year: 'numeric',
                           })}
                           {dup && ' · already in calendar'}
                         </div>
@@ -411,9 +405,7 @@ export function ImportEventsModal({ open, onClose }: Props) {
                       key={m.id}
                       onClick={() =>
                         setAssignToMembers((prev) =>
-                          prev.includes(m.id)
-                            ? prev.filter((x) => x !== m.id)
-                            : [...prev, m.id]
+                          prev.includes(m.id) ? prev.filter((x) => x !== m.id) : [...prev, m.id],
                         )
                       }
                       className={
@@ -437,10 +429,7 @@ export function ImportEventsModal({ open, onClose }: Props) {
         </div>
 
         <div className="flex items-center justify-between p-4 border-t border-border shrink-0 bg-surface">
-          <button
-            onClick={onClose}
-            className="px-4 py-2 text-sm text-text-muted hover:text-text"
-          >
+          <button onClick={onClose} className="px-4 py-2 text-sm text-text-muted hover:text-text">
             Cancel
           </button>
           <button
@@ -462,7 +451,7 @@ function SourceTile({
   onClick,
   icon: Icon,
   label,
-  hint
+  hint,
 }: {
   active: boolean;
   onClick: () => void;
@@ -475,9 +464,7 @@ function SourceTile({
       onClick={onClick}
       className={
         'flex flex-col items-center gap-1 p-3 rounded-md border-2 transition-colors ' +
-        (active
-          ? 'border-accent bg-accent-soft'
-          : 'border-border hover:border-border-strong')
+        (active ? 'border-accent bg-accent-soft' : 'border-border hover:border-border-strong')
       }
     >
       <Icon size={18} className={active ? 'text-accent' : 'text-text-muted'} />
@@ -501,7 +488,7 @@ async function extractEventsFromText(text: string): Promise<ImportableEvent[]> {
     const res = await fetch('/api/extract-events', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text })
+      body: JSON.stringify({ text }),
     });
     if (res.ok) {
       const data = await res.json();
@@ -526,8 +513,19 @@ function regexExtractEvents(text: string): ImportableEvent[] {
   const dateRegex =
     /\b(\d{1,2})(?:st|nd|rd|th)?\s+(jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)\w*\s*(\d{4})?\b/i;
   const monthMap: Record<string, number> = {
-    jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5,
-    jul: 6, aug: 7, sep: 8, sept: 8, oct: 9, nov: 10, dec: 11
+    jan: 0,
+    feb: 1,
+    mar: 2,
+    apr: 3,
+    may: 4,
+    jun: 5,
+    jul: 6,
+    aug: 7,
+    sep: 8,
+    sept: 8,
+    oct: 9,
+    nov: 10,
+    dec: 11,
   };
   const currentYear = new Date().getFullYear();
 
@@ -539,7 +537,10 @@ function regexExtractEvents(text: string): ImportableEvent[] {
     const year = m[3] ? parseInt(m[3], 10) : currentYear;
     if (isNaN(day) || month === undefined) continue;
     // Title = the line minus the date
-    const title = line.replace(dateRegex, '').replace(/[-–—:|]+/g, ' ').trim();
+    const title = line
+      .replace(dateRegex, '')
+      .replace(/[-–—:|]+/g, ' ')
+      .trim();
     if (!title || title.length < 3) continue;
     const date = new Date(year, month, day);
     const iso = date.toISOString().slice(0, 10);
@@ -551,7 +552,7 @@ function regexExtractEvents(text: string): ImportableEvent[] {
       all_day: true,
       description: 'Imported from text',
       location: null,
-      category: 'general'
+      category: 'general',
     });
   }
   return events;
@@ -571,7 +572,7 @@ async function fetchAndParseICal(url: string): Promise<ImportableEvent[]> {
     // Most likely CORS — surface a clear message
     throw new Error(
       "Couldn't fetch that URL directly. The site may block cross-origin requests. " +
-        'Try downloading the .ics file and pasting its contents instead.'
+        'Try downloading the .ics file and pasting its contents instead.',
     );
   }
   return parseICal(text);
@@ -599,14 +600,17 @@ function parseICal(text: string): ImportableEvent[] {
         if (!current.end_at) current.end_at = current.start_at;
         events.push({
           source_id:
-            'ical-' + (current.start_at || '').slice(0, 10) + '-' + (current.title || '').slice(0, 20),
+            'ical-' +
+            (current.start_at || '').slice(0, 10) +
+            '-' +
+            (current.title || '').slice(0, 20),
           title: current.title,
           start_at: current.start_at,
           end_at: current.end_at,
           all_day: allDay,
           description: current.description || null,
           location: current.location || null,
-          category: 'general'
+          category: 'general',
         });
       }
       current = null;
@@ -640,11 +644,7 @@ function parseICal(text: string): ImportableEvent[] {
 }
 
 function unescapeIcal(s: string): string {
-  return s
-    .replace(/\\n/gi, '\n')
-    .replace(/\\,/g, ',')
-    .replace(/\\;/g, ';')
-    .replace(/\\\\/g, '\\');
+  return s.replace(/\\n/gi, '\n').replace(/\\,/g, ',').replace(/\\;/g, ';').replace(/\\\\/g, '\\');
 }
 
 function parseIcalDate(value: string): string {

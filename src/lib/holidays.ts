@@ -44,7 +44,7 @@ const HARDCODED_HOLIDAYS_WA: PublicHoliday[] = [
   { date: '2027-06-07', name: 'Western Australia Day', state: 'WA' },
   { date: '2027-09-27', name: "King's Birthday (WA)", state: 'WA' },
   { date: '2027-12-27', name: 'Christmas Day', state: 'WA' }, // Dec 25 = Sat → observed Mon Dec 27
-  { date: '2027-12-28', name: 'Boxing Day', state: 'WA' }   // Dec 26 = Sun → observed Tue Dec 28
+  { date: '2027-12-28', name: 'Boxing Day', state: 'WA' }, // Dec 26 = Sun → observed Tue Dec 28
 ];
 
 // WA school terms 2026 (verified from Department of Education WA)
@@ -58,14 +58,14 @@ const WA_SCHOOL_TERMS_2026: SchoolTerm[] = [
   { name: 'Term 1 2026', start: '2026-02-04', end: '2026-04-10' },
   { name: 'Term 2 2026', start: '2026-04-27', end: '2026-07-03' },
   { name: 'Term 3 2026', start: '2026-07-20', end: '2026-09-25' },
-  { name: 'Term 4 2026', start: '2026-10-13', end: '2026-12-17' }
+  { name: 'Term 4 2026', start: '2026-10-13', end: '2026-12-17' },
 ];
 
 const WA_SCHOOL_TERMS_2027: SchoolTerm[] = [
   { name: 'Term 1 2027', start: '2027-02-03', end: '2027-04-09' },
   { name: 'Term 2 2027', start: '2027-04-26', end: '2027-07-02' },
   { name: 'Term 3 2027', start: '2027-07-19', end: '2027-09-24' },
-  { name: 'Term 4 2027', start: '2027-10-11', end: '2027-12-16' }
+  { name: 'Term 4 2027', start: '2027-10-11', end: '2027-12-16' },
 ];
 
 export interface ImportableEvent {
@@ -93,15 +93,14 @@ export function getAusPublicHolidays(year?: number): ImportableEvent[] {
     all_day: true,
     description: 'Public holiday — ' + (h.state === 'NAT' ? 'national' : 'Western Australia'),
     location: null,
-    category: 'social' as CalendarEvent['category']
+    category: 'social' as CalendarEvent['category'],
   }));
 }
 
 export function getWASchoolTerms(year?: number): ImportableEvent[] {
-  const terms = [
-    ...WA_SCHOOL_TERMS_2026,
-    ...WA_SCHOOL_TERMS_2027
-  ].filter((t) => !year || t.start.startsWith(String(year)));
+  const terms = [...WA_SCHOOL_TERMS_2026, ...WA_SCHOOL_TERMS_2027].filter(
+    (t) => !year || t.start.startsWith(String(year)),
+  );
 
   const events: ImportableEvent[] = [];
   for (const term of terms) {
@@ -114,7 +113,7 @@ export function getWASchoolTerms(year?: number): ImportableEvent[] {
       all_day: true,
       description: 'WA school term starts',
       location: null,
-      category: 'school'
+      category: 'school',
     });
     // Term end
     events.push({
@@ -125,7 +124,7 @@ export function getWASchoolTerms(year?: number): ImportableEvent[] {
       all_day: true,
       description: 'WA school term ends',
       location: null,
-      category: 'school'
+      category: 'school',
     });
   }
   return events;

@@ -20,10 +20,11 @@ export function Avatar({ member, size = 40, showRing = false, onClick }: Props) 
     background: member.avatar_url ? undefined : tokens.base,
     color: tokens.text,
     fontSize: size * 0.4,
-    boxShadow: showRing ? `0 0 0 3px ${tokens.base}` : undefined
+    boxShadow: showRing ? `0 0 0 3px ${tokens.base}` : undefined,
   };
 
-  const className = 'rounded-full flex items-center justify-center font-medium overflow-hidden flex-shrink-0';
+  const className =
+    'rounded-full flex items-center justify-center font-medium overflow-hidden flex-shrink-0';
 
   if (onClick) {
     return (
@@ -35,7 +36,9 @@ export function Avatar({ member, size = 40, showRing = false, onClick }: Props) 
       >
         {member.avatar_url ? (
           <img src={member.avatar_url} alt={member.name} className="w-full h-full object-cover" />
-        ) : initial}
+        ) : (
+          initial
+        )}
       </button>
     );
   }
@@ -44,7 +47,9 @@ export function Avatar({ member, size = 40, showRing = false, onClick }: Props) 
     <div className={className} style={styles} aria-label={member.name}>
       {member.avatar_url ? (
         <img src={member.avatar_url} alt={member.name} className="w-full h-full object-cover" />
-      ) : initial}
+      ) : (
+        initial
+      )}
     </div>
   );
 }

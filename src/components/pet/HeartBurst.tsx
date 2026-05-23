@@ -2,8 +2,8 @@ import { useEffect, useState } from 'react';
 
 interface HeartParticle {
   id: number;
-  x: number;          // px offset from origin
-  rotate: number;     // final rotation
+  x: number; // px offset from origin
+  rotate: number; // final rotation
   emoji: string;
 }
 
@@ -49,15 +49,19 @@ export function HeartBurst({ trigger, origin }: Props) {
   return (
     <>
       {bursts.map((b) => (
-        <div key={b.id} className="absolute pointer-events-none z-30"
+        <div
+          key={b.id}
+          className="absolute pointer-events-none z-30"
           style={{ left: b.x, top: b.y, transform: 'translate(-50%, -50%)' }}
-          aria-hidden>
+          aria-hidden
+        >
           {b.particles.map((p) => (
             <span
               key={p.id}
               className="heart-particle absolute text-xl"
               style={{
-                left: 0, top: 0,
+                left: 0,
+                top: 0,
                 ['--hx' as string]: `${p.x}px`,
                 ['--hr' as string]: `${p.rotate}deg`,
                 animationDelay: `${p.id * 30}ms`,

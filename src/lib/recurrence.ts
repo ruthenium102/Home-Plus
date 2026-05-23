@@ -19,7 +19,7 @@ export interface ExpandedEvent extends CalendarEvent {
 export function expandEvents(
   events: CalendarEvent[],
   rangeStart: Date,
-  rangeEnd: Date
+  rangeEnd: Date,
 ): ExpandedEvent[] {
   const out: ExpandedEvent[] = [];
   for (const e of events) {
@@ -31,7 +31,7 @@ export function expandEvents(
           ...e,
           occurrence_start: e.start_at,
           occurrence_end: e.end_at,
-          occurrence_key: `${e.id}__${e.start_at}`
+          occurrence_key: `${e.id}__${e.start_at}`,
         });
       }
       continue;
@@ -39,8 +39,7 @@ export function expandEvents(
     out.push(...expandRecurring(e, e.recurrence, rangeStart, rangeEnd));
   }
   return out.sort(
-    (a, b) =>
-      new Date(a.occurrence_start).getTime() - new Date(b.occurrence_start).getTime()
+    (a, b) => new Date(a.occurrence_start).getTime() - new Date(b.occurrence_start).getTime(),
   );
 }
 
@@ -48,7 +47,7 @@ function expandRecurring(
   e: CalendarEvent,
   rec: Recurrence,
   rangeStart: Date,
-  rangeEnd: Date
+  rangeEnd: Date,
 ): ExpandedEvent[] {
   const out: ExpandedEvent[] = [];
   const origStart = new Date(e.start_at);
@@ -75,7 +74,7 @@ function expandRecurring(
           ...e,
           occurrence_start: occStart.toISOString(),
           occurrence_end: occEnd.toISOString(),
-          occurrence_key: `${e.id}__${occStart.toISOString()}`
+          occurrence_key: `${e.id}__${occStart.toISOString()}`,
         });
       }
       if (rec.count && occCount >= rec.count) break;

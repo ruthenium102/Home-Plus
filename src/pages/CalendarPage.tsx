@@ -11,13 +11,20 @@ import {
   isSameMonth,
   startOfDay,
   startOfMonth,
-  startOfWeek
+  startOfWeek,
 } from 'date-fns';
 
 function eventSpansDay(occurrenceStart: string, occurrenceEnd: string, day: Date): boolean {
   return new Date(occurrenceStart) < endOfDay(day) && new Date(occurrenceEnd) > startOfDay(day);
 }
-import { ChevronLeft, ChevronRight, Plus, Sparkles, UtensilsCrossed, Briefcase } from 'lucide-react';
+import {
+  ChevronLeft,
+  ChevronRight,
+  Plus,
+  Sparkles,
+  UtensilsCrossed,
+  Briefcase,
+} from 'lucide-react';
 import { useFamily } from '@/context/FamilyContext';
 import { expandEvents, type ExpandedEvent } from '@/lib/recurrence';
 import { EventChip } from '@/components/EventChip';
@@ -63,9 +70,7 @@ export function CalendarPage() {
   const expanded = useMemo(() => {
     let list = expandEvents(events, range.start, range.end);
     if (memberFilter) {
-      list = list.filter(
-        (e) => e.member_ids.length === 0 || e.member_ids.includes(memberFilter)
-      );
+      list = list.filter((e) => e.member_ids.length === 0 || e.member_ids.includes(memberFilter));
     }
     if (!showMeals) {
       list = list.filter((e) => e.category !== 'meal');
@@ -114,7 +119,7 @@ export function CalendarPage() {
       const newStart = startOfDay(day);
       updateEvent(source.id, {
         start_at: newStart.toISOString(),
-        end_at: new Date(newStart.getTime() + spanMs).toISOString()
+        end_at: new Date(newStart.getTime() + spanMs).toISOString(),
       });
     } else {
       const origStart = new Date(evt.occurrence_start);
@@ -124,7 +129,7 @@ export function CalendarPage() {
       newStart.setHours(origStart.getHours(), origStart.getMinutes(), 0, 0);
       updateEvent(source.id, {
         start_at: newStart.toISOString(),
-        end_at: new Date(newStart.getTime() + durationMs).toISOString()
+        end_at: new Date(newStart.getTime() + durationMs).toISOString(),
       });
     }
   };
@@ -167,9 +172,7 @@ export function CalendarPage() {
           </button>
         </div>
 
-        <div className="font-display text-lg text-text flex-1 min-w-0 truncate">
-          {headerLabel}
-        </div>
+        <div className="font-display text-lg text-text flex-1 min-w-0 truncate">{headerLabel}</div>
 
         {/* View toggle */}
         <div className="flex bg-surface-2 rounded-md p-0.5">
@@ -251,12 +254,7 @@ export function CalendarPage() {
 
       {/* View */}
       {view === 'day' && (
-        <DayView
-          date={cursor}
-          events={expanded}
-          onEdit={handleEditEvent}
-          onCreate={handleNew}
-        />
+        <DayView date={cursor} events={expanded} onEdit={handleEditEvent} onCreate={handleNew} />
       )}
       {view === 'week' && (
         <WeekView
@@ -295,10 +293,7 @@ export function CalendarPage() {
         editing={editing}
         initialStart={createInitial}
       />
-      <ImportEventsModal
-        open={importOpen}
-        onClose={() => setImportOpen(false)}
-      />
+      <ImportEventsModal open={importOpen} onClose={() => setImportOpen(false)} />
     </div>
   );
 }
@@ -306,7 +301,7 @@ export function CalendarPage() {
 function MemberFilterChip({
   member,
   active,
-  onClick
+  onClick,
 }: {
   member: FamilyMember;
   active: boolean;
@@ -334,7 +329,7 @@ function DayView({
   date,
   events,
   onEdit,
-  onCreate
+  onCreate,
 }: {
   date: Date;
   events: ExpandedEvent[];
@@ -348,9 +343,7 @@ function DayView({
     <div className="card p-4 sm:p-6">
       {allDay.length > 0 && (
         <div className="mb-4 pb-4 border-b border-border">
-          <div className="text-xs uppercase tracking-wider text-text-faint mb-2">
-            All day
-          </div>
+          <div className="text-xs uppercase tracking-wider text-text-faint mb-2">All day</div>
           <div className="space-y-1">
             {allDay.map((e) => (
               <EventChip key={e.occurrence_key} event={e} onClick={() => onEdit(e)} />
@@ -388,7 +381,7 @@ function WeekView({
   onDragStart,
   onDropOnDay,
   dragOverDayKey,
-  onDragOverDay
+  onDragOverDay,
 }: {
   weekStart: Date;
   events: ExpandedEvent[];
@@ -408,7 +401,7 @@ function WeekView({
         {days.map((day) => {
           const dayKey = day.toISOString();
           const dayEvents = events.filter((e) =>
-            eventSpansDay(e.occurrence_start, e.occurrence_end, day)
+            eventSpansDay(e.occurrence_start, e.occurrence_end, day),
           );
           const isToday = isSameDay(day, today);
           const isDragOver = dragOverDayKey === dayKey;
@@ -420,7 +413,10 @@ function WeekView({
                 (isToday ? 'bg-accent-soft' : 'bg-surface-2') +
                 (isDragOver ? ' ring-2 ring-accent' : '')
               }
-              onDragOver={(ev) => { ev.preventDefault(); onDragOverDay(dayKey); }}
+              onDragOver={(ev) => {
+                ev.preventDefault();
+                onDragOverDay(dayKey);
+              }}
               onDragLeave={() => onDragOverDay(null)}
               onDrop={() => onDropOnDay(day)}
             >
@@ -435,8 +431,7 @@ function WeekView({
                 </div>
                 <div
                   className={
-                    'text-base font-medium tabular-nums ' +
-                    (isToday ? 'text-accent' : 'text-text')
+                    'text-base font-medium tabular-nums ' + (isToday ? 'text-accent' : 'text-text')
                   }
                 >
                   {format(day, 'd')}
@@ -460,7 +455,7 @@ function WeekView({
                     >
                       <EventChip event={e} onClick={() => onEdit(e)} variant="week" />
                     </div>
-                  )
+                  ),
                 )}
               </div>
               <button
@@ -490,7 +485,7 @@ function MonthView({
   onDragStart,
   onDropOnDay,
   dragOverDayKey,
-  onDragOverDay
+  onDragOverDay,
 }: {
   monthCursor: Date;
   gridStart: Date;
@@ -538,7 +533,7 @@ function MonthView({
         {days.map((day) => {
           const dayKey = day.toISOString();
           const dayEvents = events.filter((e) =>
-            eventSpansDay(e.occurrence_start, e.occurrence_end, day)
+            eventSpansDay(e.occurrence_start, e.occurrence_end, day),
           );
           const isToday = isSameDay(day, today);
           const inMonth = isSameMonth(day, monthCursor);
@@ -553,16 +548,15 @@ function MonthView({
               key={dayKey}
               onClick={() => onJumpToDay(day)}
               onDoubleClick={() => onCreate(day)}
-              onDragOver={(ev) => { ev.preventDefault(); onDragOverDay(dayKey); }}
+              onDragOver={(ev) => {
+                ev.preventDefault();
+                onDragOverDay(dayKey);
+              }}
               onDragLeave={() => onDragOverDay(null)}
               onDrop={() => onDropOnDay(day)}
               className={
                 'rounded-md p-1.5 min-h-[80px] sm:min-h-[100px] flex flex-col text-left transition-colors hover:ring-1 hover:ring-border-strong ' +
-                (isToday
-                  ? 'bg-accent-soft'
-                  : inMonth
-                    ? 'bg-surface-2'
-                    : 'bg-surface-2/40') +
+                (isToday ? 'bg-accent-soft' : inMonth ? 'bg-surface-2' : 'bg-surface-2/40') +
                 (isDragOver ? ' ring-2 ring-accent' : '')
               }
             >
@@ -570,11 +564,7 @@ function MonthView({
                 <span
                   className={
                     'text-sm font-medium tabular-nums ' +
-                    (isToday
-                      ? 'text-accent'
-                      : inMonth
-                        ? 'text-text'
-                        : 'text-text-faint')
+                    (isToday ? 'text-accent' : inMonth ? 'text-text' : 'text-text-faint')
                   }
                 >
                   {format(day, 'd')}
@@ -600,7 +590,7 @@ function MonthView({
                       style={{
                         background: tokens.soft,
                         borderLeft: `2px solid ${tokens.base}`,
-                        color: 'rgb(var(--text))'
+                        color: 'rgb(var(--text))',
                       }}
                     >
                       {!e.all_day && (
@@ -614,7 +604,10 @@ function MonthView({
                   return e.recurrence ? (
                     <div
                       key={e.occurrence_key}
-                      onClick={(ev) => { ev.stopPropagation(); onEdit(e); }}
+                      onClick={(ev) => {
+                        ev.stopPropagation();
+                        onEdit(e);
+                      }}
                     >
                       {chip}
                     </div>
@@ -622,8 +615,14 @@ function MonthView({
                     <div
                       key={e.occurrence_key}
                       draggable
-                      onClick={(ev) => { ev.stopPropagation(); onEdit(e); }}
-                      onDragStart={(ev) => { ev.stopPropagation(); onDragStart(e); }}
+                      onClick={(ev) => {
+                        ev.stopPropagation();
+                        onEdit(e);
+                      }}
+                      onDragStart={(ev) => {
+                        ev.stopPropagation();
+                        onDragStart(e);
+                      }}
                       onDragEnd={() => onDragOverDay(null)}
                     >
                       {chip}
@@ -631,9 +630,7 @@ function MonthView({
                   );
                 })}
                 {overflow > 0 && (
-                  <div className="text-[10px] text-text-faint px-1">
-                    +{overflow} more
-                  </div>
+                  <div className="text-[10px] text-text-faint px-1">+{overflow} more</div>
                 )}
               </div>
             </button>

@@ -25,7 +25,16 @@ const CADENCE_OPTIONS: { v: HabitCadence; label: string }[] = [
 const WEEKDAY_LABELS = ['S', 'M', 'T', 'W', 'T', 'F', 'S']; // Sun-first
 
 export function HabitEditor({ open, editing, onClose }: Props) {
-  const { activeMember, members, checkIns, addHabit, updateHabit, deleteHabit, incrementCheckIn, decrementCheckIn } = useFamily();
+  const {
+    activeMember,
+    members,
+    checkIns,
+    addHabit,
+    updateHabit,
+    deleteHabit,
+    incrementCheckIn,
+    decrementCheckIn,
+  } = useFamily();
   const { resolved } = useTheme();
   const isDark = resolved === 'dark';
 
@@ -145,9 +154,7 @@ export function HabitEditor({ open, editing, onClose }: Props) {
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between p-4 border-b border-border shrink-0">
-          <h2 className="font-display text-xl text-text">
-            {editing ? 'Edit habit' : 'New habit'}
-          </h2>
+          <h2 className="font-display text-xl text-text">{editing ? 'Edit habit' : 'New habit'}</h2>
           <button
             onClick={onClose}
             className="w-9 h-9 rounded-md hover:bg-surface-2 flex items-center justify-center text-text-muted"
@@ -181,9 +188,7 @@ export function HabitEditor({ open, editing, onClose }: Props) {
             </div>
             <div className="flex flex-wrap gap-2">
               {members.map((m) => {
-                const selected = editing
-                  ? memberId === m.id
-                  : selectedMemberIds.includes(m.id);
+                const selected = editing ? memberId === m.id : selectedMemberIds.includes(m.id);
                 return (
                   <button
                     key={m.id}
@@ -193,9 +198,7 @@ export function HabitEditor({ open, editing, onClose }: Props) {
                         setMemberId(m.id);
                       } else {
                         setSelectedMemberIds((prev) =>
-                          prev.includes(m.id)
-                            ? prev.filter((x) => x !== m.id)
-                            : [...prev, m.id]
+                          prev.includes(m.id) ? prev.filter((x) => x !== m.id) : [...prev, m.id],
                         );
                       }
                     }}
@@ -215,7 +218,8 @@ export function HabitEditor({ open, editing, onClose }: Props) {
             </div>
             {!editing && selectedMemberIds.length > 1 && (
               <div className="text-[11px] text-text-faint mt-1.5">
-                Creates {selectedMemberIds.length} habits — each person gets their own with independent streaks.
+                Creates {selectedMemberIds.length} habits — each person gets their own with
+                independent streaks.
               </div>
             )}
           </div>
@@ -250,9 +254,7 @@ export function HabitEditor({ open, editing, onClose }: Props) {
                       type="button"
                       onClick={() =>
                         setWeekdays((prev) =>
-                          prev.includes(i)
-                            ? prev.filter((x) => x !== i)
-                            : [...prev, i].sort()
+                          prev.includes(i) ? prev.filter((x) => x !== i) : [...prev, i].sort(),
                         )
                       }
                       className={
@@ -285,9 +287,7 @@ export function HabitEditor({ open, editing, onClose }: Props) {
               >
                 <Lock
                   size={16}
-                  className={
-                    visibility === 'private' ? 'text-accent' : 'text-text-muted'
-                  }
+                  className={visibility === 'private' ? 'text-accent' : 'text-text-muted'}
                 />
                 <div className="text-sm font-medium text-text">Private</div>
                 <div className="text-[10px] text-text-faint">Only owner sees it</div>
@@ -303,9 +303,7 @@ export function HabitEditor({ open, editing, onClose }: Props) {
               >
                 <Users
                   size={16}
-                  className={
-                    visibility === 'shared' ? 'text-accent' : 'text-text-muted'
-                  }
+                  className={visibility === 'shared' ? 'text-accent' : 'text-text-muted'}
                 />
                 <div className="text-sm font-medium text-text">Shared</div>
                 <div className="text-[10px] text-text-faint">Family can see</div>
@@ -363,11 +361,13 @@ export function HabitEditor({ open, editing, onClose }: Props) {
               </div>
             </div>
             <div className="flex items-center gap-1.5">
-              {([
-                { v: 'lte', label: '≤', title: 'Met when count is at most the target' },
-                { v: 'eq',  label: '=', title: 'Met only when count equals the target' },
-                { v: 'gte', label: '≥', title: 'Met when count is at least the target' },
-              ] as const).map((opt) => (
+              {(
+                [
+                  { v: 'lte', label: '≤', title: 'Met when count is at most the target' },
+                  { v: 'eq', label: '=', title: 'Met only when count equals the target' },
+                  { v: 'gte', label: '≥', title: 'Met when count is at least the target' },
+                ] as const
+              ).map((opt) => (
                 <button
                   key={opt.v}
                   type="button"
@@ -390,87 +390,91 @@ export function HabitEditor({ open, editing, onClose }: Props) {
               boxes (member colour scales with progress) with explicit − / +
               buttons beneath. Mirrors the heatmap visual style from the
               Habits page, with corrections handled by the buttons. */}
-          {editing && (() => {
-            const ownerMember = members.find((m) => m.id === memberId);
-            const tokens = ownerMember
-              ? getColorTokens(ownerMember.color, isDark)
-              : { base: 'rgb(var(--accent))', soft: 'rgb(var(--accent-soft))', text: '#fff' };
-            const todayIso = localISO();
-            return (
-              <div className="space-y-2">
-                <div className="text-sm text-text-muted">Recent counts</div>
-                <div className="grid grid-cols-7 gap-1.5">
-                  {Array.from({ length: 7 }, (_, i) => {
-                    const day = subDays(new Date(`${todayIso}T00:00:00`), 6 - i);
-                    const iso = format(day, 'yyyy-MM-dd');
-                    const ci = checkIns.find(
-                      (c) => c.habit_id === editing.id && c.member_id === memberId && c.for_date === iso,
-                    );
-                    const count = ci ? (ci.count ?? 1) : 0;
-                    const isToday = iso === todayIso;
-                    const target = Math.max(1, dailyTarget);
-                    const progress = Math.min(1, count / target);
-                    const targetMet = count >= target;
-                    return (
-                      <div key={iso} className="flex flex-col items-stretch gap-1">
-                        <div
-                          className={
-                            'relative h-14 rounded-md flex flex-col items-center justify-center ' +
-                            (isToday ? 'ring-2 ring-text/20 ' : '')
-                          }
-                          style={{
-                            background: targetMet
-                              ? tokens.base
-                              : count > 0
-                                ? `color-mix(in srgb, ${tokens.base} ${progress * 80}%, ${tokens.soft})`
-                                : tokens.soft,
-                            opacity: count === 0 ? 0.5 : 1,
-                          }}
-                          title={`${format(day, 'EEE d MMM')} — ${count}/${target}`}
-                        >
-                          <span
+          {editing &&
+            (() => {
+              const ownerMember = members.find((m) => m.id === memberId);
+              const tokens = ownerMember
+                ? getColorTokens(ownerMember.color, isDark)
+                : { base: 'rgb(var(--accent))', soft: 'rgb(var(--accent-soft))', text: '#fff' };
+              const todayIso = localISO();
+              return (
+                <div className="space-y-2">
+                  <div className="text-sm text-text-muted">Recent counts</div>
+                  <div className="grid grid-cols-7 gap-1.5">
+                    {Array.from({ length: 7 }, (_, i) => {
+                      const day = subDays(new Date(`${todayIso}T00:00:00`), 6 - i);
+                      const iso = format(day, 'yyyy-MM-dd');
+                      const ci = checkIns.find(
+                        (c) =>
+                          c.habit_id === editing.id &&
+                          c.member_id === memberId &&
+                          c.for_date === iso,
+                      );
+                      const count = ci ? (ci.count ?? 1) : 0;
+                      const isToday = iso === todayIso;
+                      const target = Math.max(1, dailyTarget);
+                      const progress = Math.min(1, count / target);
+                      const targetMet = count >= target;
+                      return (
+                        <div key={iso} className="flex flex-col items-stretch gap-1">
+                          <div
                             className={
-                              'text-lg font-bold tabular-nums leading-none ' +
-                              (count > 0 ? 'text-white' : 'text-text-faint')
+                              'relative h-14 rounded-md flex flex-col items-center justify-center ' +
+                              (isToday ? 'ring-2 ring-text/20 ' : '')
                             }
+                            style={{
+                              background: targetMet
+                                ? tokens.base
+                                : count > 0
+                                  ? `color-mix(in srgb, ${tokens.base} ${progress * 80}%, ${tokens.soft})`
+                                  : tokens.soft,
+                              opacity: count === 0 ? 0.5 : 1,
+                            }}
+                            title={`${format(day, 'EEE d MMM')} — ${count}/${target}`}
                           >
-                            {count > 0 ? count : ''}
-                          </span>
-                          <span
-                            className={
-                              'text-[9px] uppercase tracking-wider mt-0.5 leading-none ' +
-                              (count > 0 ? 'text-white/80' : 'text-text-faint')
-                            }
-                          >
-                            {isToday ? 'Today' : format(day, 'EEE')}
-                          </span>
+                            <span
+                              className={
+                                'text-lg font-bold tabular-nums leading-none ' +
+                                (count > 0 ? 'text-white' : 'text-text-faint')
+                              }
+                            >
+                              {count > 0 ? count : ''}
+                            </span>
+                            <span
+                              className={
+                                'text-[9px] uppercase tracking-wider mt-0.5 leading-none ' +
+                                (count > 0 ? 'text-white/80' : 'text-text-faint')
+                              }
+                            >
+                              {isToday ? 'Today' : format(day, 'EEE')}
+                            </span>
+                          </div>
+                          <div className="flex gap-0.5">
+                            <button
+                              type="button"
+                              onClick={() => decrementCheckIn(editing.id, memberId, iso)}
+                              disabled={count === 0}
+                              className="flex-1 h-6 rounded-sm border border-border flex items-center justify-center text-text-faint hover:text-text hover:bg-surface-2 disabled:opacity-20 disabled:cursor-not-allowed"
+                              aria-label={`Decrement ${format(day, 'EEE d MMM')}`}
+                            >
+                              <Minus size={11} />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => incrementCheckIn(editing.id, memberId, iso)}
+                              className="flex-1 h-6 rounded-sm border border-border flex items-center justify-center text-text-faint hover:text-text hover:bg-surface-2"
+                              aria-label={`Increment ${format(day, 'EEE d MMM')}`}
+                            >
+                              <Plus size={11} />
+                            </button>
+                          </div>
                         </div>
-                        <div className="flex gap-0.5">
-                          <button
-                            type="button"
-                            onClick={() => decrementCheckIn(editing.id, memberId, iso)}
-                            disabled={count === 0}
-                            className="flex-1 h-6 rounded-sm border border-border flex items-center justify-center text-text-faint hover:text-text hover:bg-surface-2 disabled:opacity-20 disabled:cursor-not-allowed"
-                            aria-label={`Decrement ${format(day, 'EEE d MMM')}`}
-                          >
-                            <Minus size={11} />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => incrementCheckIn(editing.id, memberId, iso)}
-                            className="flex-1 h-6 rounded-sm border border-border flex items-center justify-center text-text-faint hover:text-text hover:bg-surface-2"
-                            aria-label={`Increment ${format(day, 'EEE d MMM')}`}
-                          >
-                            <Plus size={11} />
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  })}
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
-            );
-          })()}
+              );
+            })()}
         </div>
 
         <div className="flex items-center justify-between p-4 border-t border-border shrink-0 bg-surface">
@@ -485,18 +489,12 @@ export function HabitEditor({ open, editing, onClose }: Props) {
             <span />
           )}
           <div className="flex gap-2">
-            <button
-              onClick={onClose}
-              className="px-4 py-2 text-sm text-text-muted hover:text-text"
-            >
+            <button onClick={onClose} className="px-4 py-2 text-sm text-text-muted hover:text-text">
               Cancel
             </button>
             <button
               onClick={handleSave}
-              disabled={
-                !title.trim() ||
-                (editing ? !memberId : selectedMemberIds.length === 0)
-              }
+              disabled={!title.trim() || (editing ? !memberId : selectedMemberIds.length === 0)}
               className="px-5 py-2 bg-accent text-white text-sm font-medium rounded-md hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed"
             >
               Save

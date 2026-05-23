@@ -1,8 +1,18 @@
 import { useEffect, useState } from 'react';
 
 const MONTHS = [
-  'January', 'February', 'March', 'April', 'May', 'June',
-  'July', 'August', 'September', 'October', 'November', 'December'
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December',
 ];
 
 interface Props {
@@ -19,9 +29,13 @@ export function BirthdayPicker({ value, onChange }: Props) {
   useEffect(() => {
     if (value) {
       const [y, m, d] = value.split('-');
-      setYear(y || ''); setMonth(m || ''); setDay(d || '');
+      setYear(y || '');
+      setMonth(m || '');
+      setDay(d || '');
     } else {
-      setYear(''); setMonth(''); setDay('');
+      setYear('');
+      setMonth('');
+      setDay('');
     }
   }, [value]);
 
@@ -35,21 +49,55 @@ export function BirthdayPicker({ value, onChange }: Props) {
   const daysInMonth = month && year ? new Date(Number(year), Number(month), 0).getDate() : 31;
   const days = Array.from({ length: daysInMonth }, (_, i) => String(i + 1).padStart(2, '0'));
 
-  const selectClass = 'flex-1 px-2 py-2 bg-surface-2 border border-border rounded-md text-text text-sm focus:outline-none focus:border-accent';
+  const selectClass =
+    'flex-1 px-2 py-2 bg-surface-2 border border-border rounded-md text-text text-sm focus:outline-none focus:border-accent';
 
   return (
     <div className="flex gap-2">
-      <select value={day} onChange={(e) => { setDay(e.target.value); update(year, month, e.target.value); }} className={selectClass}>
+      <select
+        value={day}
+        onChange={(e) => {
+          setDay(e.target.value);
+          update(year, month, e.target.value);
+        }}
+        className={selectClass}
+      >
         <option value="">Day</option>
-        {days.map((d) => <option key={d} value={d}>{Number(d)}</option>)}
+        {days.map((d) => (
+          <option key={d} value={d}>
+            {Number(d)}
+          </option>
+        ))}
       </select>
-      <select value={month} onChange={(e) => { setMonth(e.target.value); update(year, e.target.value, day); }} className={selectClass}>
+      <select
+        value={month}
+        onChange={(e) => {
+          setMonth(e.target.value);
+          update(year, e.target.value, day);
+        }}
+        className={selectClass}
+      >
         <option value="">Month</option>
-        {MONTHS.map((m, i) => <option key={m} value={String(i + 1).padStart(2, '0')}>{m}</option>)}
+        {MONTHS.map((m, i) => (
+          <option key={m} value={String(i + 1).padStart(2, '0')}>
+            {m}
+          </option>
+        ))}
       </select>
-      <select value={year} onChange={(e) => { setYear(e.target.value); update(e.target.value, month, day); }} className={selectClass}>
+      <select
+        value={year}
+        onChange={(e) => {
+          setYear(e.target.value);
+          update(e.target.value, month, day);
+        }}
+        className={selectClass}
+      >
         <option value="">Year</option>
-        {years.map((y) => <option key={y} value={y}>{y}</option>)}
+        {years.map((y) => (
+          <option key={y} value={y}>
+            {y}
+          </option>
+        ))}
       </select>
     </div>
   );

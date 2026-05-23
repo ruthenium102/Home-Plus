@@ -10,31 +10,28 @@ interface Props {
   onClose: () => void;
 }
 
-const PRESETS: Record<
-  RewardCategoryKey,
-  { amount: number; reason: string }[]
-> = {
+const PRESETS: Record<RewardCategoryKey, { amount: number; reason: string }[]> = {
   stars: [
     { amount: 10, reason: 'Treat from the cupboard' },
     { amount: 25, reason: 'Pick the movie tonight' },
-    { amount: 50, reason: 'Friend over for the day' }
+    { amount: 50, reason: 'Friend over for the day' },
   ],
   screen_minutes: [
     { amount: 15, reason: 'Quick gaming break' },
     { amount: 30, reason: 'After-school screen time' },
-    { amount: 60, reason: 'Movie / longer session' }
+    { amount: 60, reason: 'Movie / longer session' },
   ],
   savings_cents: [
     { amount: 500, reason: 'Save toward goal' },
     { amount: 1000, reason: 'Save toward goal' },
-    { amount: 2500, reason: 'Save toward goal' }
-  ]
+    { amount: 2500, reason: 'Save toward goal' },
+  ],
 };
 
 const ICON: Record<RewardCategoryKey, typeof Sparkles> = {
   stars: Sparkles,
   screen_minutes: Clock,
-  savings_cents: PiggyBank
+  savings_cents: PiggyBank,
 };
 
 export function RedemptionModal({ open, member, onClose }: Props) {
@@ -121,9 +118,7 @@ export function RedemptionModal({ open, member, onClose }: Props) {
 
           {/* Preset amounts */}
           <div>
-            <div className="text-xs uppercase tracking-wider text-text-faint mb-2">
-              Quick picks
-            </div>
+            <div className="text-xs uppercase tracking-wider text-text-faint mb-2">Quick picks</div>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
               {PRESETS[category].map((p) => (
                 <button
@@ -198,10 +193,7 @@ export function RedemptionModal({ open, member, onClose }: Props) {
         </div>
 
         <div className="flex items-center justify-end gap-2 p-4 border-t border-border">
-          <button
-            onClick={onClose}
-            className="px-4 py-2 text-sm text-text-muted hover:text-text"
-          >
+          <button onClick={onClose} className="px-4 py-2 text-sm text-text-muted hover:text-text">
             Cancel
           </button>
           <button

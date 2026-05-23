@@ -28,13 +28,11 @@ export function ShoppingView() {
 
   const weekEnd = format(addDays(new Date(weekStart), 6), 'yyyy-MM-dd');
 
-  const cupboardSet = new Set(
-    (kitchenSettings.cupboard || []).map((s) => s.toLowerCase().trim())
-  );
+  const cupboardSet = new Set((kitchenSettings.cupboard || []).map((s) => s.toLowerCase().trim()));
 
   const weekPlans = useMemo(
     () => mealPlans.filter((m) => m.date >= weekStart && m.date <= weekEnd),
-    [mealPlans, weekStart, weekEnd]
+    [mealPlans, weekStart, weekEnd],
   );
 
   const items = useMemo(() => {
@@ -47,7 +45,8 @@ export function ShoppingView() {
 
       (recipe.ingredients || []).forEach((ing) => {
         const cleaned = cleanIngredientName(ing.item);
-        if (cupboardSet.has(cleaned) || cupboardSet.has((ing.item || '').toLowerCase().trim())) return;
+        if (cupboardSet.has(cleaned) || cupboardSet.has((ing.item || '').toLowerCase().trim()))
+          return;
 
         const normalizedKey = normalizeItem(cleaned);
         const unit = (ing.unit || '').toLowerCase();
@@ -96,17 +95,23 @@ export function ShoppingView() {
       <div className="flex items-center justify-between mb-4 gap-2 flex-wrap">
         <h2 className="font-display text-xl text-text">Shopping List</h2>
         <div className="flex items-center gap-2">
-          <button onClick={() => shiftWeek(-1)} className="btn-ghost p-1.5"><ChevronLeft size={18} /></button>
+          <button onClick={() => shiftWeek(-1)} className="btn-ghost p-1.5">
+            <ChevronLeft size={18} />
+          </button>
           <span className="text-sm text-text-muted min-w-40 text-center">
             {format(new Date(weekStart), 'MMM d')} – {format(new Date(weekEnd), 'MMM d')}
           </span>
-          <button onClick={() => shiftWeek(1)} className="btn-ghost p-1.5"><ChevronRight size={18} /></button>
+          <button onClick={() => shiftWeek(1)} className="btn-ghost p-1.5">
+            <ChevronRight size={18} />
+          </button>
         </div>
       </div>
 
       {cupboardSet.size > 0 && (
         <p className="text-xs text-text-faint mb-3">
-          Excluding {cupboardSet.size} cupboard item{cupboardSet.size !== 1 ? 's' : ''}: {[...cupboardSet].slice(0, 5).join(', ')}{cupboardSet.size > 5 ? ` +${cupboardSet.size - 5}` : ''}.
+          Excluding {cupboardSet.size} cupboard item{cupboardSet.size !== 1 ? 's' : ''}:{' '}
+          {[...cupboardSet].slice(0, 5).join(', ')}
+          {cupboardSet.size > 5 ? ` +${cupboardSet.size - 5}` : ''}.
         </p>
       )}
 
@@ -118,14 +123,26 @@ export function ShoppingView() {
       ) : (
         <div className="space-y-1">
           {remaining.map((item) => (
-            <ShoppingItem key={item.key} item={item} checked={false} onToggle={() => toggleChecked(item.key)} />
+            <ShoppingItem
+              key={item.key}
+              item={item}
+              checked={false}
+              onToggle={() => toggleChecked(item.key)}
+            />
           ))}
 
           {done.length > 0 && (
             <>
-              <div className="text-xs text-text-faint uppercase tracking-wider pt-3 pb-1">Done ({done.length})</div>
+              <div className="text-xs text-text-faint uppercase tracking-wider pt-3 pb-1">
+                Done ({done.length})
+              </div>
               {done.map((item) => (
-                <ShoppingItem key={item.key} item={item} checked onToggle={() => toggleChecked(item.key)} />
+                <ShoppingItem
+                  key={item.key}
+                  item={item}
+                  checked
+                  onToggle={() => toggleChecked(item.key)}
+                />
               ))}
             </>
           )}
@@ -168,13 +185,13 @@ function ShoppingItem({
           {item.displayName}
         </span>
         {item.recipeNames.length > 0 && (
-          <span className="text-xs text-text-faint ml-2">
-            ({item.recipeNames.join(', ')})
-          </span>
+          <span className="text-xs text-text-faint ml-2">({item.recipeNames.join(', ')})</span>
         )}
       </div>
       {qtyStr && (
-        <span className={`text-sm font-medium flex-shrink-0 ${checked ? 'text-text-faint' : 'text-text'}`}>
+        <span
+          className={`text-sm font-medium flex-shrink-0 ${checked ? 'text-text-faint' : 'text-text'}`}
+        >
           {qtyStr}
         </span>
       )}

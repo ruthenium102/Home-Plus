@@ -1,12 +1,5 @@
 import { useMemo, useState } from 'react';
-import {
-  Plane,
-  Home as HomeIcon,
-  GraduationCap,
-  Briefcase,
-  Coffee,
-  MapPin
-} from 'lucide-react';
+import { Plane, Home as HomeIcon, GraduationCap, Briefcase, Coffee, MapPin } from 'lucide-react';
 import { useFamily } from '@/context/FamilyContext';
 import { rosterRoleAssignments } from '@/lib/rotation';
 import { Avatar } from './Avatar';
@@ -48,9 +41,7 @@ export function MemberStrip() {
                 <div className="text-[11px] text-text-faint truncate flex items-center gap-1">
                   <Icon
                     size={10}
-                    className={
-                      'shrink-0 ' + (isAway ? 'text-accent' : 'text-text-faint')
-                    }
+                    className={'shrink-0 ' + (isAway ? 'text-accent' : 'text-text-faint')}
                   />
                   {m.current_location || 'No status'}
                 </div>
@@ -68,11 +59,7 @@ export function MemberStrip() {
         })}
       </div>
 
-      <LocationPicker
-        open={picking !== null}
-        member={picking}
-        onClose={() => setPicking(null)}
-      />
+      <LocationPicker open={picking !== null} member={picking} onClose={() => setPicking(null)} />
     </>
   );
 }

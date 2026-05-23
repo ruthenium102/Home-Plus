@@ -5,7 +5,7 @@ import {
   useEffect,
   useRef,
   useState,
-  type ReactNode
+  type ReactNode,
 } from 'react';
 
 const LOCATION_KEY = 'hp:location';
@@ -19,9 +19,9 @@ export type TempUnit = 'C' | 'F';
 interface StoredLocation {
   lat: number;
   lng: number;
-  name?: string;     // present when user set a manual city
-  ts?: number;       // ms epoch when last GPS-resolved
-  manual?: boolean;  // true if user picked a city (don't auto-update)
+  name?: string; // present when user set a manual city
+  ts?: number; // ms epoch when last GPS-resolved
+  manual?: boolean; // true if user picked a city (don't auto-update)
 }
 
 export type LocationStatus = 'idle' | 'requesting' | 'ready' | 'denied';
@@ -73,7 +73,12 @@ export function WeatherProvider({ children }: { children: ReactNode }) {
   const [locationStatus, setLocationStatus] = useState<LocationStatus>(() => {
     const raw = localStorage.getItem(LOCATION_KEY);
     if (!raw) return 'idle';
-    try { JSON.parse(raw); return 'ready'; } catch { return 'idle'; }
+    try {
+      JSON.parse(raw);
+      return 'ready';
+    } catch {
+      return 'idle';
+    }
   });
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(() => {
     const raw = localStorage.getItem(LOCATION_KEY);
@@ -107,15 +112,15 @@ export function WeatherProvider({ children }: { children: ReactNode }) {
     localStorage.setItem(UNIT_KEY, u);
     setUnitState(u);
   }, []);
-  const temp = tempC === null
-    ? null
-    : unit === 'F'
-      ? Math.round(tempC * 9 / 5 + 32)
-      : tempC;
+  const temp = tempC === null ? null : unit === 'F' ? Math.round((tempC * 9) / 5 + 32) : tempC;
   const [locationName, setLocationName] = useState(() => {
     const raw = localStorage.getItem(LOCATION_KEY);
     if (!raw) return '';
-    try { return (JSON.parse(raw) as StoredLocation).name ?? ''; } catch { return ''; }
+    try {
+      return (JSON.parse(raw) as StoredLocation).name ?? '';
+    } catch {
+      return '';
+    }
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -126,7 +131,7 @@ export function WeatherProvider({ children }: { children: ReactNode }) {
     setError(null);
     try {
       const weatherRes = await fetch(
-        `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current=temperature_2m,weather_code&timezone=auto`
+        `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current=temperature_2m,weather_code&timezone=auto`,
       ).then((r) => r.json());
       setTempC(Math.round(weatherRes.current.temperature_2m));
       setCode(weatherRes.current.weather_code);
@@ -136,13 +141,18 @@ export function WeatherProvider({ children }: { children: ReactNode }) {
       } else {
         const geo = await fetch(
           `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`,
-          { headers: { 'Accept-Language': 'en' } }
+          { headers: { 'Accept-Language': 'en' } },
         )
           .then((r) => r.json())
           .catch(() => null);
         const addr = geo?.address as Record<string, string> | undefined;
         const name =
-          addr?.city || addr?.town || addr?.village || addr?.county || addr?.state || 'Your location';
+          addr?.city ||
+          addr?.town ||
+          addr?.village ||
+          addr?.county ||
+          addr?.state ||
+          'Your location';
         setLocationName(name);
         // Persist resolved name so it shows correctly on next load without re-geocoding
         try {
@@ -153,7 +163,9 @@ export function WeatherProvider({ children }: { children: ReactNode }) {
               localStorage.setItem(LOCATION_KEY, JSON.stringify({ ...parsed, name }));
             }
           }
-        } catch { /* ignore */ }
+        } catch {
+          /* ignore */
+        }
       }
     } catch {
       setError('Weather unavailable');
@@ -166,10 +178,7 @@ export function WeatherProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!coords) return;
     fetchWeather(coords.lat, coords.lng);
-    intervalRef.current = setInterval(
-      () => fetchWeather(coords.lat, coords.lng),
-      REFRESH_MS
-    );
+    intervalRef.current = setInterval(() => fetchWeather(coords.lat, coords.lng), REFRESH_MS);
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
@@ -199,7 +208,7 @@ export function WeatherProvider({ children }: { children: ReactNode }) {
         setLocationStatus('denied');
         setLocationName(PERTH.name);
       },
-      { timeout: 10000 }
+      { timeout: 10000 },
     );
   }, []);
 

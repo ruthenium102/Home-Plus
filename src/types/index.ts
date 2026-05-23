@@ -20,8 +20,8 @@ export interface FamilyMember {
   role: Role;
   color: MemberColor;
   avatar_url: string | null; // optional uploaded photo
-  pin_hash: string | null;   // null => no PIN required (e.g. small kids)
-  birthday: string | null;   // ISO date
+  pin_hash: string | null; // null => no PIN required (e.g. small kids)
+  birthday: string | null; // ISO date
   current_location: string | null; // e.g. "School", "Shanghai til Fri"
   // Optional: when a temporary location should auto-revert. ISO timestamp.
   location_until: string | null;
@@ -60,7 +60,7 @@ export interface CalendarEvent {
   title: string;
   description: string | null;
   start_at: string; // ISO datetime
-  end_at: string;   // ISO datetime
+  end_at: string; // ISO datetime
   all_day: boolean;
   location: string | null;
   category: EventCategory;
@@ -105,8 +105,8 @@ export type RewardCategoryKey = 'stars' | 'screen_minutes' | 'savings_cents';
 
 export interface RewardCategory {
   key: RewardCategoryKey;
-  label: string;        // "Stars", "Screen time", "Savings"
-  unit: string;         // "★", "min", "$"
+  label: string; // "Stars", "Screen time", "Savings"
+  unit: string; // "★", "min", "$"
   // Approval threshold — redemptions ABOVE this need parent approval.
   // null means always auto. 0 means always require approval.
   auto_approve_under: number | null;
@@ -115,8 +115,8 @@ export interface RewardCategory {
 export type ChoreFrequency =
   | 'daily'
   | 'weekly'
-  | 'weekdays'   // Mon-Fri
-  | 'weekend'    // Sat-Sun
+  | 'weekdays' // Mon-Fri
+  | 'weekend' // Sat-Sun
   | 'monthly'
   | 'one_off';
 
@@ -151,7 +151,7 @@ export interface Chore {
   // Rotation fields (used when mode !== 'standard')
   mode: ChoreMode;
   rotation_roster: string[]; // ordered member ids for rotation
-  rotation_pointer: number;  // base index into rotation_roster
+  rotation_pointer: number; // base index into rotation_roster
   rotation_anchor_iso_week: string | null; // YYYY-Www when rotation was anchored
   roster_role_name: string | null; // label for roster_role mode e.g. "Bins person"
 }
@@ -169,12 +169,12 @@ export interface ChoreCompletion {
   id: string;
   chore_id: string;
   family_id: string;
-  member_id: string;             // who completed it
-  for_date: string;              // YYYY-MM-DD — which scheduled day this is for
+  member_id: string; // who completed it
+  for_date: string; // YYYY-MM-DD — which scheduled day this is for
   status: ChoreCompletionStatus;
   photo_url: string | null;
   payout: Partial<Record<RewardCategoryKey, number>>; // captured at completion time
-  approved_by: string | null;    // parent member id
+  approved_by: string | null; // parent member id
   approved_at: string | null;
   note: string | null;
   created_at: string;
@@ -193,8 +193,8 @@ export interface Redemption {
   family_id: string;
   member_id: string;
   category: RewardCategoryKey;
-  amount: number;                // positive number; deducted from balance
-  reason: string;                // "30 min Switch time", "saving toward LEGO"
+  amount: number; // positive number; deducted from balance
+  reason: string; // "30 min Switch time", "saving toward LEGO"
   status: RedemptionStatus;
   approved_by: string | null;
   approved_at: string | null;
@@ -209,10 +209,10 @@ export interface RewardGoal {
   id: string;
   family_id: string;
   member_id: string;
-  title: string;                 // "LEGO Speed Champions"
-  category: RewardCategoryKey;   // usually savings_cents or stars
-  target_amount: number;         // in the category's smallest unit
-  achieved_at: string | null;    // ISO when achieved
+  title: string; // "LEGO Speed Champions"
+  category: RewardCategoryKey; // usually savings_cents or stars
+  target_amount: number; // in the category's smallest unit
+  achieved_at: string | null; // ISO when achieved
   created_at: string;
 }
 
@@ -284,7 +284,7 @@ export type HabitCadence = 'daily' | 'weekdays' | 'weekend' | 'weekly' | 'pick_d
 export interface Habit {
   id: string;
   family_id: string;
-  member_id: string;          // who owns this habit
+  member_id: string; // who owns this habit
   title: string;
   description: string | null;
   cadence: HabitCadence;
@@ -296,8 +296,8 @@ export interface Habit {
   // Optional: pay X stars when streak hits 7, 30, 100. Only relevant for kids.
   streak_rewards: boolean;
   archived: boolean;
-  count_mode: boolean;     // if true, track quantity instead of done/not-done
-  daily_target: number;    // target count per day (default 1)
+  count_mode: boolean; // if true, track quantity instead of done/not-done
+  daily_target: number; // target count per day (default 1)
   // How to compare today's count against daily_target. Defaults to 'gte'
   // (at least N) when missing — matching the historical behaviour.
   //   'gte' = ≥ N (at least)         e.g. drink ≥ 8 glasses
@@ -313,7 +313,7 @@ export interface HabitCheckIn {
   family_id: string;
   member_id: string;
   for_date: string; // YYYY-MM-DD
-  count?: number;  // default 1; used to store the quantity checked in
+  count?: number; // default 1; used to store the quantity checked in
   created_at: string;
 }
 
@@ -405,7 +405,7 @@ export interface KitchenSettings {
   mid_week_shop_enabled: boolean;
   mid_week_shop_day: number | null;
   meal_color?: string; // hex colour for meal events in calendar
-  wfh_color?: string;  // hex colour for work-from-home events in calendar
+  wfh_color?: string; // hex colour for work-from-home events in calendar
 }
 
 // ============================================================================

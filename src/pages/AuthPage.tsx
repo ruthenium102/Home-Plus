@@ -31,7 +31,10 @@ export function AuthPage() {
     setError('');
 
     if (mode === 'forgot') {
-      if (!email.trim()) { setError('Enter your email address.'); return; }
+      if (!email.trim()) {
+        setError('Enter your email address.');
+        return;
+      }
       setLoading(true);
       const { error } = await forgotPassword(email.trim());
       setLoading(false);
@@ -41,7 +44,10 @@ export function AuthPage() {
     }
 
     if (mode === 'signin') {
-      if (!email.trim() || !password) { setError('Enter your email and password.'); return; }
+      if (!email.trim() || !password) {
+        setError('Enter your email and password.');
+        return;
+      }
       setLoading(true);
       const { error } = await signIn(email.trim(), password);
       setLoading(false);
@@ -50,11 +56,26 @@ export function AuthPage() {
     }
 
     // signup
-    if (!name.trim()) { setError('Enter your name.'); return; }
-    if (!familyName.trim()) { setError('Enter a family name.'); return; }
-    if (!email.trim()) { setError('Enter your email address.'); return; }
-    if (password.length < 8) { setError('Password must be at least 8 characters.'); return; }
-    if (password !== confirmPassword) { setError("Passwords don't match."); return; }
+    if (!name.trim()) {
+      setError('Enter your name.');
+      return;
+    }
+    if (!familyName.trim()) {
+      setError('Enter a family name.');
+      return;
+    }
+    if (!email.trim()) {
+      setError('Enter your email address.');
+      return;
+    }
+    if (password.length < 8) {
+      setError('Password must be at least 8 characters.');
+      return;
+    }
+    if (password !== confirmPassword) {
+      setError("Passwords don't match.");
+      return;
+    }
 
     setLoading(true);
     const { error } = await signUp(email.trim(), password, name.trim(), familyName.trim());
@@ -121,7 +142,9 @@ export function AuthPage() {
           {mode === 'signup' && (
             <>
               <div>
-                <label className="block text-xs text-text-muted mb-1.5 font-medium">Your name</label>
+                <label className="block text-xs text-text-muted mb-1.5 font-medium">
+                  Your name
+                </label>
                 <input
                   type="text"
                   value={name}
@@ -132,7 +155,9 @@ export function AuthPage() {
                 />
               </div>
               <div>
-                <label className="block text-xs text-text-muted mb-1.5 font-medium">Family name</label>
+                <label className="block text-xs text-text-muted mb-1.5 font-medium">
+                  Family name
+                </label>
                 <input
                   type="text"
                   value={familyName}
@@ -202,9 +227,7 @@ export function AuthPage() {
 
           {/* Error / confirmation */}
           {error && (
-            <div className="text-sm text-red-500 bg-red-500/10 px-3 py-2.5 rounded-md">
-              {error}
-            </div>
+            <div className="text-sm text-red-500 bg-red-500/10 px-3 py-2.5 rounded-md">{error}</div>
           )}
           {resetSent && (
             <div className="text-sm text-green-600 dark:text-green-400 bg-green-500/10 px-3 py-2.5 rounded-md">

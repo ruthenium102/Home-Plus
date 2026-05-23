@@ -45,19 +45,32 @@ export function AddMemberModal({ open, onClose }: Props) {
   if (!open) return null;
 
   const preview: FamilyMember = {
-    ...BLANK, id: 'preview', family_id: '', created_at: '',
-    name: name || 'Preview', role, color,
+    ...BLANK,
+    id: 'preview',
+    family_id: '',
+    created_at: '',
+    name: name || 'Preview',
+    role,
+    color,
   };
 
   const handleClose = () => {
-    setName(''); setRole('child'); setColor('dusty-blue');
-    setBirthday(''); setEmail(''); setSendInvite(false);
-    setError(''); setLoading(false);
+    setName('');
+    setRole('child');
+    setColor('dusty-blue');
+    setBirthday('');
+    setEmail('');
+    setSendInvite(false);
+    setError('');
+    setLoading(false);
     onClose();
   };
 
   const handleSave = async () => {
-    if (!name.trim()) { setError('Name is required.'); return; }
+    if (!name.trim()) {
+      setError('Name is required.');
+      return;
+    }
     setError('');
     setLoading(true);
 

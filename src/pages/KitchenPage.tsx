@@ -26,12 +26,11 @@ export function KitchenPage() {
             key={id}
             onClick={() => setTab(id)}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap transition ${
-              tab === id
-                ? 'bg-accent text-white'
-                : 'text-text-muted hover:bg-surface-2'
+              tab === id ? 'bg-accent text-white' : 'text-text-muted hover:bg-surface-2'
             }`}
           >
-            {icon}{label}
+            {icon}
+            {label}
           </button>
         ))}
       </div>

@@ -7,7 +7,7 @@ import type { CalendarEvent, EventCategory } from '@/types';
 export function suggestDuration(
   events: CalendarEvent[],
   title: string,
-  category: EventCategory
+  category: EventCategory,
 ): number {
   const normalizedTitle = title.trim().toLowerCase();
 
@@ -21,14 +21,13 @@ export function suggestDuration(
     const titleMatches = timed.filter(
       (e) =>
         e.title.toLowerCase().includes(normalizedTitle) ||
-        normalizedTitle.includes(e.title.toLowerCase())
+        normalizedTitle.includes(e.title.toLowerCase()),
     );
     if (titleMatches.length > 0) {
       const avg =
         titleMatches.reduce(
-          (sum, e) =>
-            sum + (new Date(e.end_at).getTime() - new Date(e.start_at).getTime()) / 60000,
-          0
+          (sum, e) => sum + (new Date(e.end_at).getTime() - new Date(e.start_at).getTime()) / 60000,
+          0,
         ) / titleMatches.length;
       return clamp(Math.round(avg), 15, 240);
     }
@@ -38,9 +37,8 @@ export function suggestDuration(
   if (catMatches.length > 0) {
     const avg =
       catMatches.reduce(
-        (sum, e) =>
-          sum + (new Date(e.end_at).getTime() - new Date(e.start_at).getTime()) / 60000,
-        0
+        (sum, e) => sum + (new Date(e.end_at).getTime() - new Date(e.start_at).getTime()) / 60000,
+        0,
       ) / catMatches.length;
     return clamp(Math.round(avg), 15, 240);
   }

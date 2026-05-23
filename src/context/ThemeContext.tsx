@@ -17,9 +17,7 @@ function getSystemPref(): 'light' | 'dark' {
 }
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [mode, setModeState] = useState<ThemeMode>(() =>
-    storage.get<ThemeMode>('theme', 'system')
-  );
+  const [mode, setModeState] = useState<ThemeMode>(() => storage.get<ThemeMode>('theme', 'system'));
   const [systemPref, setSystemPref] = useState<'light' | 'dark'>(getSystemPref);
 
   // Track system preference changes when in 'system' mode

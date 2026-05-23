@@ -1,13 +1,5 @@
 import { format } from 'date-fns';
-import {
-  Sun,
-  CloudSun,
-  Cloud,
-  CloudRain,
-  CloudSnow,
-  CloudLightning,
-  MapPin
-} from 'lucide-react';
+import { Sun, CloudSun, Cloud, CloudRain, CloudSnow, CloudLightning, MapPin } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { useFamily } from '@/context/FamilyContext';
 import { useWeather, weatherLabel, weatherIconName } from '@/hooks/useWeather';
@@ -15,7 +7,12 @@ import { Avatar } from './Avatar';
 import { SyncIndicator } from './SyncIndicator';
 
 const ICON_MAP: Record<string, LucideIcon> = {
-  Sun, CloudSun, Cloud, CloudRain, CloudSnow, CloudLightning
+  Sun,
+  CloudSun,
+  Cloud,
+  CloudRain,
+  CloudSnow,
+  CloudLightning,
 };
 
 interface Props {
@@ -34,9 +31,7 @@ export function TopBar({ onSwitchUser }: Props) {
   return (
     <div className="flex items-center justify-between mb-6">
       <div>
-        <div className="text-xs tracking-widest uppercase text-text-faint mb-1">
-          {family.name}
-        </div>
+        <div className="text-xs tracking-widest uppercase text-text-faint mb-1">{family.name}</div>
         <div className="font-display text-2xl sm:text-3xl text-text leading-none">
           {format(now, 'EEEE, d MMM')}
         </div>

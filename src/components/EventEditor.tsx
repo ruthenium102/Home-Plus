@@ -15,7 +15,15 @@ interface Props {
 }
 
 const CATEGORIES: EventCategory[] = [
-  'general', 'school', 'work', 'sport', 'medical', 'social', 'travel', 'meal', 'wfh'
+  'general',
+  'school',
+  'work',
+  'sport',
+  'medical',
+  'social',
+  'travel',
+  'meal',
+  'wfh',
 ];
 
 function categoryLabel(c: EventCategory): string {
@@ -26,9 +34,9 @@ function categoryLabel(c: EventCategory): string {
 const QUICK_DURATIONS = [
   { label: '15min', mins: 15 },
   { label: '30min', mins: 30 },
-  { label: '1hr',   mins: 60 },
+  { label: '1hr', mins: 60 },
   { label: '1.5hr', mins: 90 },
-  { label: '2hr',   mins: 120 },
+  { label: '2hr', mins: 120 },
 ];
 
 function durationLabel(
@@ -36,7 +44,7 @@ function durationLabel(
   startDate: string,
   startTime: string,
   endDate: string,
-  endTime: string
+  endTime: string,
 ): string {
   if (!startDate || !endDate) return '';
   if (allDay) {
@@ -64,7 +72,7 @@ function shiftEnd(
   endDate: string,
   endTime: string,
   newStartDate: string,
-  newStartTime: string
+  newStartTime: string,
 ): { date: string; time: string } {
   const s = new Date(`${startDate}T${startTime}:00`);
   const e = new Date(`${endDate}T${endTime}:00`);
@@ -77,7 +85,7 @@ function shiftEnd(
 function applyMins(
   startDate: string,
   startTime: string,
-  mins: number
+  mins: number,
 ): { date: string; time: string } {
   const s = new Date(`${startDate}T${startTime}:00`);
   const e = new Date(s.getTime() + mins * 60000);
@@ -98,7 +106,9 @@ export function EventEditor({ open, onClose, editing, initialStart }: Props) {
   const [endTime, setEndTime] = useState('');
   const [memberIds, setMemberIds] = useState<string[]>([]);
   const [color, setColor] = useState<MemberColor | null>(null);
-  const [recurFreq, setRecurFreq] = useState<'none' | 'daily' | 'weekly' | 'monthly' | 'yearly'>('none');
+  const [recurFreq, setRecurFreq] = useState<'none' | 'daily' | 'weekly' | 'monthly' | 'yearly'>(
+    'none',
+  );
   const [byweekday, setByweekday] = useState<number[]>([]);
   const [reminderMin, setReminderMin] = useState<number | null>(null);
   const [showCustomEnd, setShowCustomEnd] = useState(false);
@@ -129,7 +139,9 @@ export function EventEditor({ open, onClose, editing, initialStart }: Props) {
       setEndTime(format(e, 'HH:mm'));
       setMemberIds(editing.member_ids);
       setColor(editing.color ?? null);
-      setRecurFreq((editing.recurrence?.freq as 'daily' | 'weekly' | 'monthly' | 'yearly') ?? 'none');
+      setRecurFreq(
+        (editing.recurrence?.freq as 'daily' | 'weekly' | 'monthly' | 'yearly') ?? 'none',
+      );
       setByweekday((editing.recurrence?.byweekday as number[]) ?? []);
       setReminderMin(editing.reminder_offsets[0] ?? null);
     } else {
@@ -222,9 +234,7 @@ export function EventEditor({ open, onClose, editing, initialStart }: Props) {
   };
 
   const toggleByWeekday = (d: number) =>
-    setByweekday((prev) =>
-      prev.includes(d) ? prev.filter((x) => x !== d) : [...prev, d]
-    );
+    setByweekday((prev) => (prev.includes(d) ? prev.filter((x) => x !== d) : [...prev, d]));
 
   const handleQuickDuration = (mins: number) => {
     if (!startDate || !startTime) return;
@@ -249,7 +259,7 @@ export function EventEditor({ open, onClose, editing, initialStart }: Props) {
         : {
             freq: recurFreq,
             interval: 1,
-            ...(recurFreq === 'weekly' && byweekday.length > 0 ? { byweekday } : {})
+            ...(recurFreq === 'weekly' && byweekday.length > 0 ? { byweekday } : {}),
           };
 
     const payload = {
@@ -264,7 +274,7 @@ export function EventEditor({ open, onClose, editing, initialStart }: Props) {
       member_ids: memberIds,
       recurrence,
       reminder_offsets: reminderMin !== null ? [reminderMin] : [],
-      created_by: activeMember?.id ?? null
+      created_by: activeMember?.id ?? null,
     };
 
     if (editing) {
@@ -284,9 +294,7 @@ export function EventEditor({ open, onClose, editing, initialStart }: Props) {
   };
 
   const toggleMember = (id: string) =>
-    setMemberIds((prev) =>
-      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
-    );
+    setMemberIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
 
   const durLabel = durationLabel(allDay, startDate, startTime, endDate, endTime);
 
@@ -304,9 +312,7 @@ export function EventEditor({ open, onClose, editing, initialStart }: Props) {
       >
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-border shrink-0">
-          <h2 className="font-display text-xl text-text">
-            {editing ? 'Edit event' : 'New event'}
-          </h2>
+          <h2 className="font-display text-xl text-text">{editing ? 'Edit event' : 'New event'}</h2>
           <button
             onClick={onClose}
             className="w-9 h-9 rounded-md hover:bg-surface-2 flex items-center justify-center text-text-muted"
@@ -375,7 +381,10 @@ export function EventEditor({ open, onClose, editing, initialStart }: Props) {
                   type="date"
                   value={endDate}
                   min={startDate}
-                  onChange={(e) => { setEndDate(e.target.value); userChangedEndRef.current = true; }}
+                  onChange={(e) => {
+                    setEndDate(e.target.value);
+                    userChangedEndRef.current = true;
+                  }}
                   className={inputCls + ' w-full'}
                 />
                 {durLabel && <div className="text-xs text-text-faint mt-1.5">{durLabel}</div>}
@@ -389,13 +398,19 @@ export function EventEditor({ open, onClose, editing, initialStart }: Props) {
                       type="date"
                       value={endDate}
                       min={startDate}
-                      onChange={(e) => { setEndDate(e.target.value); userChangedEndRef.current = true; }}
+                      onChange={(e) => {
+                        setEndDate(e.target.value);
+                        userChangedEndRef.current = true;
+                      }}
                       className={inputCls + ' flex-1 min-w-0'}
                     />
                     <input
                       type="time"
                       value={endTime}
-                      onChange={(e) => { setEndTime(e.target.value); userChangedEndRef.current = true; }}
+                      onChange={(e) => {
+                        setEndTime(e.target.value);
+                        userChangedEndRef.current = true;
+                      }}
                       className={inputCls + ' w-[5.5rem]'}
                     />
                   </div>
@@ -603,11 +618,11 @@ export function EventEditor({ open, onClose, editing, initialStart }: Props) {
               {(
                 [
                   { v: null, label: 'None' },
-                  { v: 0,    label: 'At time' },
-                  { v: 10,   label: '10 min' },
-                  { v: 30,   label: '30 min' },
-                  { v: 60,   label: '1 hr' },
-                  { v: 1440, label: '1 day' }
+                  { v: 0, label: 'At time' },
+                  { v: 10, label: '10 min' },
+                  { v: 30, label: '30 min' },
+                  { v: 60, label: '1 hr' },
+                  { v: 1440, label: '1 day' },
                 ] as { v: number | null; label: string }[]
               ).map((opt) => (
                 <button
@@ -649,10 +664,7 @@ export function EventEditor({ open, onClose, editing, initialStart }: Props) {
             <span />
           )}
           <div className="flex gap-2">
-            <button
-              onClick={onClose}
-              className="px-4 py-2 text-sm text-text-muted hover:text-text"
-            >
+            <button onClick={onClose} className="px-4 py-2 text-sm text-text-muted hover:text-text">
               Cancel
             </button>
             <button

@@ -13,7 +13,7 @@ import type {
   RewardCategory,
   RewardGoal,
   TodoItem,
-  TodoList
+  TodoList,
 } from '@/types';
 
 /**
@@ -59,7 +59,7 @@ export const storage = {
   },
   remove(key: string) {
     localStorage.removeItem(PREFIX + key);
-  }
+  },
 };
 
 // ---- Seed helpers ----------------------------------------------------------
@@ -82,7 +82,7 @@ export const DEMO_FAMILY: Family = {
   id: 'fam-ellis',
   name: 'The Ellis Family',
   timezone: 'Australia/Perth',
-  created_at: new Date().toISOString()
+  created_at: new Date().toISOString(),
 };
 
 export const DEMO_MEMBERS: FamilyMember[] = [
@@ -98,8 +98,13 @@ export const DEMO_MEMBERS: FamilyMember[] = [
     current_location: 'Home',
     location_until: null,
     reward_balances: {},
-    my_day_enabled: false, chores_enabled: true, habits_enabled: true, kitchen_enabled: false, pet_enabled: false, email: null,
-    created_at: new Date().toISOString()
+    my_day_enabled: false,
+    chores_enabled: true,
+    habits_enabled: true,
+    kitchen_enabled: false,
+    pet_enabled: false,
+    email: null,
+    created_at: new Date().toISOString(),
   },
   {
     id: 'm-susan',
@@ -113,8 +118,13 @@ export const DEMO_MEMBERS: FamilyMember[] = [
     current_location: 'Home',
     location_until: null,
     reward_balances: {},
-    my_day_enabled: false, chores_enabled: true, habits_enabled: true, kitchen_enabled: false, pet_enabled: false, email: null,
-    created_at: new Date().toISOString()
+    my_day_enabled: false,
+    chores_enabled: true,
+    habits_enabled: true,
+    kitchen_enabled: false,
+    pet_enabled: false,
+    email: null,
+    created_at: new Date().toISOString(),
   },
   {
     id: 'm-sophie',
@@ -128,8 +138,13 @@ export const DEMO_MEMBERS: FamilyMember[] = [
     current_location: 'School',
     location_until: null,
     reward_balances: { stars: 184, screen_minutes: 60, savings_cents: 4200 },
-    my_day_enabled: false, chores_enabled: true, habits_enabled: true, kitchen_enabled: false, pet_enabled: false, email: null,
-    created_at: new Date().toISOString()
+    my_day_enabled: false,
+    chores_enabled: true,
+    habits_enabled: true,
+    kitchen_enabled: false,
+    pet_enabled: false,
+    email: null,
+    created_at: new Date().toISOString(),
   },
   {
     id: 'm-henry',
@@ -143,8 +158,13 @@ export const DEMO_MEMBERS: FamilyMember[] = [
     current_location: 'School',
     location_until: null,
     reward_balances: { stars: 132, screen_minutes: 30, savings_cents: 1850 },
-    my_day_enabled: true, chores_enabled: true, habits_enabled: true, kitchen_enabled: false, pet_enabled: false, email: null,
-    created_at: new Date().toISOString()
+    my_day_enabled: true,
+    chores_enabled: true,
+    habits_enabled: true,
+    kitchen_enabled: false,
+    pet_enabled: false,
+    email: null,
+    created_at: new Date().toISOString(),
   },
   {
     id: 'm-laura',
@@ -158,9 +178,14 @@ export const DEMO_MEMBERS: FamilyMember[] = [
     current_location: 'School',
     location_until: null,
     reward_balances: { stars: 96, screen_minutes: 45, savings_cents: 750 },
-    my_day_enabled: false, chores_enabled: true, habits_enabled: true, kitchen_enabled: false, pet_enabled: false, email: null,
-    created_at: new Date().toISOString()
-  }
+    my_day_enabled: false,
+    chores_enabled: true,
+    habits_enabled: true,
+    kitchen_enabled: false,
+    pet_enabled: false,
+    email: null,
+    created_at: new Date().toISOString(),
+  },
 ];
 
 // ---- Reward categories -----------------------------------------------------
@@ -168,7 +193,7 @@ export const DEMO_MEMBERS: FamilyMember[] = [
 export const DEFAULT_REWARD_CATEGORIES: RewardCategory[] = [
   { key: 'stars', label: 'Stars', unit: '★', auto_approve_under: 30 },
   { key: 'screen_minutes', label: 'Screen time', unit: 'min', auto_approve_under: 30 },
-  { key: 'savings_cents', label: 'Savings', unit: '$', auto_approve_under: 0 }
+  { key: 'savings_cents', label: 'Savings', unit: '$', auto_approve_under: 0 },
 ];
 
 // ---- Events ----------------------------------------------------------------
@@ -188,7 +213,7 @@ export const DEMO_EVENTS: CalendarEvent[] = [
     recurrence: null,
     reminder_offsets: [60],
     created_by: 'm-susan',
-    created_at: new Date().toISOString()
+    created_at: new Date().toISOString(),
   },
   {
     id: 'e2',
@@ -204,7 +229,7 @@ export const DEMO_EVENTS: CalendarEvent[] = [
     recurrence: { freq: 'weekly', interval: 1, byweekday: [1, 2, 3, 4, 5] },
     reminder_offsets: [15],
     created_by: 'm-susan',
-    created_at: new Date().toISOString()
+    created_at: new Date().toISOString(),
   },
   {
     id: 'e3',
@@ -220,7 +245,7 @@ export const DEMO_EVENTS: CalendarEvent[] = [
     recurrence: { freq: 'weekly', interval: 1, byweekday: [4] },
     reminder_offsets: [30],
     created_by: 'm-susan',
-    created_at: new Date().toISOString()
+    created_at: new Date().toISOString(),
   },
   {
     id: 'e4',
@@ -236,7 +261,7 @@ export const DEMO_EVENTS: CalendarEvent[] = [
     recurrence: null,
     reminder_offsets: [],
     created_by: null,
-    created_at: new Date().toISOString()
+    created_at: new Date().toISOString(),
   },
   {
     id: 'e5',
@@ -252,7 +277,7 @@ export const DEMO_EVENTS: CalendarEvent[] = [
     recurrence: { freq: 'weekly', interval: 1, byweekday: [5] },
     reminder_offsets: [30],
     created_by: 'm-susan',
-    created_at: new Date().toISOString()
+    created_at: new Date().toISOString(),
   },
   {
     id: 'e6',
@@ -268,7 +293,7 @@ export const DEMO_EVENTS: CalendarEvent[] = [
     recurrence: { freq: 'weekly', interval: 1, byweekday: [6] },
     reminder_offsets: [30],
     created_by: 'm-susan',
-    created_at: new Date().toISOString()
+    created_at: new Date().toISOString(),
   },
   {
     id: 'e7',
@@ -284,7 +309,7 @@ export const DEMO_EVENTS: CalendarEvent[] = [
     recurrence: { freq: 'monthly', interval: 1 },
     reminder_offsets: [60],
     created_by: 'm-susan',
-    created_at: new Date().toISOString()
+    created_at: new Date().toISOString(),
   },
   {
     id: 'e8',
@@ -300,7 +325,7 @@ export const DEMO_EVENTS: CalendarEvent[] = [
     recurrence: { freq: 'yearly', interval: 1 },
     reminder_offsets: [1440],
     created_by: 'm-ben',
-    created_at: new Date().toISOString()
+    created_at: new Date().toISOString(),
   },
   {
     id: 'e9',
@@ -316,7 +341,7 @@ export const DEMO_EVENTS: CalendarEvent[] = [
     recurrence: { freq: 'yearly', interval: 1 },
     reminder_offsets: [1440],
     created_by: 'm-ben',
-    created_at: new Date().toISOString()
+    created_at: new Date().toISOString(),
   },
   {
     id: 'e10',
@@ -332,8 +357,8 @@ export const DEMO_EVENTS: CalendarEvent[] = [
     recurrence: { freq: 'yearly', interval: 1 },
     reminder_offsets: [1440],
     created_by: 'm-ben',
-    created_at: new Date().toISOString()
-  }
+    created_at: new Date().toISOString(),
+  },
 ];
 
 // ---- Chores ----------------------------------------------------------------
@@ -341,8 +366,24 @@ export const DEMO_EVENTS: CalendarEvent[] = [
 
 const THIS_WEEK = isoWeekStr();
 
-function stdChore(partial: Omit<Chore, 'mode' | 'rotation_roster' | 'rotation_pointer' | 'rotation_anchor_iso_week' | 'roster_role_name'>): Chore {
-  return { ...partial, mode: 'standard', rotation_roster: [], rotation_pointer: 0, rotation_anchor_iso_week: null, roster_role_name: null };
+function stdChore(
+  partial: Omit<
+    Chore,
+    | 'mode'
+    | 'rotation_roster'
+    | 'rotation_pointer'
+    | 'rotation_anchor_iso_week'
+    | 'roster_role_name'
+  >,
+): Chore {
+  return {
+    ...partial,
+    mode: 'standard',
+    rotation_roster: [],
+    rotation_pointer: 0,
+    rotation_anchor_iso_week: null,
+    roster_role_name: null,
+  };
 }
 
 export const DEMO_CHORES: Chore[] = [
@@ -359,7 +400,7 @@ export const DEMO_CHORES: Chore[] = [
     requires_photo: false,
     requires_approval: false,
     archived: false,
-    created_at: new Date().toISOString()
+    created_at: new Date().toISOString(),
   }),
   // Rotated: Sophie & Henry take turns emptying the dishwasher each day
   {
@@ -380,7 +421,7 @@ export const DEMO_CHORES: Chore[] = [
     rotation_roster: ['m-sophie', 'm-henry'],
     rotation_pointer: 0,
     rotation_anchor_iso_week: THIS_WEEK,
-    roster_role_name: null
+    roster_role_name: null,
   },
   stdChore({
     id: 'c-3',
@@ -395,7 +436,7 @@ export const DEMO_CHORES: Chore[] = [
     requires_photo: false,
     requires_approval: false,
     archived: false,
-    created_at: new Date().toISOString()
+    created_at: new Date().toISOString(),
   }),
   stdChore({
     id: 'c-4',
@@ -410,7 +451,7 @@ export const DEMO_CHORES: Chore[] = [
     requires_photo: true,
     requires_approval: true,
     archived: false,
-    created_at: new Date().toISOString()
+    created_at: new Date().toISOString(),
   }),
   // Roster role: bins person rotates weekly between Sophie & Henry
   {
@@ -431,7 +472,7 @@ export const DEMO_CHORES: Chore[] = [
     rotation_roster: ['m-sophie', 'm-henry'],
     rotation_pointer: 0,
     rotation_anchor_iso_week: THIS_WEEK,
-    roster_role_name: 'Bins person'
+    roster_role_name: 'Bins person',
   },
   stdChore({
     id: 'c-6',
@@ -446,7 +487,7 @@ export const DEMO_CHORES: Chore[] = [
     requires_photo: true,
     requires_approval: true,
     archived: false,
-    created_at: new Date().toISOString()
+    created_at: new Date().toISOString(),
   }),
   stdChore({
     id: 'c-7',
@@ -461,7 +502,7 @@ export const DEMO_CHORES: Chore[] = [
     requires_photo: true,
     requires_approval: true,
     archived: false,
-    created_at: new Date().toISOString()
+    created_at: new Date().toISOString(),
   }),
   stdChore({
     id: 'c-8',
@@ -476,8 +517,8 @@ export const DEMO_CHORES: Chore[] = [
     requires_photo: false,
     requires_approval: false,
     archived: false,
-    created_at: new Date().toISOString()
-  })
+    created_at: new Date().toISOString(),
+  }),
 ];
 
 // ---- A few historical completions so the UI isn't empty --------------------
@@ -495,7 +536,7 @@ export const DEMO_COMPLETIONS: ChoreCompletion[] = [
     approved_by: null,
     approved_at: new Date(Date.now() - 86400000).toISOString(),
     note: null,
-    created_at: new Date(Date.now() - 86400000).toISOString()
+    created_at: new Date(Date.now() - 86400000).toISOString(),
   },
   {
     id: 'cc-2',
@@ -509,7 +550,7 @@ export const DEMO_COMPLETIONS: ChoreCompletion[] = [
     approved_by: null,
     approved_at: new Date(Date.now() - 86400000).toISOString(),
     note: null,
-    created_at: new Date(Date.now() - 86400000).toISOString()
+    created_at: new Date(Date.now() - 86400000).toISOString(),
   },
   {
     id: 'cc-3',
@@ -523,8 +564,8 @@ export const DEMO_COMPLETIONS: ChoreCompletion[] = [
     approved_by: null,
     approved_at: new Date(Date.now() - 86400000).toISOString(),
     note: null,
-    created_at: new Date(Date.now() - 86400000).toISOString()
-  }
+    created_at: new Date(Date.now() - 86400000).toISOString(),
+  },
 ];
 
 export const DEMO_REDEMPTIONS: Redemption[] = [];
@@ -540,7 +581,7 @@ export const DEMO_GOALS: RewardGoal[] = [
     category: 'savings_cents',
     target_amount: 25000,
     achieved_at: null,
-    created_at: new Date().toISOString()
+    created_at: new Date().toISOString(),
   },
   {
     id: 'g-2',
@@ -550,7 +591,7 @@ export const DEMO_GOALS: RewardGoal[] = [
     category: 'savings_cents',
     target_amount: 12000,
     achieved_at: null,
-    created_at: new Date().toISOString()
+    created_at: new Date().toISOString(),
   },
   {
     id: 'g-3',
@@ -560,8 +601,8 @@ export const DEMO_GOALS: RewardGoal[] = [
     category: 'savings_cents',
     target_amount: 6000,
     achieved_at: null,
-    created_at: new Date().toISOString()
-  }
+    created_at: new Date().toISOString(),
+  },
 ];
 
 // ---- PIN helpers (demo-mode only) ------------------------------------------
@@ -595,7 +636,7 @@ export const DEMO_LISTS: TodoList[] = [
     icon: 'Wrench',
     color: 'sage',
     archived: false,
-    created_at: new Date().toISOString()
+    created_at: new Date().toISOString(),
   },
   {
     id: 'l-hardware',
@@ -605,7 +646,7 @@ export const DEMO_LISTS: TodoList[] = [
     icon: 'Hammer',
     color: 'terracotta',
     archived: false,
-    created_at: new Date().toISOString()
+    created_at: new Date().toISOString(),
   },
   {
     id: 'l-sophie-school',
@@ -615,7 +656,7 @@ export const DEMO_LISTS: TodoList[] = [
     icon: 'GraduationCap',
     color: 'rose',
     archived: false,
-    created_at: new Date().toISOString()
+    created_at: new Date().toISOString(),
   },
   {
     id: 'l-ben-personal',
@@ -625,15 +666,15 @@ export const DEMO_LISTS: TodoList[] = [
     icon: 'CircleUserRound',
     color: 'terracotta',
     archived: false,
-    created_at: new Date().toISOString()
-  }
+    created_at: new Date().toISOString(),
+  },
 ];
 
 function listItem(
   id: string,
   list_id: string,
   title: string,
-  opts: Partial<TodoItem> = {}
+  opts: Partial<TodoItem> = {},
 ): TodoItem {
   return {
     id,
@@ -649,7 +690,7 @@ function listItem(
     assigned_to: null,
     position: 0,
     created_at: new Date().toISOString(),
-    ...opts
+    ...opts,
   };
 }
 
@@ -657,24 +698,24 @@ export const DEMO_LIST_ITEMS: TodoItem[] = [
   // House admin — repeating maintenance tasks
   listItem('li-1', 'l-house', 'Test smoke alarm batteries', {
     repeat: 'biannually',
-    position: 0
+    position: 0,
   }),
   listItem('li-2', 'l-house', 'Service air conditioner', {
     repeat: 'yearly',
-    position: 1
+    position: 1,
   }),
   listItem('li-3', 'l-house', 'Wash windows', {
     repeat: 'biannually',
-    position: 2
+    position: 2,
   }),
   listItem('li-4', 'l-house', 'Pay car insurance', {
     repeat: 'yearly',
     position: 3,
-    assigned_to: 'm-ben'
+    assigned_to: 'm-ben',
   }),
   listItem('li-5', 'l-house', 'Replace water filter', {
     repeat: 'quarterly',
-    position: 4
+    position: 4,
   }),
 
   // Hardware store — one-offs
@@ -685,7 +726,7 @@ export const DEMO_LIST_ITEMS: TodoItem[] = [
   // Sophie school
   listItem('li-9', 'l-sophie-school', 'Permission slip — excursion', {
     position: 0,
-    due_date: localISODaysAgo(-5)
+    due_date: localISODaysAgo(-5),
   }),
   listItem('li-10', 'l-sophie-school', 'Order new uniform shirt', { position: 1 }),
 
@@ -693,8 +734,8 @@ export const DEMO_LIST_ITEMS: TodoItem[] = [
   listItem('li-11', 'l-ben-personal', 'Book dentist', { position: 0 }),
   listItem('li-12', 'l-ben-personal', 'Renew passport', {
     position: 1,
-    due_date: localISODaysAgo(-30)
-  })
+    due_date: localISODaysAgo(-30),
+  }),
 ];
 
 // ---- Habits (Phase 3) ------------------------------------------------------
@@ -712,7 +753,7 @@ export const DEMO_HABITS: Habit[] = [
     archived: false,
     count_mode: false,
     daily_target: 1,
-    created_at: new Date().toISOString()
+    created_at: new Date().toISOString(),
   },
   {
     id: 'h-2',
@@ -726,7 +767,7 @@ export const DEMO_HABITS: Habit[] = [
     archived: false,
     count_mode: false,
     daily_target: 1,
-    created_at: new Date().toISOString()
+    created_at: new Date().toISOString(),
   },
   {
     id: 'h-3',
@@ -740,7 +781,7 @@ export const DEMO_HABITS: Habit[] = [
     archived: false,
     count_mode: false,
     daily_target: 1,
-    created_at: new Date().toISOString()
+    created_at: new Date().toISOString(),
   },
   {
     id: 'h-4',
@@ -754,7 +795,7 @@ export const DEMO_HABITS: Habit[] = [
     archived: false,
     count_mode: false,
     daily_target: 1,
-    created_at: new Date().toISOString()
+    created_at: new Date().toISOString(),
   },
   {
     id: 'h-5',
@@ -768,7 +809,7 @@ export const DEMO_HABITS: Habit[] = [
     archived: false,
     count_mode: false,
     daily_target: 1,
-    created_at: new Date().toISOString()
+    created_at: new Date().toISOString(),
   },
   {
     id: 'h-6',
@@ -782,8 +823,8 @@ export const DEMO_HABITS: Habit[] = [
     archived: false,
     count_mode: true,
     daily_target: 8,
-    created_at: new Date().toISOString()
-  }
+    created_at: new Date().toISOString(),
+  },
 ];
 
 // Seed a few historical check-ins so streaks aren't empty
@@ -794,7 +835,7 @@ function checkIn(id: string, habit_id: string, member_id: string, daysAgo: numbe
     family_id: 'fam-ellis',
     member_id,
     for_date: daysAgoISO(daysAgo),
-    created_at: new Date(Date.now() - daysAgo * 86400000).toISOString()
+    created_at: new Date(Date.now() - daysAgo * 86400000).toISOString(),
   };
 }
 
@@ -812,7 +853,7 @@ export const DEMO_HABIT_CHECKINS: HabitCheckIn[] = [
   checkIn('hc-8', 'h-3', 'm-laura', 3),
   // Ben walks — most days
   checkIn('hc-9', 'h-4', 'm-ben', 1),
-  checkIn('hc-10', 'h-4', 'm-ben', 3)
+  checkIn('hc-10', 'h-4', 'm-ben', 3),
 ];
 
 // ---- Location presets (Phase 3) --------------------------------------------
@@ -826,7 +867,7 @@ export const LOCATION_PRESETS = [
   { label: 'School', icon: 'GraduationCap' },
   { label: 'Work', icon: 'Briefcase' },
   { label: 'Out', icon: 'Coffee' },
-  { label: 'Travelling', icon: 'Plane' }
+  { label: 'Travelling', icon: 'Plane' },
 ] as const;
 
 // ---- Activity pool (My Day — Phase 4) --------------------------------------
@@ -841,7 +882,7 @@ export const DEMO_ACTIVITY_POOL: ActivityPoolItem[] = [
     default_duration_min: 20,
     usage_count: 0,
     archived: false,
-    created_at: new Date().toISOString()
+    created_at: new Date().toISOString(),
   },
   {
     id: 'ap-2',
@@ -852,7 +893,7 @@ export const DEMO_ACTIVITY_POOL: ActivityPoolItem[] = [
     default_duration_min: 15,
     usage_count: 0,
     archived: false,
-    created_at: new Date().toISOString()
+    created_at: new Date().toISOString(),
   },
   {
     id: 'ap-3',
@@ -863,7 +904,7 @@ export const DEMO_ACTIVITY_POOL: ActivityPoolItem[] = [
     default_duration_min: 30,
     usage_count: 0,
     archived: false,
-    created_at: new Date().toISOString()
+    created_at: new Date().toISOString(),
   },
   {
     id: 'ap-4',
@@ -874,7 +915,7 @@ export const DEMO_ACTIVITY_POOL: ActivityPoolItem[] = [
     default_duration_min: 30,
     usage_count: 0,
     archived: false,
-    created_at: new Date().toISOString()
+    created_at: new Date().toISOString(),
   },
   {
     id: 'ap-5',
@@ -885,6 +926,6 @@ export const DEMO_ACTIVITY_POOL: ActivityPoolItem[] = [
     default_duration_min: 30,
     usage_count: 0,
     archived: false,
-    created_at: new Date().toISOString()
-  }
+    created_at: new Date().toISOString(),
+  },
 ];

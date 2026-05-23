@@ -8,7 +8,8 @@ import type { MealPlan, MealType, Recipe } from '@/types';
 const MEAL_TYPES: MealType[] = ['breakfast', 'lunch', 'dinner', 'snack'];
 
 export function MealPlannerView() {
-  const { recipes, mealPlans, addMealPlan, removeMealPlan, repeatMealPlan, activeMember } = useFamily();
+  const { recipes, mealPlans, addMealPlan, removeMealPlan, repeatMealPlan, activeMember } =
+    useFamily();
   const [repeatTargetId, setRepeatTargetId] = useState<string | null>(null);
   const [weekStart, setWeekStart] = useState(() => getMonday(new Date()));
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
@@ -16,12 +17,13 @@ export function MealPlannerView() {
   const [query, setQuery] = useState('');
   const [dragOverDay, setDragOverDay] = useState<string | null>(null);
 
-  const days = useMemo(() =>
-    Array.from({ length: 7 }, (_, i) => {
-      const d = addDays(new Date(weekStart), i);
-      return { date: format(d, 'yyyy-MM-dd'), label: format(d, 'EEE'), day: format(d, 'd') };
-    }),
-    [weekStart]
+  const days = useMemo(
+    () =>
+      Array.from({ length: 7 }, (_, i) => {
+        const d = addDays(new Date(weekStart), i);
+        return { date: format(d, 'yyyy-MM-dd'), label: format(d, 'EEE'), day: format(d, 'd') };
+      }),
+    [weekStart],
   );
 
   const weekEnd = days[6].date;
@@ -33,7 +35,7 @@ export function MealPlannerView() {
 
   const plansThisWeek = useMemo(
     () => mealPlans.filter((m) => m.date >= weekStart && m.date <= weekEnd),
-    [mealPlans, weekStart, weekEnd]
+    [mealPlans, weekStart, weekEnd],
   );
 
   // Top 6 most-recently-used recipes (based on most recent meal plan date per recipe)
@@ -53,7 +55,11 @@ export function MealPlannerView() {
     const q = query.trim().toLowerCase();
     if (!q) return recentRecipes;
     return recipes
-      .filter((r) => r.title.toLowerCase().includes(q) || r.ingredients.some((i) => i.item.toLowerCase().includes(q)))
+      .filter(
+        (r) =>
+          r.title.toLowerCase().includes(q) ||
+          r.ingredients.some((i) => i.item.toLowerCase().includes(q)),
+      )
       .sort((a, b) => {
         if (a.favorite !== b.favorite) return a.favorite ? -1 : 1;
         return a.title.localeCompare(b.title);
@@ -96,11 +102,15 @@ export function MealPlannerView() {
       <div className="flex items-center justify-between mb-4 gap-2">
         <h2 className="font-display text-xl text-text">Meal Plan</h2>
         <div className="flex items-center gap-2">
-          <button onClick={() => shiftWeek(-1)} className="btn-ghost p-1.5"><ChevronLeft size={18} /></button>
+          <button onClick={() => shiftWeek(-1)} className="btn-ghost p-1.5">
+            <ChevronLeft size={18} />
+          </button>
           <span className="text-sm text-text-muted min-w-36 text-center">
             {format(new Date(weekStart), 'MMM d')} – {format(new Date(weekEnd), 'MMM d, yyyy')}
           </span>
-          <button onClick={() => shiftWeek(1)} className="btn-ghost p-1.5"><ChevronRight size={18} /></button>
+          <button onClick={() => shiftWeek(1)} className="btn-ghost p-1.5">
+            <ChevronRight size={18} />
+          </button>
         </div>
         <div className="flex items-center gap-1 text-xs">
           {MEAL_TYPES.map((mt) => (
@@ -134,21 +144,27 @@ export function MealPlannerView() {
             <div className="space-y-1 max-h-[50vh] overflow-y-auto">
               {sidebarRecipes.length === 0 ? (
                 <p className="text-xs text-text-faint p-2">
-                  {query.trim() ? 'No recipes found.' : 'No recent meals yet — search to find recipes.'}
+                  {query.trim()
+                    ? 'No recipes found.'
+                    : 'No recent meals yet — search to find recipes.'}
                 </p>
-              ) : sidebarRecipes.map((r) => (
-                <div
-                  key={r.id}
-                  draggable
-                  onDragStart={(e) => handleDragStart(e, r.id)}
-                  className="flex items-center gap-1.5 px-2 py-1.5 rounded-md text-sm bg-surface-2 hover:bg-surface-3 cursor-grab active:cursor-grabbing transition min-w-0"
-                  onClick={() => selectedDay && handleAdd(r.id, selectedDay)}
-                >
-                  <span className="text-base shrink-0">{r.icon || '🍽️'}</span>
-                  <span className="flex-1 truncate text-text min-w-0">{r.title}</span>
-                  {r.favorite && <Heart size={11} className="text-red-500 shrink-0" fill="currentColor" />}
-                </div>
-              ))}
+              ) : (
+                sidebarRecipes.map((r) => (
+                  <div
+                    key={r.id}
+                    draggable
+                    onDragStart={(e) => handleDragStart(e, r.id)}
+                    className="flex items-center gap-1.5 px-2 py-1.5 rounded-md text-sm bg-surface-2 hover:bg-surface-3 cursor-grab active:cursor-grabbing transition min-w-0"
+                    onClick={() => selectedDay && handleAdd(r.id, selectedDay)}
+                  >
+                    <span className="text-base shrink-0">{r.icon || '🍽️'}</span>
+                    <span className="flex-1 truncate text-text min-w-0">{r.title}</span>
+                    {r.favorite && (
+                      <Heart size={11} className="text-red-500 shrink-0" fill="currentColor" />
+                    )}
+                  </div>
+                ))
+              )}
             </div>
           </div>
         </aside>
@@ -164,11 +180,16 @@ export function MealPlannerView() {
                 <div
                   key={date}
                   className={`card min-h-24 p-2 flex flex-col transition ${isOver ? 'ring-2 ring-accent' : ''}`}
-                  onDragOver={(e) => { e.preventDefault(); setDragOverDay(date); }}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    setDragOverDay(date);
+                  }}
                   onDragLeave={() => setDragOverDay(null)}
                   onDrop={(e) => handleDrop(e, date)}
                 >
-                  <div className={`text-center mb-1 ${isToday ? 'text-accent font-bold' : 'text-text-muted'}`}>
+                  <div
+                    className={`text-center mb-1 ${isToday ? 'text-accent font-bold' : 'text-text-muted'}`}
+                  >
                     <div className="text-xs">{label}</div>
                     <div className="text-sm">{day}</div>
                   </div>
@@ -197,16 +218,19 @@ export function MealPlannerView() {
             })}
           </div>
         </div>
-
       </div>
 
       {/* Day picker panel */}
       {selectedDay && (
         <div className="mt-3 card p-3">
           <p className="text-sm text-text-muted mb-2">
-            Adding to <strong>{format(new Date(selectedDay), 'EEEE, MMM d')}</strong> — click a recipe above
+            Adding to <strong>{format(new Date(selectedDay), 'EEEE, MMM d')}</strong> — click a
+            recipe above
           </p>
-          <button onClick={() => setSelectedDay(null)} className="text-xs text-text-faint hover:text-text">
+          <button
+            onClick={() => setSelectedDay(null)}
+            className="text-xs text-text-faint hover:text-text"
+          >
             Cancel
           </button>
         </div>
@@ -245,7 +269,9 @@ function RepeatMealModal({
   onApply: (weekdays: number[], weeks: number) => void;
 }) {
   const sourceWeekday = mealPlan ? new Date(`${mealPlan.date}T00:00:00`).getDay() : null;
-  const [selected, setSelected] = useState<Set<number>>(() => new Set(sourceWeekday !== null ? [sourceWeekday] : []));
+  const [selected, setSelected] = useState<Set<number>>(
+    () => new Set(sourceWeekday !== null ? [sourceWeekday] : []),
+  );
   const [weeks, setWeeks] = useState(4);
   // "Indefinitely" = repeat for two years' worth of weeks (a practical upper
   // bound — the planner doesn't surface meals more than a few weeks out anyway).
@@ -254,7 +280,9 @@ function RepeatMealModal({
   const dialogRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [onClose]);
@@ -286,10 +314,20 @@ function RepeatMealModal({
       >
         <div className="flex items-center justify-between">
           <h3 className="font-display text-lg text-text">Repeat meal</h3>
-          <button onClick={onClose} className="text-text-muted hover:text-text text-xl leading-none" aria-label="Close">×</button>
+          <button
+            onClick={onClose}
+            className="text-text-muted hover:text-text text-xl leading-none"
+            aria-label="Close"
+          >
+            ×
+          </button>
         </div>
         <p className="text-sm text-text-muted">
-          Copy <strong>{recipe?.icon || '🍽️'} {recipe?.title ?? 'this meal'}</strong> ({mealTypeLabel(mealPlan.meal_type)}) onto these weekdays:
+          Copy{' '}
+          <strong>
+            {recipe?.icon || '🍽️'} {recipe?.title ?? 'this meal'}
+          </strong>{' '}
+          ({mealTypeLabel(mealPlan.meal_type)}) onto these weekdays:
         </p>
         <div className="grid grid-cols-7 gap-1">
           {WEEKDAY_LABELS.map((label, wd) => {
@@ -336,7 +374,9 @@ function RepeatMealModal({
           </label>
         </div>
         <div className="flex gap-2 pt-1">
-          <button onClick={onClose} className="btn-secondary flex-1 py-2.5 rounded-xl">Cancel</button>
+          <button onClick={onClose} className="btn-secondary flex-1 py-2.5 rounded-xl">
+            Cancel
+          </button>
           <button
             onClick={apply}
             disabled={selected.size === 0}

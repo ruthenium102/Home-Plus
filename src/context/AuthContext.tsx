@@ -1,10 +1,4 @@
-import {
-  createContext,
-  useContext,
-  useEffect,
-  useState,
-  type ReactNode
-} from 'react';
+import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import type { Session, User } from '@supabase/supabase-js';
 import { supabase, isSupabaseConfigured } from '@/lib/supabase';
 
@@ -22,7 +16,7 @@ export interface AuthContextValue {
     email: string,
     password: string,
     name: string,
-    familyName: string
+    familyName: string,
   ) => Promise<{ error?: string }>;
   /** Sign completely out of Supabase Auth (not just the in-app member switch). */
   authSignOut: () => Promise<void>;
@@ -45,7 +39,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
 
     const {
-      data: { subscription }
+      data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
     });
@@ -63,13 +57,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     email: string,
     password: string,
     name: string,
-    familyName: string
+    familyName: string,
   ): Promise<{ error?: string }> => {
     if (!supabase) return { error: 'Supabase not configured' };
     const { error } = await supabase.auth.signUp({
       email,
       password,
-      options: { data: { name, family_name: familyName } }
+      options: { data: { name, family_name: familyName } },
     });
     return error ? { error: error.message } : {};
   };
@@ -81,7 +75,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const forgotPassword = async (email: string): Promise<{ error?: string }> => {
     if (!supabase) return { error: 'Supabase not configured' };
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}?reset=1`
+      redirectTo: `${window.location.origin}?reset=1`,
     });
     return error ? { error: error.message } : {};
   };
@@ -95,7 +89,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         signIn,
         signUp,
         authSignOut,
-        forgotPassword
+        forgotPassword,
       }}
     >
       {children}

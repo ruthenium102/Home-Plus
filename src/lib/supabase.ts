@@ -17,6 +17,6 @@ if (!isSupabaseConfigured) {
   // eslint-disable-next-line no-console
   console.warn(
     '[Home Plus] Supabase env vars missing. Running in demo mode with seeded local data. ' +
-      'Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in .env to enable persistence.'
+      'Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in .env to enable persistence.',
   );
 }

@@ -60,9 +60,9 @@ export function HomePage({ onNavigate }: Props) {
           member_ids: original.member_ids,
           recurrence: original.recurrence,
           reminder_offsets: original.reminder_offsets,
-          created_by: original.created_by
+          created_by: original.created_by,
         });
-      }
+      },
     });
   };
 
@@ -153,10 +153,7 @@ export function HomePage({ onNavigate }: Props) {
                   mode={swipeMode}
                   onDelete={() => handleDeleteEvent(e.id, e.title)}
                 >
-                  <EventChip
-                    event={e}
-                    onClick={() => onNavigate('calendar')}
-                  />
+                  <EventChip event={e} onClick={() => onNavigate('calendar')} />
                 </SwipeableRow>
               ))}
             </div>
@@ -214,8 +211,7 @@ export function HomePage({ onNavigate }: Props) {
                       <div className="flex-1 min-w-0">
                         <div
                           className={
-                            'text-sm truncate ' +
-                            (checked ? 'text-text-muted' : 'text-text')
+                            'text-sm truncate ' + (checked ? 'text-text-muted' : 'text-text')
                           }
                         >
                           {habit.title}
@@ -241,9 +237,7 @@ export function HomePage({ onNavigate }: Props) {
           {dueItems.length > 0 && (
             <div className="card p-4">
               <div className="flex items-baseline justify-between mb-3">
-                <div className="text-xs uppercase tracking-wider text-text-faint">
-                  Coming up
-                </div>
+                <div className="text-xs uppercase tracking-wider text-text-faint">Coming up</div>
                 <button
                   onClick={() => onNavigate('lists')}
                   className="text-[10px] uppercase tracking-wider text-text-muted hover:text-accent"
@@ -312,16 +306,12 @@ export function HomePage({ onNavigate }: Props) {
             </div>
             <div className="space-y-3">
               {kids.length === 0 ? (
-                <div className="text-sm text-text-faint">
-                  Add a child to start tracking rewards
-                </div>
+                <div className="text-sm text-text-faint">Add a child to start tracking rewards</div>
               ) : (
                 kids.map((kid) => {
                   const tokens = getColorTokens(kid.color, resolved === 'dark');
                   const stars = kid.reward_balances.stars || 0;
-                  const goal = goals.find(
-                    (g) => g.member_id === kid.id && !g.achieved_at
-                  );
+                  const goal = goals.find((g) => g.member_id === kid.id && !g.achieved_at);
                   const goalAmount = goal?.target_amount || 200;
                   const goalProgress = goal
                     ? (kid.reward_balances[goal.category] || 0) / goalAmount
@@ -349,7 +339,9 @@ export function HomePage({ onNavigate }: Props) {
                         </div>
                         {goal && (
                           <div className="text-[10px] text-text-faint mt-0.5 truncate">
-                            {goal.title} · {formatBalance(goal.category, kid.reward_balances[goal.category] || 0)} / {formatBalance(goal.category, goal.target_amount)}
+                            {goal.title} ·{' '}
+                            {formatBalance(goal.category, kid.reward_balances[goal.category] || 0)}{' '}
+                            / {formatBalance(goal.category, goal.target_amount)}
                           </div>
                         )}
                       </div>
@@ -359,7 +351,6 @@ export function HomePage({ onNavigate }: Props) {
               )}
             </div>
           </div>
-
         </div>
       </div>
     </div>

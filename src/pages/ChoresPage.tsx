@@ -11,7 +11,7 @@ import {
   Pencil,
   Check,
   X,
-  Camera
+  Camera,
 } from 'lucide-react';
 import { startOfWeek } from 'date-fns';
 import { useFamily } from '@/context/FamilyContext';
@@ -32,7 +32,7 @@ import {
   getChoresForMemberOnDate,
   isParent,
   weeklyEarnings,
-  type ChoreItem
+  type ChoreItem,
 } from '@/lib/chores';
 import { currentRotationAssignee } from '@/lib/rotation';
 import type { Chore, ChoreCompletion, FamilyMember, Redemption, RewardCategoryKey } from '@/types';
@@ -49,7 +49,8 @@ export function ChoresPage() {
 // ============================================================================
 
 function KidView({ member }: { member: FamilyMember }) {
-  const { chores, completions, completeChore, deleteCompletion, goals, rewardCategories, members } = useFamily();
+  const { chores, completions, completeChore, deleteCompletion, goals, rewardCategories, members } =
+    useFamily();
   const { resolved } = useTheme();
   const { show } = useToast();
   const [redeemOpen, setRedeemOpen] = useState(false);
@@ -71,15 +72,14 @@ function KidView({ member }: { member: FamilyMember }) {
   const goalProgress = memberGoal
     ? Math.min(
         100,
-        ((member.reward_balances[memberGoal.category] || 0) / memberGoal.target_amount) *
-          100
+        ((member.reward_balances[memberGoal.category] || 0) / memberGoal.target_amount) * 100,
       )
     : 0;
 
   const stats = {
     todo: choreItems.filter((c) => c.state === 'todo').length,
     pending: choreItems.filter((c) => c.state === 'pending').length,
-    done: choreItems.filter((c) => c.state === 'done').length
+    done: choreItems.filter((c) => c.state === 'done').length,
   };
 
   return (
@@ -88,15 +88,13 @@ function KidView({ member }: { member: FamilyMember }) {
       <div
         className="card p-5 sm:p-6 relative overflow-hidden"
         style={{
-          background: `linear-gradient(135deg, ${tokens.soft}, rgb(var(--surface)))`
+          background: `linear-gradient(135deg, ${tokens.soft}, rgb(var(--surface)))`,
         }}
       >
         <div className="flex items-center gap-4 mb-5">
           <Avatar member={member} size={64} />
           <div className="flex-1 min-w-0">
-            <div className="text-xs tracking-widest text-text-faint mb-0.5">
-              Hi
-            </div>
+            <div className="text-xs tracking-widest text-text-faint mb-0.5">Hi</div>
             <h1 className="font-display text-3xl text-text">{member.name}</h1>
           </div>
           <button
@@ -110,7 +108,8 @@ function KidView({ member }: { member: FamilyMember }) {
         {/* Balances */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
           {rewardCategories.map((c) => {
-            const Icon = c.key === 'stars' ? Sparkles : c.key === 'screen_minutes' ? Clock : PiggyBank;
+            const Icon =
+              c.key === 'stars' ? Sparkles : c.key === 'screen_minutes' ? Clock : PiggyBank;
             const bal = member.reward_balances[c.key] || 0;
             return (
               <div key={c.key} className="bg-surface rounded-md p-3 border border-border">
@@ -137,9 +136,13 @@ function KidView({ member }: { member: FamilyMember }) {
                 Saving for <span className="text-text font-medium">{memberGoal.title}</span>
               </span>
               <span className="text-text font-medium tabular-nums">
-                {formatBalance(memberGoal.category, member.reward_balances[memberGoal.category] || 0)}
+                {formatBalance(
+                  memberGoal.category,
+                  member.reward_balances[memberGoal.category] || 0,
+                )}
                 <span className="text-text-faint">
-                  {' '} / {formatBalance(memberGoal.category, memberGoal.target_amount)}
+                  {' '}
+                  / {formatBalance(memberGoal.category, memberGoal.target_amount)}
                 </span>
               </span>
             </div>
@@ -178,7 +181,7 @@ function KidView({ member }: { member: FamilyMember }) {
                   const completion = completeChore(item.chore.id, member.id, localISO(today));
                   show({
                     message: `"${item.chore.title}" done!`,
-                    onUndo: () => deleteCompletion(completion.id)
+                    onUndo: () => deleteCompletion(completion.id),
                   });
                 }}
               />
@@ -187,18 +190,14 @@ function KidView({ member }: { member: FamilyMember }) {
         )}
       </div>
 
-      <RedemptionModal
-        open={redeemOpen}
-        member={member}
-        onClose={() => setRedeemOpen(false)}
-      />
+      <RedemptionModal open={redeemOpen} member={member} onClose={() => setRedeemOpen(false)} />
     </div>
   );
 }
 
 function KidChoreRow({
   item,
-  onComplete
+  onComplete,
 }: {
   item: ChoreItem;
   memberId: string;
@@ -243,9 +242,7 @@ function KidChoreRow({
         {isPending && (
           <div className="text-xs text-text-muted mt-0.5">⏳ Waiting for parent approval</div>
         )}
-        {isRejected && (
-          <div className="text-xs text-accent mt-0.5">✗ Try again</div>
-        )}
+        {isRejected && <div className="text-xs text-accent mt-0.5">✗ Try again</div>}
       </div>
       <div className="flex items-center gap-1.5 shrink-0">
         {item.chore.requires_photo && <Camera size={12} className="text-text-faint" />}
@@ -275,24 +272,20 @@ function ParentView() {
     <div className="space-y-4 max-w-5xl mx-auto">
       {/* Sub-nav */}
       <div className="flex bg-surface-2 rounded-md p-0.5 self-start">
-        {(
-          [
-            { v: 'overview' as ParentTab, label: 'Overview' },
-            { v: 'manage' as ParentTab, label: 'Manage chores' },
-            {
-              v: 'approvals' as ParentTab,
-              label: pendingCount > 0 ? `Approvals (${pendingCount})` : 'Approvals'
-            }
-          ]
-        ).map((t) => (
+        {[
+          { v: 'overview' as ParentTab, label: 'Overview' },
+          { v: 'manage' as ParentTab, label: 'Manage chores' },
+          {
+            v: 'approvals' as ParentTab,
+            label: pendingCount > 0 ? `Approvals (${pendingCount})` : 'Approvals',
+          },
+        ].map((t) => (
           <button
             key={t.v}
             onClick={() => setTab(t.v)}
             className={
               'px-4 py-2 rounded-sm text-sm transition-colors ' +
-              (tab === t.v
-                ? 'bg-surface text-text shadow-sm font-medium'
-                : 'text-text-muted')
+              (tab === t.v ? 'bg-surface text-text shadow-sm font-medium' : 'text-text-muted')
             }
           >
             {t.label}
@@ -331,10 +324,7 @@ function ParentOverview() {
           const earnings = weeklyEarnings(completions, kid.id, weekStart);
           const goal = goals.find((g) => g.member_id === kid.id && !g.achieved_at);
           const goalProgress = goal
-            ? Math.min(
-                100,
-                ((kid.reward_balances[goal.category] || 0) / goal.target_amount) * 100
-              )
+            ? Math.min(100, ((kid.reward_balances[goal.category] || 0) / goal.target_amount) * 100)
             : 0;
 
           return (
@@ -448,9 +438,9 @@ function ParentManage() {
           rotation_roster: snapshot.rotation_roster,
           rotation_pointer: snapshot.rotation_pointer,
           rotation_anchor_iso_week: snapshot.rotation_anchor_iso_week,
-          roster_role_name: snapshot.roster_role_name
+          roster_role_name: snapshot.roster_role_name,
         });
-      }
+      },
     });
   };
 
@@ -468,13 +458,9 @@ function ParentManage() {
 
       <div className="card divide-y divide-border">
         {activeChores.map((c) => {
-            const { isDragging, dropEdge, ...rowHandlers } = choreDnd.getRowProps(c.id);
-            return (
-            <SwipeableRow
-              key={c.id}
-              mode={swipeMode}
-              onDelete={() => handleDeleteChore(c)}
-            >
+          const { isDragging, dropEdge, ...rowHandlers } = choreDnd.getRowProps(c.id);
+          return (
+            <SwipeableRow key={c.id} mode={swipeMode} onDelete={() => handleDeleteChore(c)}>
               <div
                 {...rowHandlers}
                 onClick={() => handleEdit(c)}
@@ -500,7 +486,10 @@ function ParentManage() {
                   })}
                 </div>
                 <button
-                  onClick={(e) => { e.stopPropagation(); handleEdit(c); }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleEdit(c);
+                  }}
                   className="w-7 h-7 rounded-md hover:bg-surface-2 flex items-center justify-center text-text-faint hover:text-text shrink-0"
                 >
                   <Pencil size={12} />
@@ -508,7 +497,7 @@ function ParentManage() {
               </div>
             </SwipeableRow>
           );
-          })}
+        })}
         {activeChores.length === 0 && (
           <div className="p-6 text-center text-text-faint text-sm">
             No chores yet. Tap "New chore" above.
@@ -516,11 +505,7 @@ function ParentManage() {
         )}
       </div>
 
-      <ChoreEditor
-        open={editorOpen}
-        onClose={() => setEditorOpen(false)}
-        editing={editing}
-      />
+      <ChoreEditor open={editorOpen} onClose={() => setEditorOpen(false)} editing={editing} />
     </div>
   );
 }
@@ -535,7 +520,7 @@ function ParentApprovals() {
     approveCompletion,
     rejectCompletion,
     approveRedemption,
-    rejectRedemption
+    rejectRedemption,
   } = useFamily();
 
   const [view, setView] = useState<'pending' | 'history'>('pending');
@@ -555,22 +540,22 @@ function ParentApprovals() {
   return (
     <div className="space-y-4">
       <div className="flex bg-surface-2 rounded-md p-0.5 self-start">
-        {(
-          [
-            { v: 'pending' as const, label: pendingCompletions.length + pendingRedemptions.length > 0
-              ? `Pending (${pendingCompletions.length + pendingRedemptions.length})`
-              : 'Pending' },
-            { v: 'history' as const, label: 'History' },
-          ]
-        ).map((t) => (
+        {[
+          {
+            v: 'pending' as const,
+            label:
+              pendingCompletions.length + pendingRedemptions.length > 0
+                ? `Pending (${pendingCompletions.length + pendingRedemptions.length})`
+                : 'Pending',
+          },
+          { v: 'history' as const, label: 'History' },
+        ].map((t) => (
           <button
             key={t.v}
             onClick={() => setView(t.v)}
             className={
               'px-3 py-1.5 rounded-sm text-xs font-medium transition-colors ' +
-              (view === t.v
-                ? 'bg-surface text-text shadow-sm'
-                : 'text-text-muted')
+              (view === t.v ? 'bg-surface text-text shadow-sm' : 'text-text-muted')
             }
           >
             {t.label}
@@ -764,7 +749,8 @@ function HistoryView({
                   <div className="flex-1 min-w-0">
                     <div className="text-sm font-medium text-text truncate">{chore.title}</div>
                     <div className="text-xs text-text-faint">
-                      {m.name} · {formatPayout(c.payout)} · {formatDistanceToNow(new Date(when), { addSuffix: true })}
+                      {m.name} · {formatPayout(c.payout)} ·{' '}
+                      {formatDistanceToNow(new Date(when), { addSuffix: true })}
                     </div>
                   </div>
                   <div className="flex flex-col items-end gap-1 shrink-0">
@@ -812,7 +798,8 @@ function HistoryView({
                       {m.name}: {r.reason}
                     </div>
                     <div className="text-xs text-text-faint">
-                      {formatBalance(r.category, r.amount)} · {formatDistanceToNow(new Date(when), { addSuffix: true })}
+                      {formatBalance(r.category, r.amount)} ·{' '}
+                      {formatDistanceToNow(new Date(when), { addSuffix: true })}
                     </div>
                   </div>
                   <div className="flex flex-col items-end gap-1 shrink-0">

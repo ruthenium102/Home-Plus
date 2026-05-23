@@ -31,9 +31,14 @@ export function InviteModal({ open, onClose, defaultName }: Props) {
   };
 
   const handleSend = async () => {
-    if (!email.trim()) { setErrorMsg('Enter an email address.'); return; }
+    if (!email.trim()) {
+      setErrorMsg('Enter an email address.');
+      return;
+    }
     if (!isSupabaseConfigured || !supabase) {
-      setErrorMsg('Supabase is not configured. Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to your .env file.');
+      setErrorMsg(
+        'Supabase is not configured. Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to your .env file.',
+      );
       return;
     }
 
@@ -48,8 +53,8 @@ export function InviteModal({ open, onClose, defaultName }: Props) {
           family_id: family.id,
           family_name: family.name,
           invited_by_name: activeMember?.name ?? 'A family member',
-          site_url: window.location.origin
-        }
+          site_url: window.location.origin,
+        },
       });
 
       if (error) throw new Error(error.message);
@@ -73,10 +78,7 @@ export function InviteModal({ open, onClose, defaultName }: Props) {
       className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4"
       onClick={handleClose}
     >
-      <div
-        className="card w-full max-w-md"
-        onClick={(e) => e.stopPropagation()}
-      >
+      <div className="card w-full max-w-md" onClick={(e) => e.stopPropagation()}>
         {/* Header */}
         <div className="flex items-center justify-between p-5 border-b border-border">
           <div className="flex items-center gap-2.5">
@@ -110,8 +112,8 @@ export function InviteModal({ open, onClose, defaultName }: Props) {
             <>
               <p className="text-sm text-text-faint mb-4 leading-relaxed">
                 Enter the email address of the person you'd like to add to{' '}
-                <span className="text-text font-medium">{family.name}</span>. They'll receive
-                an invitation link to create their account.
+                <span className="text-text font-medium">{family.name}</span>. They'll receive an
+                invitation link to create their account.
               </p>
 
               <div className="space-y-3">
@@ -136,7 +138,10 @@ export function InviteModal({ open, onClose, defaultName }: Props) {
                   <input
                     type="email"
                     value={email}
-                    onChange={(e) => { setEmail(e.target.value); setErrorMsg(''); }}
+                    onChange={(e) => {
+                      setEmail(e.target.value);
+                      setErrorMsg('');
+                    }}
                     placeholder="susan@example.com"
                     autoFocus
                     className="w-full px-3 py-2.5 bg-surface-2 border border-border rounded-md text-text text-sm placeholder:text-text-faint focus:outline-none focus:border-accent"
@@ -155,8 +160,8 @@ export function InviteModal({ open, onClose, defaultName }: Props) {
               {/* Info note */}
               <div className="mt-4 p-3 bg-surface-2 rounded-lg text-xs text-text-faint leading-relaxed">
                 <strong className="text-text-muted">How it works:</strong> The invitation is sent
-                via email. The recipient clicks a secure link to create their account and join
-                your family automatically.
+                via email. The recipient clicks a secure link to create their account and join your
+                family automatically.
               </div>
 
               <div className="flex items-center justify-between mt-5">

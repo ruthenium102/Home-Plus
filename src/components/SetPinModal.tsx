@@ -29,8 +29,7 @@ export function SetPinModal({ open, member, onClose }: Props) {
   const hasPin = member.pin_hash !== null;
   // Parent override: a parent editing another member's PIN can bypass the
   // current-PIN check entirely (covers the "kid forgot their PIN" case).
-  const canOverride =
-    activeMember?.role === 'parent' && activeMember.id !== member.id;
+  const canOverride = activeMember?.role === 'parent' && activeMember.id !== member.id;
   const requiresVerify = hasPin && !canOverride;
   const initialStep: Step = requiresVerify ? 'verify_current' : 'enter_new';
   // For has-PIN flows the user must pick set/remove first (mode), and until
@@ -105,10 +104,7 @@ export function SetPinModal({ open, member, onClose }: Props) {
         className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4"
         onClick={handleClose}
       >
-        <div
-          className="card w-full max-w-md p-6"
-          onClick={(e) => e.stopPropagation()}
-        >
+        <div className="card w-full max-w-md p-6" onClick={(e) => e.stopPropagation()}>
           <div className="flex items-center justify-between mb-5">
             <div className="flex items-center gap-3">
               <Avatar member={member} size={44} />
@@ -178,9 +174,11 @@ export function SetPinModal({ open, member, onClose }: Props) {
         : 'Confirm PIN';
 
   const saveLabel =
-    currentStep === 'verify_current' ? 'Unlock' :
-    currentStep === 'confirm_new' ? 'Save PIN' :
-    'Next';
+    currentStep === 'verify_current'
+      ? 'Unlock'
+      : currentStep === 'confirm_new'
+        ? 'Save PIN'
+        : 'Next';
 
   // The verify step keeps the auto-submit behaviour (lighter touch); the
   // setup/confirm steps require an explicit Save tap so the user can review.

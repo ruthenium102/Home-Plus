@@ -60,7 +60,9 @@ export function StatsView() {
               key={r.id}
               onClick={() => setRange(r.id)}
               className={`px-3 py-1.5 rounded-md text-sm transition ${
-                range === r.id ? 'bg-accent text-white' : 'bg-surface-2 text-text-muted hover:bg-surface-3'
+                range === r.id
+                  ? 'bg-accent text-white'
+                  : 'bg-surface-2 text-text-muted hover:bg-surface-3'
               }`}
             >
               {r.label}
@@ -72,8 +74,16 @@ export function StatsView() {
       {/* Summary cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <StatCard icon={<BarChart3 size={20} />} label="Meals cooked" value={stats.totalCooked} />
-        <StatCard icon={<TrendingUp size={20} />} label="Recipes used" value={stats.uniqueRecipes} />
-        <StatCard icon={<Heart size={20} className="text-red-500" />} label="Favourites" value={stats.totalFavorites} />
+        <StatCard
+          icon={<TrendingUp size={20} />}
+          label="Recipes used"
+          value={stats.uniqueRecipes}
+        />
+        <StatCard
+          icon={<Heart size={20} className="text-red-500" />}
+          label="Favourites"
+          value={stats.totalFavorites}
+        />
         <StatCard icon={<Calendar size={20} />} label="Upcoming" value={stats.upcoming.length} />
       </div>
 
@@ -132,11 +142,17 @@ export function StatsView() {
         {/* Never cooked */}
         {stats.neverCooked.length > 0 && (
           <div className="card p-4 lg:col-span-2">
-            <h3 className="font-medium text-text mb-3">Never cooked in this period ({stats.neverCooked.length})</h3>
+            <h3 className="font-medium text-text mb-3">
+              Never cooked in this period ({stats.neverCooked.length})
+            </h3>
             <div className="flex flex-wrap gap-2">
               {stats.neverCooked.map((r) => (
-                <span key={r.id} className="flex items-center gap-1 px-2 py-1 bg-surface-2 rounded-full text-sm text-text-muted">
-                  <span>{r.icon || '🍽️'}</span>{r.title}
+                <span
+                  key={r.id}
+                  className="flex items-center gap-1 px-2 py-1 bg-surface-2 rounded-full text-sm text-text-muted"
+                >
+                  <span>{r.icon || '🍽️'}</span>
+                  {r.title}
                 </span>
               ))}
             </div>

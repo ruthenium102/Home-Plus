@@ -56,8 +56,8 @@ export function CustomPetEditor({ onConfirm, onCancel, initial }: Props) {
         {step === 'pick' && (
           <>
             <p className="text-sm text-text-muted">
-              Draw your pet on white paper, then snap a photo. We'll clean up the
-              background so it looks tidy.
+              Draw your pet on white paper, then snap a photo. We'll clean up the background so it
+              looks tidy.
             </p>
             <input
               ref={fileRef}
@@ -85,8 +85,8 @@ export function CustomPetEditor({ onConfirm, onCancel, initial }: Props) {
         {step === 'place' && image && (
           <>
             <p className="text-sm text-text-muted">
-              Drag the dots onto your drawing's eyes. They'll blink and follow the
-              cursor in the app.
+              Drag the dots onto your drawing's eyes. They'll blink and follow the cursor in the
+              app.
             </p>
             <EyePlacer image={image} eyes={eyes} onChange={setEyes} />
             <div className="space-y-2">
@@ -178,7 +178,11 @@ function EyePlacer({ image, eyes, onChange }: EyePlacerProps) {
         className="absolute inset-0 w-full h-full object-contain"
       />
       <EyeHandle eye={eyes.left} active={dragging === 'left'} onDown={() => setDragging('left')} />
-      <EyeHandle eye={eyes.right} active={dragging === 'right'} onDown={() => setDragging('right')} />
+      <EyeHandle
+        eye={eyes.right}
+        active={dragging === 'right'}
+        onDown={() => setDragging('right')}
+      />
     </div>
   );
 }
@@ -331,17 +335,7 @@ function cropToContent(canvas: HTMLCanvasElement): HTMLCanvasElement {
   out.height = realSide;
   const octx = out.getContext('2d');
   if (!octx) return canvas;
-  octx.drawImage(
-    canvas,
-    offsetX,
-    offsetY,
-    realSide,
-    realSide,
-    0,
-    0,
-    realSide,
-    realSide,
-  );
+  octx.drawImage(canvas, offsetX, offsetY, realSide, realSide, 0, 0, realSide, realSide);
   return out;
 }
 

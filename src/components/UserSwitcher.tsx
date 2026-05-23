@@ -72,10 +72,7 @@ export function UserSwitcher({ onClose, fullscreen = false }: Props) {
             </div>
 
             {onClose && (
-              <button
-                onClick={onClose}
-                className="mt-8 text-sm text-text-muted hover:text-text"
-              >
+              <button onClick={onClose} className="mt-8 text-sm text-text-muted hover:text-text">
                 Cancel
               </button>
             )}

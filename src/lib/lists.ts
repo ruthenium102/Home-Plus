@@ -6,9 +6,7 @@ import type { TodoItem, TodoList, ListItemRepeat, FamilyMember } from '@/types';
  * - Private lists are visible only to their owner.
  */
 export function visibleLists(lists: TodoList[], activeMemberId: string): TodoList[] {
-  return lists.filter(
-    (l) => !l.archived && (l.owner_id === null || l.owner_id === activeMemberId)
-  );
+  return lists.filter((l) => !l.archived && (l.owner_id === null || l.owner_id === activeMemberId));
 }
 
 /**
@@ -29,7 +27,7 @@ const REPEAT_LABELS: Record<ListItemRepeat, string> = {
   monthly: 'Every month',
   quarterly: 'Every 3 months',
   biannually: 'Every 6 months',
-  yearly: 'Every year'
+  yearly: 'Every year',
 };
 
 export function formatRepeat(repeat: ListItemRepeat): string {
@@ -43,8 +41,7 @@ export function isDueSoon(item: TodoItem, withinDays: number = 7): boolean {
   const target = item.next_due || item.due_date;
   if (!target) return false;
   if (item.done && item.repeat === 'never') return false;
-  const diff =
-    (new Date(target).getTime() - new Date().setHours(0, 0, 0, 0)) / 86400000;
+  const diff = (new Date(target).getTime() - new Date().setHours(0, 0, 0, 0)) / 86400000;
   return diff >= 0 && diff <= withinDays;
 }
 
@@ -77,10 +74,7 @@ export function formatDue(iso: string | null): string {
 /**
  * For shared lists, who's been assigned an item?
  */
-export function findAssignee(
-  members: FamilyMember[],
-  item: TodoItem
-): FamilyMember | null {
+export function findAssignee(members: FamilyMember[], item: TodoItem): FamilyMember | null {
   if (!item.assigned_to) return null;
   return members.find((m) => m.id === item.assigned_to) ?? null;
 }
@@ -92,5 +86,5 @@ export const REPEAT_OPTIONS: { v: ListItemRepeat; label: string }[] = [
   { v: 'monthly', label: 'Monthly' },
   { v: 'quarterly', label: 'Every 3 months' },
   { v: 'biannually', label: 'Every 6 months' },
-  { v: 'yearly', label: 'Yearly' }
+  { v: 'yearly', label: 'Yearly' },
 ];

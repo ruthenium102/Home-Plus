@@ -8,7 +8,7 @@ import {
   Sun,
   PawPrint,
   Settings as SettingsIcon,
-  type LucideIcon
+  type LucideIcon,
 } from 'lucide-react';
 
 export type TabKey =
@@ -45,7 +45,7 @@ export function TabBar({
   showChores = true,
   showHabits = true,
   showPet = false,
-  showKitchen = false
+  showKitchen = false,
 }: Props) {
   const tabs: Tab[] = [
     { key: 'home', label: 'Home', icon: Home },
@@ -56,7 +56,7 @@ export function TabBar({
     ...(showHabits ? [{ key: 'habits' as TabKey, label: 'Habits', icon: Sparkles }] : []),
     ...(showPet ? [{ key: 'pet' as TabKey, label: 'Pet', icon: PawPrint }] : []),
     ...(showKitchen ? [{ key: 'kitchen' as TabKey, label: 'Kitchen+', icon: ChefHat }] : []),
-    { key: 'settings', label: 'Settings', icon: SettingsIcon }
+    { key: 'settings', label: 'Settings', icon: SettingsIcon },
   ];
 
   return (

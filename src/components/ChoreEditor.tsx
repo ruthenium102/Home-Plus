@@ -18,7 +18,7 @@ const FREQ_OPTIONS: { v: ChoreFrequency; label: string }[] = [
   { v: 'weekend', label: 'Weekends' },
   { v: 'weekly', label: 'Pick days' },
   { v: 'monthly', label: 'Monthly' },
-  { v: 'one_off', label: 'One-off' }
+  { v: 'one_off', label: 'One-off' },
 ];
 
 const WEEKDAY_LABELS = ['S', 'M', 'T', 'W', 'T', 'F', 'S']; // Sun-first
@@ -33,7 +33,7 @@ export function ChoreEditor({ open, onClose, editing }: Props) {
   const [freq, setFreq] = useState<ChoreFrequency>('daily');
   const [weekdays, setWeekdays] = useState<number[]>([]);
   const [payout, setPayout] = useState<Partial<Record<RewardCategoryKey, number>>>({
-    stars: 5
+    stars: 5,
   });
   const [requiresPhoto, setRequiresPhoto] = useState(false);
   const [requiresApproval, setRequiresApproval] = useState(false);
@@ -90,8 +90,9 @@ export function ChoreEditor({ open, onClose, editing }: Props) {
       mode,
       rotation_roster: effectiveRoster,
       rotation_pointer: editing?.rotation_pointer ?? 0,
-      rotation_anchor_iso_week: editing?.rotation_anchor_iso_week ?? (mode !== 'standard' ? isoWeekStr() : null),
-      roster_role_name: mode === 'roster_role' ? (rosterRoleName.trim() || null) : null
+      rotation_anchor_iso_week:
+        editing?.rotation_anchor_iso_week ?? (mode !== 'standard' ? isoWeekStr() : null),
+      roster_role_name: mode === 'roster_role' ? rosterRoleName.trim() || null : null,
     };
 
     if (editing) {
@@ -133,9 +134,7 @@ export function ChoreEditor({ open, onClose, editing }: Props) {
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between p-4 border-b border-border shrink-0">
-          <h2 className="font-display text-xl text-text">
-            {editing ? 'Edit chore' : 'New chore'}
-          </h2>
+          <h2 className="font-display text-xl text-text">{editing ? 'Edit chore' : 'New chore'}</h2>
           <button
             onClick={onClose}
             className="w-9 h-9 rounded-md hover:bg-surface-2 flex items-center justify-center text-text-muted"
@@ -174,9 +173,7 @@ export function ChoreEditor({ open, onClose, editing }: Props) {
                     type="button"
                     onClick={() =>
                       setAssigned((prev) =>
-                        prev.includes(m.id)
-                          ? prev.filter((x) => x !== m.id)
-                          : [...prev, m.id]
+                        prev.includes(m.id) ? prev.filter((x) => x !== m.id) : [...prev, m.id],
                       )
                     }
                     className={
@@ -226,9 +223,7 @@ export function ChoreEditor({ open, onClose, editing }: Props) {
                       key={i}
                       onClick={() =>
                         setWeekdays((prev) =>
-                          prev.includes(i)
-                            ? prev.filter((x) => x !== i)
-                            : [...prev, i].sort()
+                          prev.includes(i) ? prev.filter((x) => x !== i) : [...prev, i].sort(),
                         )
                       }
                       className={
@@ -255,7 +250,7 @@ export function ChoreEditor({ open, onClose, editing }: Props) {
                   [
                     { v: 'standard', label: 'All do it' },
                     { v: 'rotated', label: 'Rotate weekly' },
-                    { v: 'roster_role', label: 'Role rotation' }
+                    { v: 'roster_role', label: 'Role rotation' },
                   ] as const
                 ).map(({ v, label }) => (
                   <button
@@ -351,10 +346,7 @@ export function ChoreEditor({ open, onClose, editing }: Props) {
             <span />
           )}
           <div className="flex gap-2">
-            <button
-              onClick={onClose}
-              className="px-4 py-2 text-sm text-text-muted hover:text-text"
-            >
+            <button onClick={onClose} className="px-4 py-2 text-sm text-text-muted hover:text-text">
               Cancel
             </button>
             <button
@@ -401,9 +393,7 @@ function SegmentedToggle({
             onClick={() => onChange(opt.v)}
             className={
               'px-3 py-1 rounded text-xs font-semibold transition-colors ' +
-              (value === opt.v
-                ? 'bg-accent text-white'
-                : 'text-text-muted hover:text-text')
+              (value === opt.v ? 'bg-accent text-white' : 'text-text-muted hover:text-text')
             }
             aria-pressed={value === opt.v}
           >
@@ -426,7 +416,14 @@ interface RosterDragListProps {
   onRoleNameChange: (v: string) => void;
 }
 
-function RosterDragList({ roster, kids, onChange, mode, rosterRoleName, onRoleNameChange }: RosterDragListProps) {
+function RosterDragList({
+  roster,
+  kids,
+  onChange,
+  mode,
+  rosterRoleName,
+  onRoleNameChange,
+}: RosterDragListProps) {
   const dragIndexRef = useRef<number | null>(null);
 
   const handleDragStart = (i: number) => {

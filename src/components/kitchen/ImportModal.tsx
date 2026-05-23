@@ -28,7 +28,11 @@ export function ImportModal({ onImport, onClose }: Props) {
         data = await res.json();
       } else {
         const text = await res.text();
-        const preview = text.slice(0, 100).replace(/<[^>]+>/g, '').trim() || `HTTP ${res.status}`;
+        const preview =
+          text
+            .slice(0, 100)
+            .replace(/<[^>]+>/g, '')
+            .trim() || `HTTP ${res.status}`;
         throw new Error(`API returned non-JSON (${res.status}): ${preview}`);
       }
 
@@ -45,7 +49,10 @@ export function ImportModal({ onImport, onClose }: Props) {
   }
 
   return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={onClose}>
+    <div
+      className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
+      onClick={onClose}
+    >
       <div className="card max-w-md w-full p-5" onClick={(e) => e.stopPropagation()}>
         <div className="flex justify-between items-center mb-4">
           <h2 className="font-display text-xl text-text">Import from URL</h2>
@@ -59,7 +66,9 @@ export function ImportModal({ onImport, onClose }: Props) {
           onChange={(e) => setUrl(e.target.value)}
           placeholder="https://www.bbcgoodfood.com/recipes/..."
           className="input w-full mb-3"
-          onKeyDown={(e) => { if (e.key === 'Enter' && url && !loading) handleImport(); }}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && url && !loading) handleImport();
+          }}
           autoFocus
         />
 
@@ -70,11 +79,14 @@ export function ImportModal({ onImport, onClose }: Props) {
         )}
 
         <p className="text-xs text-text-faint mb-4">
-          Extracts structured recipe data automatically. Uses AI as fallback for sites without it (requires ANTHROPIC_API_KEY).
+          Extracts structured recipe data automatically. Uses AI as fallback for sites without it
+          (requires ANTHROPIC_API_KEY).
         </p>
 
         <div className="flex gap-2 justify-end">
-          <button onClick={onClose} className="btn-ghost">Cancel</button>
+          <button onClick={onClose} className="btn-ghost">
+            Cancel
+          </button>
           <button
             onClick={handleImport}
             disabled={!url.trim() || loading}

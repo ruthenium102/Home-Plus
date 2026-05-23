@@ -1,13 +1,6 @@
 import { useMemo, useState } from 'react';
 import { localISO } from '@/lib/dates';
-import {
-  Plus,
-  Pencil,
-  Lock,
-  Users,
-  Flame,
-  Sparkles
-} from 'lucide-react';
+import { Plus, Pencil, Lock, Users, Flame, Sparkles } from 'lucide-react';
 import { useFamily } from '@/context/FamilyContext';
 import { useTheme } from '@/context/ThemeContext';
 import { useToast } from '@/context/ToastContext';
@@ -25,13 +18,23 @@ import {
   visibleHabits,
   nextStreakMilestone,
   targetMet,
-  targetLabel
+  targetLabel,
 } from '@/lib/habits';
 import type { Habit } from '@/types';
 
 export function HabitsPage() {
-  const { habits, checkIns, members, activeMember, toggleCheckIn, incrementCheckIn, decrementCheckIn, deleteHabit, addHabit, reorderHabits } =
-    useFamily();
+  const {
+    habits,
+    checkIns,
+    members,
+    activeMember,
+    toggleCheckIn,
+    incrementCheckIn,
+    decrementCheckIn,
+    deleteHabit,
+    addHabit,
+    reorderHabits,
+  } = useFamily();
   // Drag-to-reorder applies only to the active member's own habits — other
   // sections are read-only. The hook walks the full habit array so the new
   // global order preserves cross-member positions naturally.
@@ -61,15 +64,15 @@ export function HabitsPage() {
           archived: snapshot.archived,
           count_mode: snapshot.count_mode ?? false,
           daily_target: snapshot.daily_target ?? 1,
-          target_op: snapshot.target_op
+          target_op: snapshot.target_op,
         });
-      }
+      },
     });
   };
 
   const habitsToShow = useMemo(
     () => (activeMember ? visibleHabits(habits, activeMember.id) : []),
-    [habits, activeMember]
+    [habits, activeMember],
   );
 
   // Group by member for cleaner display
@@ -81,7 +84,7 @@ export function HabitsPage() {
       map.set(h.member_id, arr);
     }
     // Active member first, others after
-    const ordered: { member: typeof members[number]; list: Habit[] }[] = [];
+    const ordered: { member: (typeof members)[number]; list: Habit[] }[] = [];
     if (activeMember && map.has(activeMember.id)) {
       ordered.push({ member: activeMember, list: map.get(activeMember.id)! });
     }
@@ -119,10 +122,7 @@ export function HabitsPage() {
           <div className="text-sm text-text-faint mb-4">
             Build a daily routine — read, walk, practise — and watch the streaks add up.
           </div>
-          <button
-            onClick={handleNew}
-            className="text-sm text-accent hover:underline"
-          >
+          <button onClick={handleNew} className="text-sm text-accent hover:underline">
             Create your first habit →
           </button>
         </div>
@@ -136,7 +136,8 @@ export function HabitsPage() {
                 <Avatar member={member} size={36} />
                 <div className="flex-1">
                   <div className="font-display text-lg text-text">
-                    {member.name}{isActive && <span className="text-text-faint text-sm font-sans"> · you</span>}
+                    {member.name}
+                    {isActive && <span className="text-text-faint text-sm font-sans"> · you</span>}
                   </div>
                   <div className="text-[11px] text-text-faint">
                     {list.length} habit{list.length === 1 ? '' : 's'}
@@ -146,7 +147,10 @@ export function HabitsPage() {
               <div className="space-y-2">
                 {list.map((habit) => {
                   const todayCheckIn = checkIns.find(
-                    (c) => c.habit_id === habit.id && c.member_id === member.id && c.for_date === todayISO
+                    (c) =>
+                      c.habit_id === habit.id &&
+                      c.member_id === member.id &&
+                      c.for_date === todayISO,
                   );
                   const todayCount = todayCheckIn ? (todayCheckIn.count ?? 1) : 0;
                   const target = habit.daily_target ?? 1;
@@ -156,10 +160,17 @@ export function HabitsPage() {
                   // through so the cell can render a light overlay.
                   const last7Data = lastNDays(checkIns, habit.id, member.id, 7).map((d) => {
                     const ci = checkIns.find(
-                      (c) => c.habit_id === habit.id && c.member_id === member.id && c.for_date === d.date
+                      (c) =>
+                        c.habit_id === habit.id &&
+                        c.member_id === member.id &&
+                        c.for_date === d.date,
                     );
                     const dayCount = ci ? (ci.count ?? 1) : 0;
-                    return { date: d.date, checked: targetMet(dayCount, target, habit.target_op), count: dayCount };
+                    return {
+                      date: d.date,
+                      checked: targetMet(dayCount, target, habit.target_op),
+                      count: dayCount,
+                    };
                   });
 
                   const dragProps = isActive ? habitDnd.getRowProps(habit.id) : null;
@@ -256,7 +267,7 @@ function HabitRow({
   onDecrement,
   onIncrementDate,
   onDecrementDate,
-  onEdit
+  onEdit,
 }: HabitRowProps) {
   void onDecrement;
   void onDecrementDate;
@@ -268,8 +279,12 @@ function HabitRow({
   const milestoneTo = milestone - streak;
   const target = habit.daily_target ?? 1;
 
-  const { isDragging, isOver: _ignoredIsOver, dropEdge, ...rowHandlers } =
-    dragProps ?? { isDragging: false, isOver: false, dropEdge: null as 'top' | 'bottom' | null };
+  const {
+    isDragging,
+    isOver: _ignoredIsOver,
+    dropEdge,
+    ...rowHandlers
+  } = dragProps ?? { isDragging: false, isOver: false, dropEdge: null as 'top' | 'bottom' | null };
   return (
     <div
       {...(dragProps ? rowHandlers : {})}
@@ -289,9 +304,7 @@ function HabitRow({
           ) : (
             <Lock size={11} className="text-text-faint shrink-0" />
           )}
-          {habit.streak_rewards && (
-            <Sparkles size={11} className="text-accent shrink-0" />
-          )}
+          {habit.streak_rewards && <Sparkles size={11} className="text-accent shrink-0" />}
         </div>
         <div className="flex items-center gap-2 mt-0.5 text-xs">
           <span className="text-text-faint tabular-nums">
@@ -299,22 +312,13 @@ function HabitRow({
           </span>
           <span className="text-text-faint">·</span>
           <div className="flex items-center gap-1">
-            <Flame
-              size={11}
-              className={streak > 0 ? 'text-accent' : 'text-text-faint'}
-            />
-            <span
-              className={
-                'tabular-nums ' + (streak > 0 ? 'text-text' : 'text-text-faint')
-              }
-            >
+            <Flame size={11} className={streak > 0 ? 'text-accent' : 'text-text-faint'} />
+            <span className={'tabular-nums ' + (streak > 0 ? 'text-text' : 'text-text-faint')}>
               {streak} day{streak === 1 ? '' : 's'}
             </span>
           </div>
           {habit.streak_rewards && streak > 0 && (
-            <span className="text-[10px] text-text-faint">
-              · {milestoneTo} to next reward
-            </span>
+            <span className="text-[10px] text-text-faint">· {milestoneTo} to next reward</span>
           )}
         </div>
       </div>

@@ -48,11 +48,17 @@ export function useListDragReorder<T extends { id: string }>(
       e.preventDefault();
       e.stopPropagation();
       const edge = overEdge;
-      if (!dragId || dragId === targetId) { finish(); return; }
+      if (!dragId || dragId === targetId) {
+        finish();
+        return;
+      }
       const ids = items.map((it) => it.id);
       const fromIdx = ids.indexOf(dragId);
       const toIdx = ids.indexOf(targetId);
-      if (fromIdx < 0 || toIdx < 0) { finish(); return; }
+      if (fromIdx < 0 || toIdx < 0) {
+        finish();
+        return;
+      }
       const reordered = ids.slice();
       reordered.splice(fromIdx, 1);
       // Insert before or after the target based on which edge the cursor is on.

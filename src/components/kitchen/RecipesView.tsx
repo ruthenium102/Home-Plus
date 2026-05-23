@@ -7,7 +7,8 @@ import { guessRecipeIcon, tryHostname } from '@/lib/kitchen';
 import type { Recipe } from '@/types';
 
 export function RecipesView() {
-  const { recipes, addRecipe, updateRecipe, deleteRecipe, toggleRecipeFavorite, activeMember } = useFamily();
+  const { recipes, addRecipe, updateRecipe, deleteRecipe, toggleRecipeFavorite, activeMember } =
+    useFamily();
   const [query, setQuery] = useState('');
   const [editing, setEditing] = useState<Partial<Recipe> | null>(null);
   const [showImport, setShowImport] = useState(false);
@@ -50,7 +51,10 @@ export function RecipesView() {
       {/* Toolbar */}
       <div className="flex items-center gap-2 mb-4 flex-wrap">
         <div className="relative flex-1 min-w-40">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-faint pointer-events-none" />
+          <Search
+            size={14}
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-text-faint pointer-events-none"
+          />
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
@@ -69,13 +73,15 @@ export function RecipesView() {
           onClick={() => setShowImport(true)}
           className="btn-ghost flex items-center gap-1 text-sm"
         >
-          <Link size={14} />Import URL
+          <Link size={14} />
+          Import URL
         </button>
         <button
           onClick={() => setEditing({})}
           className="btn-primary flex items-center gap-1 text-sm"
         >
-          <Plus size={14} />Add recipe
+          <Plus size={14} />
+          Add recipe
         </button>
       </div>
 
@@ -107,17 +113,19 @@ export function RecipesView() {
         <RecipeEditor
           recipe={editing}
           onSave={handleSave}
-          onDelete={editing.id ? () => { deleteRecipe(editing.id!); setEditing(null); } : undefined}
+          onDelete={
+            editing.id
+              ? () => {
+                  deleteRecipe(editing.id!);
+                  setEditing(null);
+                }
+              : undefined
+          }
           onClose={() => setEditing(null)}
         />
       )}
 
-      {showImport && (
-        <ImportModal
-          onImport={handleImport}
-          onClose={() => setShowImport(false)}
-        />
-      )}
+      {showImport && <ImportModal onImport={handleImport} onClose={() => setShowImport(false)} />}
     </div>
   );
 }
@@ -134,17 +142,17 @@ function RecipeCard({
   const totalMin = (recipe.prep_minutes ?? 0) + (recipe.cook_minutes ?? 0);
 
   return (
-    <div
-      className="card p-4 cursor-pointer hover:shadow-md transition group"
-      onClick={onEdit}
-    >
+    <div className="card p-4 cursor-pointer hover:shadow-md transition group" onClick={onEdit}>
       <div className="flex items-start gap-3">
         <span className="text-3xl">{recipe.icon || '🍽️'}</span>
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between gap-1">
             <h3 className="font-medium text-text leading-snug line-clamp-2">{recipe.title}</h3>
             <button
-              onClick={(e) => { e.stopPropagation(); onFavorite(); }}
+              onClick={(e) => {
+                e.stopPropagation();
+                onFavorite();
+              }}
               className={`flex-shrink-0 mt-0.5 transition ${recipe.favorite ? 'text-red-500' : 'text-text-faint opacity-0 group-hover:opacity-100'}`}
             >
               <Heart size={15} fill={recipe.favorite ? 'currentColor' : 'none'} />
@@ -154,7 +162,8 @@ function RecipeCard({
             {recipe.servings && <span>Serves {recipe.servings}</span>}
             {totalMin > 0 && (
               <span className="flex items-center gap-1">
-                <Clock size={11} />{totalMin} min
+                <Clock size={11} />
+                {totalMin} min
               </span>
             )}
             {recipe.source_url && (
@@ -165,13 +174,17 @@ function RecipeCard({
                 onClick={(e) => e.stopPropagation()}
                 className="flex items-center gap-1 hover:text-accent"
               >
-                <ExternalLink size={11} />{tryHostname(recipe.source_url)}
+                <ExternalLink size={11} />
+                {tryHostname(recipe.source_url)}
               </a>
             )}
           </div>
           {recipe.ingredients.length > 0 && (
             <p className="text-xs text-text-faint mt-1.5 line-clamp-1">
-              {recipe.ingredients.slice(0, 4).map((i) => i.item).join(', ')}
+              {recipe.ingredients
+                .slice(0, 4)
+                .map((i) => i.item)
+                .join(', ')}
               {recipe.ingredients.length > 4 && ` +${recipe.ingredients.length - 4}`}
             </p>
           )}

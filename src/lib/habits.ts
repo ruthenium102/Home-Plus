@@ -20,9 +20,7 @@ export function isHabitDue(habit: Habit, date: Date): boolean {
       return true;
     case 'pick_days':
       // Empty weekdays = treat like daily (defensive fallback).
-      return !habit.weekdays || habit.weekdays.length === 0
-        ? true
-        : habit.weekdays.includes(dow);
+      return !habit.weekdays || habit.weekdays.length === 0 ? true : habit.weekdays.includes(dow);
     default:
       return false;
   }
@@ -35,12 +33,12 @@ export function isHabitDue(habit: Habit, date: Date): boolean {
 export function computeHabitStreak(
   checkIns: HabitCheckIn[],
   habitId: string,
-  memberId: string
+  memberId: string,
 ): number {
   const dates = new Set(
     checkIns
       .filter((c) => c.habit_id === habitId && c.member_id === memberId)
-      .map((c) => c.for_date)
+      .map((c) => c.for_date),
   );
   let streak = 0;
   const cursor = new Date();
@@ -65,11 +63,11 @@ export function isCheckedIn(
   checkIns: HabitCheckIn[],
   habitId: string,
   memberId: string,
-  date: Date
+  date: Date,
 ): boolean {
   const iso = localISO(date);
   return checkIns.some(
-    (c) => c.habit_id === habitId && c.member_id === memberId && c.for_date === iso
+    (c) => c.habit_id === habitId && c.member_id === memberId && c.for_date === iso,
   );
 }
 
@@ -81,7 +79,7 @@ export function lastNDays(
   checkIns: HabitCheckIn[],
   habitId: string,
   memberId: string,
-  n: number
+  n: number,
 ): { date: string; checked: boolean }[] {
   const out: { date: string; checked: boolean }[] = [];
   const cursor = new Date();
@@ -91,8 +89,8 @@ export function lastNDays(
     out.push({
       date: iso,
       checked: checkIns.some(
-        (c) => c.habit_id === habitId && c.member_id === memberId && c.for_date === iso
-      )
+        (c) => c.habit_id === habitId && c.member_id === memberId && c.for_date === iso,
+      ),
     });
     cursor.setDate(cursor.getDate() + 1);
   }
@@ -105,7 +103,7 @@ export function lastNDays(
  */
 export function visibleHabits(habits: Habit[], activeMemberId: string): Habit[] {
   return habits.filter(
-    (h) => !h.archived && (h.member_id === activeMemberId || h.visibility === 'shared')
+    (h) => !h.archived && (h.member_id === activeMemberId || h.visibility === 'shared'),
   );
 }
 
@@ -116,10 +114,13 @@ export function visibleHabits(habits: Habit[], activeMemberId: string): Habit[] 
  */
 export function targetMet(count: number, target: number, op?: Habit['target_op']): boolean {
   switch (op ?? 'gte') {
-    case 'lte': return count <= target;
-    case 'eq':  return count === target;
+    case 'lte':
+      return count <= target;
+    case 'eq':
+      return count === target;
     case 'gte':
-    default:    return count >= target;
+    default:
+      return count >= target;
   }
 }
 

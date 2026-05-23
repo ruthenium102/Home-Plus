@@ -35,11 +35,7 @@ export function SyncIndicator() {
 
   if (reloading) {
     return (
-      <span
-        className="inline-flex items-center text-accent"
-        title="Syncing…"
-        aria-label="Syncing"
-      >
+      <span className="inline-flex items-center text-accent" title="Syncing…" aria-label="Syncing">
         <RefreshCw size={15} className="animate-spin" />
       </span>
     );

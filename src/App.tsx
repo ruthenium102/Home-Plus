@@ -25,32 +25,24 @@ import { isSupabaseConfigured } from '@/lib/supabase';
 // Lazy-load tab pages so the lock screen + home tab load fast.
 // Each chunk is fetched on first visit to that tab.
 const CalendarPage = lazy(() =>
-  import('@/pages/CalendarPage').then((m) => ({ default: m.CalendarPage }))
+  import('@/pages/CalendarPage').then((m) => ({ default: m.CalendarPage })),
 );
 const ChoresPage = lazy(() =>
-  import('@/pages/ChoresPage').then((m) => ({ default: m.ChoresPage }))
+  import('@/pages/ChoresPage').then((m) => ({ default: m.ChoresPage })),
 );
-const ListsPage = lazy(() =>
-  import('@/pages/ListsPage').then((m) => ({ default: m.ListsPage }))
-);
+const ListsPage = lazy(() => import('@/pages/ListsPage').then((m) => ({ default: m.ListsPage })));
 const HabitsPage = lazy(() =>
-  import('@/pages/HabitsPage').then((m) => ({ default: m.HabitsPage }))
+  import('@/pages/HabitsPage').then((m) => ({ default: m.HabitsPage })),
 );
 const KitchenPage = lazy(() =>
-  import('@/pages/KitchenPage').then((m) => ({ default: m.KitchenPage }))
+  import('@/pages/KitchenPage').then((m) => ({ default: m.KitchenPage })),
 );
 const SettingsPage = lazy(() =>
-  import('@/pages/SettingsPage').then((m) => ({ default: m.SettingsPage }))
+  import('@/pages/SettingsPage').then((m) => ({ default: m.SettingsPage })),
 );
-const MyDayPage = lazy(() =>
-  import('@/pages/MyDayPage').then((m) => ({ default: m.MyDayPage }))
-);
-const PetPage = lazy(() =>
-  import('@/pages/PetPage').then((m) => ({ default: m.PetPage }))
-);
-const AuthPage = lazy(() =>
-  import('@/pages/AuthPage').then((m) => ({ default: m.AuthPage }))
-);
+const MyDayPage = lazy(() => import('@/pages/MyDayPage').then((m) => ({ default: m.MyDayPage })));
+const PetPage = lazy(() => import('@/pages/PetPage').then((m) => ({ default: m.PetPage })));
+const AuthPage = lazy(() => import('@/pages/AuthPage').then((m) => ({ default: m.AuthPage })));
 
 function AppShell() {
   const { activeMember, needsPasswordSetup, clearNeedsPasswordSetup } = useFamily();
@@ -78,7 +70,10 @@ function AppShell() {
 
   return (
     <div className="min-h-screen bg-bg">
-      <div className="max-w-6xl mx-auto p-4 sm:p-6 pb-36" style={{ paddingBottom: 'max(9rem, calc(7rem + env(safe-area-inset-bottom)))' }}>
+      <div
+        className="max-w-6xl mx-auto p-4 sm:p-6 pb-36"
+        style={{ paddingBottom: 'max(9rem, calc(7rem + env(safe-area-inset-bottom)))' }}
+      >
         <TopBar onSwitchUser={() => setSwitcherOpen(true)} />
 
         <main>
@@ -99,7 +94,10 @@ function AppShell() {
       </div>
 
       {/* Sticky bottom tab bar — bottom-0 + safe-area padding so it sits above iPhone home indicator */}
-      <div className="fixed bottom-0 left-0 right-0 z-30 px-3 sm:px-6" style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}>
+      <div
+        className="fixed bottom-0 left-0 right-0 z-30 px-3 sm:px-6"
+        style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}
+      >
         <div className="max-w-6xl mx-auto">
           <TabBar
             active={tab}
@@ -115,9 +113,7 @@ function AppShell() {
 
       {switcherOpen && <UserSwitcher onClose={() => setSwitcherOpen(false)} />}
 
-      {needsPasswordSetup && (
-        <SetPasswordModal onDone={clearNeedsPasswordSetup} />
-      )}
+      {needsPasswordSetup && <SetPasswordModal onDone={clearNeedsPasswordSetup} />}
     </div>
   );
 }

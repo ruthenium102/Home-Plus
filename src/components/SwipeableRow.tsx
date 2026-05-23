@@ -23,7 +23,7 @@ export function SwipeableRow({
   onDelete,
   mode = 'partial',
   label = 'Delete',
-  disabled = false
+  disabled = false,
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const startXRef = useRef<number | null>(null);
@@ -146,7 +146,8 @@ export function SwipeableRow({
   }, [translate]);
 
   const isFullSwipeActive =
-    mode === 'full' && Math.abs(translate) / (containerRef.current?.offsetWidth ?? 400) > COMMIT_THRESHOLD;
+    mode === 'full' &&
+    Math.abs(translate) / (containerRef.current?.offsetWidth ?? 400) > COMMIT_THRESHOLD;
 
   return (
     <div
@@ -158,11 +159,9 @@ export function SwipeableRow({
       <div
         className="absolute inset-y-0 right-0 flex items-center justify-end pr-4 pointer-events-none"
         style={{
-          background: isFullSwipeActive
-            ? 'rgb(var(--accent))'
-            : 'rgb(var(--accent))',
+          background: isFullSwipeActive ? 'rgb(var(--accent))' : 'rgb(var(--accent))',
           width: '100%',
-          transition: 'background 150ms'
+          transition: 'background 150ms',
         }}
       >
         {mode === 'partial' ? (
@@ -177,9 +176,7 @@ export function SwipeableRow({
             disabled={disabled}
           >
             <Trash2 size={18} />
-            <span className="text-[10px] uppercase tracking-wider mt-1 font-medium">
-              {label}
-            </span>
+            <span className="text-[10px] uppercase tracking-wider mt-1 font-medium">{label}</span>
           </button>
         ) : (
           <div className="flex flex-col items-center text-white pr-2">
@@ -203,7 +200,7 @@ export function SwipeableRow({
           // background needs to be opaque so the red panel stays hidden
           background: 'rgb(var(--surface))',
           position: 'relative',
-          zIndex: 1
+          zIndex: 1,
         }}
       >
         {children}

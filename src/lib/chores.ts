@@ -5,11 +5,7 @@ import type { Chore, ChoreCompletion, FamilyMember, RewardCategoryKey } from '@/
  * Is this chore "due" for this member on this date?
  * Considers: assignment list, frequency, weekday, active_from.
  */
-export function isChoreDue(
-  chore: Chore,
-  memberId: string,
-  date: Date
-): boolean {
+export function isChoreDue(chore: Chore, memberId: string, date: Date): boolean {
   if (chore.archived) return false;
   if (!chore.assigned_to.includes(memberId)) return false;
 
@@ -45,13 +41,12 @@ export function findCompletion(
   completions: ChoreCompletion[],
   choreId: string,
   memberId: string,
-  date: Date
+  date: Date,
 ): ChoreCompletion | null {
   const dateISO = localISO(date);
   return (
     completions.find(
-      (c) =>
-        c.chore_id === choreId && c.member_id === memberId && c.for_date === dateISO
+      (c) => c.chore_id === choreId && c.member_id === memberId && c.for_date === dateISO,
     ) ?? null
   );
 }
@@ -69,7 +64,7 @@ export function getChoresForMemberOnDate(
   chores: Chore[],
   completions: ChoreCompletion[],
   memberId: string,
-  date: Date
+  date: Date,
 ): ChoreItem[] {
   return chores
     .filter((c) => isChoreDue(c, memberId, date))
@@ -88,21 +83,15 @@ export function getChoresForMemberOnDate(
 /**
  * Pretty-format a payout map into "5★ + 15min".
  */
-export function formatPayout(
-  payout: Partial<Record<RewardCategoryKey, number>>
-): string {
+export function formatPayout(payout: Partial<Record<RewardCategoryKey, number>>): string {
   const parts: string[] = [];
   if (payout.stars) parts.push(`${payout.stars}★`);
   if (payout.screen_minutes) parts.push(`${payout.screen_minutes}min`);
-  if (payout.savings_cents)
-    parts.push(`$${(payout.savings_cents / 100).toFixed(2)}`);
+  if (payout.savings_cents) parts.push(`$${(payout.savings_cents / 100).toFixed(2)}`);
   return parts.join(' + ') || '—';
 }
 
-export function formatBalance(
-  category: RewardCategoryKey,
-  amount: number
-): string {
+export function formatBalance(category: RewardCategoryKey, amount: number): string {
   if (category === 'stars') return `${amount}★`;
   if (category === 'screen_minutes') return `${amount} min`;
   if (category === 'savings_cents') return `$${(amount / 100).toFixed(2)}`;
@@ -139,7 +128,7 @@ export function formatFrequency(chore: Chore): string {
 export function weeklyEarnings(
   completions: ChoreCompletion[],
   memberId: string,
-  weekStart: Date
+  weekStart: Date,
 ): Partial<Record<RewardCategoryKey, number>> {
   const weekStartISO = localISO(weekStart);
   const weekEnd = new Date(weekStart);
@@ -163,9 +152,7 @@ export function weeklyEarnings(
  * Filter chores assigned to a member (any frequency, not date-based).
  */
 export function getChoresForMember(chores: Chore[], memberId: string): Chore[] {
-  return chores.filter(
-    (c) => !c.archived && c.assigned_to.includes(memberId)
-  );
+  return chores.filter((c) => !c.archived && c.assigned_to.includes(memberId));
 }
 
 export function isParent(member: FamilyMember | null | undefined): boolean {

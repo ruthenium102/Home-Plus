@@ -16,14 +16,23 @@ export function SetPasswordModal({ onDone }: Props) {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError('');
-    if (password.length < 8) { setError('Password must be at least 8 characters.'); return; }
-    if (password !== confirm) { setError("Passwords don't match."); return; }
+    if (password.length < 8) {
+      setError('Password must be at least 8 characters.');
+      return;
+    }
+    if (password !== confirm) {
+      setError("Passwords don't match.");
+      return;
+    }
 
     setLoading(true);
     const { error: err } = await supabase!.auth.updateUser({ password });
     setLoading(false);
 
-    if (err) { setError(err.message); return; }
+    if (err) {
+      setError(err.message);
+      return;
+    }
     onDone();
   }
 
@@ -66,7 +75,9 @@ export function SetPasswordModal({ onDone }: Props) {
             </div>
 
             <div>
-              <label className="block text-xs text-text-muted mb-1.5 font-medium">Confirm password</label>
+              <label className="block text-xs text-text-muted mb-1.5 font-medium">
+                Confirm password
+              </label>
               <input
                 type={showPw ? 'text' : 'password'}
                 value={confirm}
@@ -78,7 +89,9 @@ export function SetPasswordModal({ onDone }: Props) {
             </div>
 
             {error && (
-              <div className="text-sm text-red-500 bg-red-500/10 px-3 py-2.5 rounded-md">{error}</div>
+              <div className="text-sm text-red-500 bg-red-500/10 px-3 py-2.5 rounded-md">
+                {error}
+              </div>
             )}
 
             <button

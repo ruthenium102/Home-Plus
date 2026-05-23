@@ -9,26 +9,26 @@ export function sectionForHour(hour: number): DayPlanSection {
 export const SECTION_LABELS: Record<DayPlanSection, string> = {
   morning: 'Morning',
   afternoon: 'Afternoon',
-  evening: 'Evening'
+  evening: 'Evening',
 };
 
 export const SECTION_TIME_RANGE: Record<DayPlanSection, string> = {
   morning: '6 – 12',
   afternoon: '12 – 5',
-  evening: '5 – 9'
+  evening: '5 – 9',
 };
 
 export function blocksForMemberDate(
   blocks: DayPlanBlock[],
   memberId: string,
-  date: string
+  date: string,
 ): DayPlanBlock[] {
   return blocks.filter((b) => b.member_id === memberId && b.date === date);
 }
 
 export function sortedSectionBlocks(
   blocks: DayPlanBlock[],
-  section: DayPlanSection
+  section: DayPlanSection,
 ): DayPlanBlock[] {
   return blocks.filter((b) => b.section === section).sort((a, b) => a.position - b.position);
 }
@@ -47,10 +47,10 @@ export function formatDuration(minutes: number): string {
 
 // ---- Timeline helpers ------------------------------------------------------
 
-export const TIMELINE_START_MIN = 6 * 60;  // 06:00
-export const TIMELINE_END_MIN = 23 * 60;   // 23:00
-export const PX_PER_MIN = 1;               // 60px per hour
-export const SNAP_MIN = 15;                // 15-minute snap
+export const TIMELINE_START_MIN = 6 * 60; // 06:00
+export const TIMELINE_END_MIN = 23 * 60; // 23:00
+export const PX_PER_MIN = 1; // 60px per hour
+export const SNAP_MIN = 15; // 15-minute snap
 
 /** Default start time for a section — used to migrate section-only blocks. */
 export function defaultStartMinForSection(section: DayPlanSection): number {

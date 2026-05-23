@@ -7,7 +7,7 @@ import {
   Users,
   Repeat,
   Calendar as CalendarIcon,
-  Pencil
+  Pencil,
 } from 'lucide-react';
 import { useFamily } from '@/context/FamilyContext';
 import { useTheme } from '@/context/ThemeContext';
@@ -27,7 +27,7 @@ import {
   formatRepeat,
   isDueSoon,
   isOverdue,
-  findAssignee
+  findAssignee,
 } from '@/lib/lists';
 import type { TodoItem, TodoList } from '@/types';
 
@@ -37,13 +37,11 @@ export function ListsPage() {
 
   const myLists = useMemo(
     () => (activeMember ? visibleLists(lists, activeMember.id) : []),
-    [lists, activeMember]
+    [lists, activeMember],
   );
   const listDnd = useListDragReorder(myLists, reorderLists);
 
-  const [activeListId, setActiveListId] = useState<string | null>(
-    () => myLists[0]?.id || null
-  );
+  const [activeListId, setActiveListId] = useState<string | null>(() => myLists[0]?.id || null);
   const [listEditorOpen, setListEditorOpen] = useState(false);
   const [editingList, setEditingList] = useState<TodoList | null>(null);
   const [itemEditorOpen, setItemEditorOpen] = useState(false);
@@ -80,13 +78,9 @@ export function ListsPage() {
         <div className="space-y-0.5">
           {myLists.map((list) => {
             const Icon = getListIcon(list.icon);
-            const tokens = list.color
-              ? getColorTokens(list.color, resolved === 'dark')
-              : null;
+            const tokens = list.color ? getColorTokens(list.color, resolved === 'dark') : null;
             const isActive = list.id === activeListId;
-            const itemCount = listItems.filter(
-              (i) => i.list_id === list.id && !i.done
-            ).length;
+            const itemCount = listItems.filter((i) => i.list_id === list.id && !i.done).length;
 
             const { isDragging, dropEdge, ...rowHandlers } = listDnd.getRowProps(list.id);
             return (
@@ -95,7 +89,8 @@ export function ListsPage() {
                 {...rowHandlers}
                 className={
                   'flex items-center gap-2 px-2 py-2 rounded-md transition-colors group ' +
-                  (isActive ? 'bg-surface-2' : 'hover:bg-surface-2/60') + ' ' +
+                  (isActive ? 'bg-surface-2' : 'hover:bg-surface-2/60') +
+                  ' ' +
                   (isDragging ? 'opacity-40 ' : '') +
                   (dropEdge === 'top' ? 'shadow-[0_-3px_0_0_rgb(var(--accent))] ' : '') +
                   (dropEdge === 'bottom' ? 'shadow-[0_3px_0_0_rgb(var(--accent))] ' : '')
@@ -110,7 +105,7 @@ export function ListsPage() {
                     className="w-7 h-7 rounded-md flex items-center justify-center shrink-0"
                     style={{
                       background: tokens?.soft || 'rgb(var(--surface-2))',
-                      color: tokens?.base || 'rgb(var(--text-muted))'
+                      color: tokens?.base || 'rgb(var(--text-muted))',
                     }}
                   >
                     <Icon size={14} />
@@ -124,13 +119,15 @@ export function ListsPage() {
                     </div>
                   </div>
                   {itemCount > 0 && (
-                    <span className="text-xs text-text-faint tabular-nums">
-                      {itemCount}
-                    </span>
+                    <span className="text-xs text-text-faint tabular-nums">{itemCount}</span>
                   )}
                 </button>
                 <button
-                  onClick={() => { setActiveListId(list.id); setEditingList(list); setListEditorOpen(true); }}
+                  onClick={() => {
+                    setActiveListId(list.id);
+                    setEditingList(list);
+                    setListEditorOpen(true);
+                  }}
                   className="w-6 h-6 rounded-md hover:bg-surface-2 flex items-center justify-center text-text-faint hover:text-text shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
                   title="Edit list"
                 >
@@ -153,9 +150,7 @@ export function ListsPage() {
           <div className="card">
             <div className="flex items-center justify-between p-4 border-b border-border">
               <div className="flex items-center gap-2 min-w-0">
-                <h2 className="font-display text-xl text-text truncate">
-                  {activeList.name}
-                </h2>
+                <h2 className="font-display text-xl text-text truncate">{activeList.name}</h2>
                 <button
                   onClick={() => {
                     setEditingList(activeList);
@@ -278,7 +273,7 @@ function ListItemRow({
   list,
   members,
   dragProps,
-  onEdit
+  onEdit,
 }: {
   item: TodoItem;
   list: TodoList;
@@ -311,9 +306,9 @@ function ListItemRow({
           next_due: snapshot.next_due,
           due_date: snapshot.due_date,
           assigned_to: snapshot.assigned_to,
-          position: snapshot.position
+          position: snapshot.position,
         });
-      }
+      },
     });
   };
 
@@ -330,11 +325,7 @@ function ListItemRow({
         }
       >
         <DragHandle />
-        <button
-          data-no-swipe
-          onClick={() => toggleListItem(item.id)}
-          className="shrink-0"
-        >
+        <button data-no-swipe onClick={() => toggleListItem(item.id)} className="shrink-0">
           {item.done ? (
             <CheckCircle2 size={20} className="text-accent" />
           ) : (
@@ -344,8 +335,7 @@ function ListItemRow({
         <div className="flex-1 min-w-0">
           <div
             className={
-              'text-sm ' +
-              (item.done ? 'text-text-muted line-through' : 'text-text font-medium')
+              'text-sm ' + (item.done ? 'text-text-muted line-through' : 'text-text font-medium')
             }
           >
             {item.title}
@@ -378,9 +368,7 @@ function ListItemRow({
             )}
           </div>
         </div>
-        {list.owner_id === null && assignee && (
-          <Avatar member={assignee} size={26} />
-        )}
+        {list.owner_id === null && assignee && <Avatar member={assignee} size={26} />}
         <button
           onClick={onEdit}
           className="w-7 h-7 rounded-md hover:bg-surface-2 flex items-center justify-center text-text-faint hover:text-text shrink-0"

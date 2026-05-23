@@ -4,7 +4,20 @@ export function guessRecipeIcon(title: string): string {
   if (!title) return '🍽️';
   const t = title.toLowerCase();
   const map: [string[], string][] = [
-    [['pasta', 'spaghetti', 'linguine', 'fettuccine', 'carbonara', 'bolognese', 'lasagna', 'lasagne', 'noodle'], '🍝'],
+    [
+      [
+        'pasta',
+        'spaghetti',
+        'linguine',
+        'fettuccine',
+        'carbonara',
+        'bolognese',
+        'lasagna',
+        'lasagne',
+        'noodle',
+      ],
+      '🍝',
+    ],
     [['pizza'], '🍕'],
     [['burger'], '🍔'],
     [['taco'], '🌮'],
@@ -45,16 +58,71 @@ export function guessRecipeIcon(title: string): string {
 }
 
 const DESCRIPTORS = new Set([
-  'large', 'small', 'medium', 'big', 'jumbo', 'mini', 'tiny', 'extra-large', 'xl',
-  'fresh', 'frozen', 'dried', 'canned', 'tinned', 'organic', 'free-range', 'free', 'range',
-  'wild', 'wild-caught', 'farm-raised', 'grass-fed', 'pasture-raised',
-  'chopped', 'diced', 'sliced', 'minced', 'grated', 'shredded', 'cubed', 'crushed',
-  'ground', 'whole', 'halved', 'quartered', 'peeled', 'cooked', 'raw',
-  'finely', 'roughly', 'thinly', 'thickly', 'coarsely',
-  'red', 'green', 'yellow', 'white', 'brown',
-  'low-fat', 'reduced-fat', 'full-fat', 'fat-free', 'lean', 'unsalted', 'salted',
-  'softened', 'melted', 'room-temperature', 'cold', 'hot', 'warm',
-  'plain', 'natural', 'unsweetened', 'sweetened',
+  'large',
+  'small',
+  'medium',
+  'big',
+  'jumbo',
+  'mini',
+  'tiny',
+  'extra-large',
+  'xl',
+  'fresh',
+  'frozen',
+  'dried',
+  'canned',
+  'tinned',
+  'organic',
+  'free-range',
+  'free',
+  'range',
+  'wild',
+  'wild-caught',
+  'farm-raised',
+  'grass-fed',
+  'pasture-raised',
+  'chopped',
+  'diced',
+  'sliced',
+  'minced',
+  'grated',
+  'shredded',
+  'cubed',
+  'crushed',
+  'ground',
+  'whole',
+  'halved',
+  'quartered',
+  'peeled',
+  'cooked',
+  'raw',
+  'finely',
+  'roughly',
+  'thinly',
+  'thickly',
+  'coarsely',
+  'red',
+  'green',
+  'yellow',
+  'white',
+  'brown',
+  'low-fat',
+  'reduced-fat',
+  'full-fat',
+  'fat-free',
+  'lean',
+  'unsalted',
+  'salted',
+  'softened',
+  'melted',
+  'room-temperature',
+  'cold',
+  'hot',
+  'warm',
+  'plain',
+  'natural',
+  'unsweetened',
+  'sweetened',
 ]);
 
 export function cleanIngredientName(item: string): string {
@@ -91,7 +159,16 @@ export function guessIngredientIcon(cleanName: string): string {
     [() => has('salmon') || has('tuna') || has('cod') || has('fish'), '🐟'],
     [() => has('shrimp') || has('prawn'), '🦐'],
     [() => has('egg'), '🥚'],
-    [() => has('milk') || has('cream') || has('butter') || has('cheese') || has('yogurt') || has('yoghurt'), '🧀'],
+    [
+      () =>
+        has('milk') ||
+        has('cream') ||
+        has('butter') ||
+        has('cheese') ||
+        has('yogurt') ||
+        has('yoghurt'),
+      '🧀',
+    ],
     [() => has('flour'), '🌾'],
     [() => has('sugar'), '🍬'],
     [() => has('salt'), '🧂'],
@@ -112,7 +189,16 @@ export function guessIngredientIcon(cleanName: string): string {
     [() => has('pasta') || has('noodle'), '🍝'],
     [() => has('bread'), '🍞'],
     [() => has('bean') || has('lentil') || has('chickpea'), '🫘'],
-    [() => has('herb') || has('basil') || has('parsley') || has('coriander') || has('thyme') || has('rosemary'), '🌿'],
+    [
+      () =>
+        has('herb') ||
+        has('basil') ||
+        has('parsley') ||
+        has('coriander') ||
+        has('thyme') ||
+        has('rosemary'),
+      '🌿',
+    ],
     [() => has('ginger'), '🫚'],
     [() => has('stock') || has('broth'), '🍲'],
   ];
@@ -141,9 +227,9 @@ export function tryHostname(url: string): string {
 
 const MEAL_TIMES: Record<MealType, { start: string; end: string }> = {
   breakfast: { start: '08:00', end: '09:00' },
-  lunch:     { start: '12:30', end: '13:30' },
-  dinner:    { start: '18:30', end: '20:00' },
-  snack:     { start: '15:00', end: '15:30' },
+  lunch: { start: '12:30', end: '13:30' },
+  dinner: { start: '18:30', end: '20:00' },
+  snack: { start: '15:00', end: '15:30' },
 };
 
 export function mealTypeTime(type: MealType) {

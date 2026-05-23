@@ -20,9 +20,7 @@ export function EventChip({ event, onClick, variant = 'list' }: Props) {
   const { members, kitchenSettings } = useFamily();
   const isDark = resolved === 'dark';
 
-  const owner = event.member_ids[0]
-    ? members.find((m) => m.id === event.member_ids[0])
-    : null;
+  const owner = event.member_ids[0] ? members.find((m) => m.id === event.member_ids[0]) : null;
 
   const memberTokens = owner
     ? getColorTokens(owner.color, isDark)
@@ -39,9 +37,7 @@ export function EventChip({ event, onClick, variant = 'list' }: Props) {
 
   const tokens =
     overrideTokens ??
-    (event.category === 'meal' ? mealTokens
-    : event.category === 'wfh' ? wfhTokens
-    : memberTokens);
+    (event.category === 'meal' ? mealTokens : event.category === 'wfh' ? wfhTokens : memberTokens);
 
   const start = new Date(event.occurrence_start);
   const end = new Date(event.occurrence_end);
@@ -60,10 +56,7 @@ export function EventChip({ event, onClick, variant = 'list' }: Props) {
         <div className="text-sm text-text-muted tabular-nums pt-0.5">
           {event.all_day ? '—' : format(start, 'HH:mm')}
         </div>
-        <div
-          className="rounded-sm self-stretch min-h-[36px]"
-          style={{ background: tokens.base }}
-        />
+        <div className="rounded-sm self-stretch min-h-[36px]" style={{ background: tokens.base }} />
         <div className="min-w-0">
           <div className="text-sm font-medium text-text truncate">{event.title}</div>
           <div className="text-xs text-text-faint truncate">
@@ -73,7 +66,11 @@ export function EventChip({ event, onClick, variant = 'list' }: Props) {
           </div>
         </div>
         {isRecurring ? (
-          <Repeat size={14} className="text-text-faint opacity-60 self-center" aria-label="Repeats" />
+          <Repeat
+            size={14}
+            className="text-text-faint opacity-60 self-center"
+            aria-label="Repeats"
+          />
         ) : (
           <span />
         )}
@@ -89,7 +86,7 @@ export function EventChip({ event, onClick, variant = 'list' }: Props) {
       style={{
         background: tokens.soft,
         borderLeft: `3px solid ${tokens.base}`,
-        color: 'rgb(var(--text))'
+        color: 'rgb(var(--text))',
       }}
     >
       <div className="text-[11px] font-medium truncate pr-3">{event.title}</div>
@@ -97,11 +94,7 @@ export function EventChip({ event, onClick, variant = 'list' }: Props) {
         <div className="text-[10px] opacity-70 tabular-nums">{format(start, 'HH:mm')}</div>
       )}
       {isRecurring && (
-        <Repeat
-          size={10}
-          className="absolute top-1 right-1 opacity-50"
-          aria-label="Repeats"
-        />
+        <Repeat size={10} className="absolute top-1 right-1 opacity-50" aria-label="Repeats" />
       )}
     </button>
   );

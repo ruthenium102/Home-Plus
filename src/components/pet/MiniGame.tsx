@@ -2,10 +2,10 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 interface Treat {
   id: number;
-  x: number;          // % of stage width
-  duration: number;   // seconds
+  x: number; // % of stage width
+  duration: number; // seconds
   emoji: string;
-  spin: number;       // final rotation
+  spin: number; // final rotation
   caught: boolean;
 }
 
@@ -58,9 +58,12 @@ export function MiniGame({ xpPerCatch = 2, onEnd, paused = false }: Props) {
       };
       setTreats((prev) => [...prev, treat]);
       // Remove the treat after it falls past the stage
-      window.setTimeout(() => {
-        setTreats((prev) => prev.filter((t) => t.id !== id));
-      }, treat.duration * 1000 + 200);
+      window.setTimeout(
+        () => {
+          setTreats((prev) => prev.filter((t) => t.id !== id));
+        },
+        treat.duration * 1000 + 200,
+      );
     }, 520);
 
     const tick = window.setInterval(() => {
@@ -92,9 +95,7 @@ export function MiniGame({ xpPerCatch = 2, onEnd, paused = false }: Props) {
   };
 
   const handleCatch = (id: number) => {
-    setTreats((prev) =>
-      prev.map((t) => (t.id === id && !t.caught ? { ...t, caught: true } : t))
-    );
+    setTreats((prev) => prev.map((t) => (t.id === id && !t.caught ? { ...t, caught: true } : t)));
     setScore((s) => s + 1);
     // Cleanup the caught treat after its pop animation
     window.setTimeout(() => {
@@ -142,7 +143,10 @@ export function MiniGame({ xpPerCatch = 2, onEnd, paused = false }: Props) {
               touchAction: 'none',
             }}
             onMouseEnter={() => handleCatch(t.id)}
-            onTouchStart={(e) => { e.preventDefault(); handleCatch(t.id); }}
+            onTouchStart={(e) => {
+              e.preventDefault();
+              handleCatch(t.id);
+            }}
             aria-label="Falling treat"
           >
             {t.emoji}
@@ -156,8 +160,8 @@ export function MiniGame({ xpPerCatch = 2, onEnd, paused = false }: Props) {
                 <>
                   <div className="text-3xl">🎉</div>
                   <p className="text-text font-medium">
-                    You caught <span className="font-bold">{score}</span> treats
-                    {' '}and earned <span className="font-bold">{score * xpPerCatch}</span> XP!
+                    You caught <span className="font-bold">{score}</span> treats and earned{' '}
+                    <span className="font-bold">{score * xpPerCatch}</span> XP!
                   </p>
                 </>
               ) : (

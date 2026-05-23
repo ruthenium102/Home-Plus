@@ -1,13 +1,6 @@
 import { useState, useEffect } from 'react';
 import { localISO } from '@/lib/dates';
-import {
-  X,
-  Home as HomeIcon,
-  GraduationCap,
-  Briefcase,
-  Coffee,
-  Plane
-} from 'lucide-react';
+import { X, Home as HomeIcon, GraduationCap, Briefcase, Coffee, Plane } from 'lucide-react';
 import { useFamily } from '@/context/FamilyContext';
 import { Avatar } from './Avatar';
 import type { FamilyMember } from '@/types';
@@ -22,7 +15,7 @@ const PRESETS = [
   { label: 'Home', Icon: HomeIcon },
   { label: 'School', Icon: GraduationCap },
   { label: 'Work', Icon: Briefcase },
-  { label: 'Out', Icon: Coffee }
+  { label: 'Out', Icon: Coffee },
 ];
 
 export function LocationPicker({ open, member, onClose }: Props) {
@@ -52,7 +45,7 @@ export function LocationPicker({ open, member, onClose }: Props) {
     const untilDate = new Date(travelUntil);
     const dateLabel = untilDate.toLocaleDateString(undefined, {
       day: 'numeric',
-      month: 'short'
+      month: 'short',
     });
     const status = `${dest} til ${dateLabel}`;
     setMemberLocation(member.id, status, untilDate.toISOString());
@@ -76,7 +69,9 @@ export function LocationPicker({ open, member, onClose }: Props) {
             <div>
               <div className="font-display text-lg text-text">{member.name}</div>
               <div className="text-xs text-text-faint">
-                {member.current_location ? `Currently: ${member.current_location}` : 'No status set'}
+                {member.current_location
+                  ? `Currently: ${member.current_location}`
+                  : 'No status set'}
               </div>
             </div>
           </div>
@@ -105,10 +100,7 @@ export function LocationPicker({ open, member, onClose }: Props) {
                           : 'border-border hover:border-border-strong')
                       }
                     >
-                      <p.Icon
-                        size={22}
-                        className={isCurrent ? 'text-accent' : 'text-text-muted'}
-                      />
+                      <p.Icon size={22} className={isCurrent ? 'text-accent' : 'text-text-muted'} />
                       <span className="text-sm font-medium text-text">{p.label}</span>
                     </button>
                   );
@@ -173,10 +165,7 @@ export function LocationPicker({ open, member, onClose }: Props) {
 
         {!showTravelForm && member.current_location && (
           <div className="border-t border-border p-3 text-center">
-            <button
-              onClick={handleClear}
-              className="text-xs text-text-faint hover:text-text-muted"
-            >
+            <button onClick={handleClear} className="text-xs text-text-faint hover:text-text-muted">
               Clear status
             </button>
           </div>
