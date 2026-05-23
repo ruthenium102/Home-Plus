@@ -1,13 +1,26 @@
-import { useState } from 'react';
-import { Home, Eye, EyeOff, Loader2 } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Home, Eye, EyeOff, Loader2, Users } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
+import { supabase } from '@/lib/supabase';
 
 type Mode = 'signin' | 'signup' | 'forgot';
+
+interface InvitePreview {
+  family_name: string;
+  invitee_name: string | null;
+  invitee_email: string;
+  accepted: boolean;
+}
 
 export function AuthPage() {
   const { signIn, signUp, forgotPassword } = useAuth();
 
-  const [mode, setMode] = useState<Mode>('signin');
+  // If a pending_invite token is in sessionStorage, fetch its preview so we
+  // can show a welcoming banner and pre-fill the invitee's email + name.
+  const [invitePreview, setInvitePreview] = useState<InvitePreview | null>(null);
+  const pendingInvite = sessionStorage.getItem('pending_invite');
+
+  const [mode, setMode] = useState<Mode>(pendingInvite ? 'signup' : 'signin');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -17,6 +30,24 @@ export function AuthPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [resetSent, setResetSent] = useState(false);
+
+  useEffect(() => {
+    if (!pendingInvite || !supabase) return;
+    let cancelled = false;
+    (async () => {
+      const { data, error } = await supabase!.rpc('get_invitation_preview', {
+        p_token: pendingInvite,
+      });
+      if (cancelled || error || !data || !Array.isArray(data) || data.length === 0) return;
+      const row = data[0] as InvitePreview;
+      setInvitePreview(row);
+      if (row.invitee_email) setEmail((cur) => cur || row.invitee_email);
+      if (row.invitee_name) setName((cur) => cur || row.invitee_name!);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [pendingInvite]);
 
   const reset = (next: Mode) => {
     setMode(next);
@@ -60,7 +91,9 @@ export function AuthPage() {
       setError('Enter your name.');
       return;
     }
-    if (!familyName.trim()) {
+    // Family name not required when joining an existing family via invite —
+    // accept_invitation() places the new member in the inviter's family.
+    if (!invitePreview && !familyName.trim()) {
       setError('Enter a family name.');
       return;
     }
@@ -78,7 +111,12 @@ export function AuthPage() {
     }
 
     setLoading(true);
-    const { error } = await signUp(email.trim(), password, name.trim(), familyName.trim());
+    const { error } = await signUp(
+      email.trim(),
+      password,
+      name.trim(),
+      invitePreview ? invitePreview.family_name : familyName.trim(),
+    );
     setLoading(false);
     // On success with email confirmations disabled (recommended for family apps),
     // onAuthStateChange fires immediately and AuthGate transitions to AppShell.
@@ -100,6 +138,23 @@ export function AuthPage() {
       </div>
 
       <div className="card w-full max-w-md">
+        {/* Invite banner */}
+        {invitePreview && !invitePreview.accepted && (
+          <div className="px-5 py-4 border-b border-border bg-accent-soft/40 flex items-start gap-3">
+            <div className="w-9 h-9 rounded-full bg-accent text-white flex items-center justify-center shrink-0">
+              <Users size={16} />
+            </div>
+            <div className="text-sm">
+              <div className="text-text font-medium leading-snug">
+                You've been invited to join {invitePreview.family_name}
+              </div>
+              <div className="text-text-faint text-xs mt-0.5">
+                Sign up below to accept — or sign in if you already have an account.
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Mode tabs */}
         {mode !== 'forgot' && (
           <div className="flex border-b border-border">
@@ -123,7 +178,7 @@ export function AuthPage() {
                   : 'text-text-muted hover:text-text')
               }
             >
-              Create family
+              {invitePreview ? 'Accept invite' : 'Create family'}
             </button>
           </div>
         )}
@@ -154,19 +209,21 @@ export function AuthPage() {
                   className="w-full px-3 py-2.5 bg-surface-2 border border-border rounded-md text-text text-sm placeholder:text-text-faint focus:outline-none focus:border-accent"
                 />
               </div>
-              <div>
-                <label className="block text-xs text-text-muted mb-1.5 font-medium">
-                  Family name
-                </label>
-                <input
-                  type="text"
-                  value={familyName}
-                  onChange={(e) => setFamilyName(e.target.value)}
-                  placeholder="The Smith Family"
-                  autoComplete="organization"
-                  className="w-full px-3 py-2.5 bg-surface-2 border border-border rounded-md text-text text-sm placeholder:text-text-faint focus:outline-none focus:border-accent"
-                />
-              </div>
+              {!invitePreview && (
+                <div>
+                  <label className="block text-xs text-text-muted mb-1.5 font-medium">
+                    Family name
+                  </label>
+                  <input
+                    type="text"
+                    value={familyName}
+                    onChange={(e) => setFamilyName(e.target.value)}
+                    placeholder="The Smith Family"
+                    autoComplete="organization"
+                    className="w-full px-3 py-2.5 bg-surface-2 border border-border rounded-md text-text text-sm placeholder:text-text-faint focus:outline-none focus:border-accent"
+                  />
+                </div>
+              )}
             </>
           )}
 

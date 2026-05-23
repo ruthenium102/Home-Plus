@@ -1,14 +1,54 @@
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 
-// Capture ?invite=TOKEN from URL immediately on module load (before React renders).
-// Supabase will consume the #hash auth tokens asynchronously; we grab our param first.
-const _inviteParam = new URLSearchParams(window.location.search).get('invite');
-if (_inviteParam) {
-  sessionStorage.setItem('pending_invite', _inviteParam);
-  // Clean the token from the URL without a page reload
-  const clean = window.location.pathname + window.location.hash;
-  window.history.replaceState(null, '', clean);
-}
+// Capture invite token + password-recovery state from the URL immediately on
+// module load — before React renders and before Supabase consumes the hash.
+// Tokens can arrive in three places:
+//   1. /accept-invite?token=...   — branded link from Resend / copy-link
+//   2. ?invite=...                — legacy magic-link redirect param
+//   3. #invite=... or #token=...  — Supabase sometimes pushes our params into
+//                                   the hash when it adds its own access_token.
+(() => {
+  const search = new URLSearchParams(window.location.search);
+  const hash = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+
+  const path = window.location.pathname;
+  const fromPath = path.startsWith('/accept-invite') ? search.get('token') : null;
+  const inviteToken =
+    fromPath ||
+    search.get('invite') ||
+    search.get('token') ||
+    hash.get('invite') ||
+    hash.get('token');
+
+  if (inviteToken) {
+    sessionStorage.setItem('pending_invite', inviteToken);
+  }
+
+  // Detect Supabase password recovery flow:
+  //   - ?reset=1 (set by our forgotPassword redirectTo)
+  //   - #type=recovery from Supabase's auth redirect
+  const isRecovery =
+    search.get('reset') === '1' || hash.get('type') === 'recovery';
+  if (isRecovery) {
+    sessionStorage.setItem('password_recovery', '1');
+  }
+
+  // Strip our params from the URL so a refresh / back doesn't replay them.
+  if (inviteToken || isRecovery || path.startsWith('/accept-invite')) {
+    const cleanedSearch = new URLSearchParams(search);
+    cleanedSearch.delete('invite');
+    cleanedSearch.delete('token');
+    cleanedSearch.delete('reset');
+    const qs = cleanedSearch.toString();
+    // Preserve any non-Supabase hash params we don't manage
+    const cleanedHash = new URLSearchParams(hash);
+    cleanedHash.delete('invite');
+    cleanedHash.delete('token');
+    const hs = cleanedHash.toString();
+    const next = `/${qs ? '?' + qs : ''}${hs ? '#' + hs : ''}`;
+    window.history.replaceState(null, '', next);
+  }
+})();
 import { ThemeProvider } from '@/context/ThemeContext';
 import { FamilyProvider, useFamily } from '@/context/FamilyContext';
 import { AuthProvider, useAuth } from '@/context/AuthContext';
@@ -21,7 +61,7 @@ import { UserSwitcher } from '@/components/UserSwitcher';
 import { HomePage } from '@/pages/HomePage';
 import { TabFallback } from '@/components/TabFallback';
 import { SetPasswordModal } from '@/components/SetPasswordModal';
-import { isSupabaseConfigured } from '@/lib/supabase';
+import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 
 // Lazy-load tab pages so the lock screen + home tab load fast.
 // Each chunk is fetched on first visit to that tab.
@@ -54,6 +94,25 @@ function AppShell() {
   const showPet = activeMember?.pet_enabled ?? false;
   const [tab, setTab] = useState<TabKey>('home');
   const [switcherOpen, setSwitcherOpen] = useState(false);
+  const [passwordRecovery, setPasswordRecovery] = useState(
+    () => sessionStorage.getItem('password_recovery') === '1',
+  );
+
+  // Listen for Supabase's PASSWORD_RECOVERY auth event in case the user
+  // followed the reset link directly into the app (and we missed the URL
+  // params at module load).
+  useEffect(() => {
+    if (!supabase) return;
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'PASSWORD_RECOVERY') {
+        sessionStorage.setItem('password_recovery', '1');
+        setPasswordRecovery(true);
+      }
+    });
+    return () => subscription.unsubscribe();
+  }, []);
 
   // Reset to home when switching members so hidden tabs aren't left active
   const prevMemberId = useRef(activeMember?.id);
@@ -128,7 +187,16 @@ function AppShell() {
 
       {switcherOpen && <UserSwitcher onClose={() => setSwitcherOpen(false)} />}
 
-      {needsPasswordSetup && <SetPasswordModal onDone={clearNeedsPasswordSetup} />}
+      {(needsPasswordSetup || passwordRecovery) && (
+        <SetPasswordModal
+          mode={passwordRecovery ? 'recovery' : 'invite'}
+          onDone={() => {
+            clearNeedsPasswordSetup();
+            sessionStorage.removeItem('password_recovery');
+            setPasswordRecovery(false);
+          }}
+        />
+      )}
     </div>
   );
 }

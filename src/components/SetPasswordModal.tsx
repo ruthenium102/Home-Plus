@@ -4,9 +4,11 @@ import { supabase } from '@/lib/supabase';
 
 interface Props {
   onDone: () => void;
+  /** 'invite' = first-time setup after accepting an invitation. 'recovery' = password reset from the forgot-password email. */
+  mode?: 'invite' | 'recovery';
 }
 
-export function SetPasswordModal({ onDone }: Props) {
+export function SetPasswordModal({ onDone, mode = 'invite' }: Props) {
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [showPw, setShowPw] = useState(false);
@@ -45,9 +47,13 @@ export function SetPasswordModal({ onDone }: Props) {
               <KeyRound size={22} className="text-accent" />
             </div>
           </div>
-          <h2 className="font-display text-xl text-text text-center mb-1">Set your password</h2>
+          <h2 className="font-display text-xl text-text text-center mb-1">
+            {mode === 'recovery' ? 'Choose a new password' : 'Set your password'}
+          </h2>
           <p className="text-sm text-text-faint text-center mb-5 leading-relaxed">
-            You joined via an invite link. Set a password so you can sign in next time.
+            {mode === 'recovery'
+              ? 'Enter the new password you want to use to sign in.'
+              : 'You joined via an invite link. Set a password so you can sign in next time.'}
           </p>
 
           <form onSubmit={handleSubmit} className="space-y-3">

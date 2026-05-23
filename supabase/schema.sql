@@ -117,38 +117,77 @@ alter table families enable row level security;
 alter table family_members enable row level security;
 alter table events enable row level security;
 
--- Owner can do everything on their own family
-drop policy if exists "Owner manages family" on families;
-create policy "Owner manages family"
-  on families for all
-  using (owner_user_id = auth.uid())
-  with check (owner_user_id = auth.uid());
+-- ----------------------------------------------------------------------------
+-- RLS helpers
+--
+-- Two SECURITY DEFINER helpers let RLS policies probe family_members without
+-- re-triggering RLS on the table itself (which would recurse). Used by every
+-- policy below.
+-- ----------------------------------------------------------------------------
+create or replace function public.user_family_ids()
+returns setof uuid
+language sql stable security definer set search_path = public as $$
+  select family_id from family_members where auth_user_id = auth.uid();
+$$;
+revoke execute on function public.user_family_ids() from public;
+grant execute on function public.user_family_ids() to authenticated;
 
-drop policy if exists "Owner manages members" on family_members;
-create policy "Owner manages members"
-  on family_members for all
-  using (
-    exists (
-      select 1 from families f where f.id = family_id and f.owner_user_id = auth.uid()
-    )
-  )
-  with check (
-    exists (
-      select 1 from families f where f.id = family_id and f.owner_user_id = auth.uid()
-    )
+create or replace function public.is_family_member(p_family_id uuid)
+returns boolean
+language sql stable security definer set search_path = public as $$
+  select exists (
+    select 1 from family_members
+    where family_id = p_family_id
+      and auth_user_id = auth.uid()
   );
+$$;
+revoke execute on function public.is_family_member(uuid) from public;
+grant execute on function public.is_family_member(uuid) to authenticated;
 
-drop policy if exists "Owner manages events" on events;
-create policy "Owner manages events"
+-- families: members can read; owner can insert/update/delete (rename, delete).
+drop policy if exists "Owner manages family"     on families;
+drop policy if exists "Member can read family"   on families;
+drop policy if exists "Owner inserts own family" on families;
+drop policy if exists "Owner updates own family" on families;
+drop policy if exists "Owner deletes own family" on families;
+create policy "Member can read family"   on families for select using (public.is_family_member(id));
+create policy "Owner inserts own family" on families for insert with check (owner_user_id = auth.uid());
+create policy "Owner updates own family" on families for update using (owner_user_id = auth.uid()) with check (owner_user_id = auth.uid());
+create policy "Owner deletes own family" on families for delete using (owner_user_id = auth.uid());
+
+-- family_members: any member of the family can manage all members of that
+-- family. Uses is_family_member() to avoid recursion on this same table.
+drop policy if exists "Owner manages members"          on family_members;
+drop policy if exists "Member can read own row"        on family_members;
+drop policy if exists "Member can update own row"      on family_members;
+drop policy if exists "Member can read family members" on family_members;
+drop policy if exists "Member can update family rows"  on family_members;
+drop policy if exists "Member can insert family rows"  on family_members;
+drop policy if exists "Member can delete family rows"  on family_members;
+create policy "Member can read family members" on family_members
+  for select using (public.is_family_member(family_id));
+create policy "Member can insert family rows"  on family_members
+  for insert with check (public.is_family_member(family_id));
+create policy "Member can update family rows"  on family_members
+  for update using (public.is_family_member(family_id))
+  with check (public.is_family_member(family_id));
+create policy "Member can delete family rows"  on family_members
+  for delete using (public.is_family_member(family_id));
+
+drop policy if exists "Owner manages events"   on events;
+drop policy if exists "Members manage events"  on events;
+create policy "Members manage events"
   on events for all
   using (
     exists (
-      select 1 from families f where f.id = family_id and f.owner_user_id = auth.uid()
+      select 1 from family_members fm
+      where fm.family_id = events.family_id and fm.auth_user_id = auth.uid()
     )
   )
   with check (
     exists (
-      select 1 from families f where f.id = family_id and f.owner_user_id = auth.uid()
+      select 1 from family_members fm
+      where fm.family_id = events.family_id and fm.auth_user_id = auth.uid()
     )
   );
 
@@ -298,8 +337,8 @@ alter table chore_completions enable row level security;
 alter table redemptions enable row level security;
 alter table reward_goals enable row level security;
 
--- Helper: a single policy template applied to each Phase 2 table.
--- The owner of the family is allowed to do everything; everything else is denied.
+-- Membership-based RLS for the Phase 2 tables. Any authenticated user that
+-- has a family_members row for the same family_id can manage these rows.
 do $$
 declare
   t text;
@@ -313,20 +352,21 @@ begin
       'reward_goals'
     ])
   loop
+    execute format('drop policy if exists "Owner manages %1$s" on %1$s', t);
+    execute format('drop policy if exists "Members manage %1$s" on %1$s', t);
     execute format($p$
-      drop policy if exists "Owner manages %1$s" on %1$s;
-      create policy "Owner manages %1$s"
+      create policy "Members manage %1$s"
         on %1$s for all
         using (
           exists (
-            select 1 from families f
-            where f.id = family_id and f.owner_user_id = auth.uid()
+            select 1 from family_members fm
+            where fm.family_id = %1$s.family_id and fm.auth_user_id = auth.uid()
           )
         )
         with check (
           exists (
-            select 1 from families f
-            where f.id = family_id and f.owner_user_id = auth.uid()
+            select 1 from family_members fm
+            where fm.family_id = %1$s.family_id and fm.auth_user_id = auth.uid()
           )
         );
     $p$, t);
@@ -448,20 +488,21 @@ begin
       'habit_check_ins'
     ])
   loop
+    execute format('drop policy if exists "Owner manages %1$s" on %1$s', t);
+    execute format('drop policy if exists "Members manage %1$s" on %1$s', t);
     execute format($p$
-      drop policy if exists "Owner manages %1$s" on %1$s;
-      create policy "Owner manages %1$s"
+      create policy "Members manage %1$s"
         on %1$s for all
         using (
           exists (
-            select 1 from families f
-            where f.id = family_id and f.owner_user_id = auth.uid()
+            select 1 from family_members fm
+            where fm.family_id = %1$s.family_id and fm.auth_user_id = auth.uid()
           )
         )
         with check (
           exists (
-            select 1 from families f
-            where f.id = family_id and f.owner_user_id = auth.uid()
+            select 1 from family_members fm
+            where fm.family_id = %1$s.family_id and fm.auth_user_id = auth.uid()
           )
         );
     $p$, t);
@@ -547,6 +588,7 @@ create table if not exists invitations (
   family_id uuid not null references families(id) on delete cascade,
   email text not null,
   name text,
+  role member_role not null default 'child',
   token uuid not null default gen_random_uuid(),
   invited_by_auth_id uuid references auth.users(id) on delete set null,
   created_at timestamptz not null default now(),
@@ -559,10 +601,13 @@ create index if not exists idx_invitations_email on invitations(email);
 
 alter table invitations enable row level security;
 
--- Anyone can read an invitation (used client-side to show family name on accept flow).
--- In practice the token is a secret UUID so brute-force is infeasible.
+-- Family members can list their own family's invitations (for the manage UI).
+-- The accept screen reads only family_name via the get_invitation_preview RPC
+-- below — the invitations table itself is no longer world-readable.
 drop policy if exists "read by token" on invitations;
-create policy "read by token" on invitations for select using (true);
+drop policy if exists "members read invitations" on invitations;
+create policy "members read invitations" on invitations
+  for select using (public.is_family_member(family_id));
 
 drop policy if exists "parents can insert invitations" on invitations;
 create policy "parents can insert invitations" on invitations
@@ -574,6 +619,42 @@ create policy "parents can insert invitations" on invitations
         and fm.role = 'parent'
     )
   );
+
+-- Parents can revoke / delete invitations
+drop policy if exists "parents manage invitations" on invitations;
+create policy "parents manage invitations" on invitations
+  for delete using (
+    exists (
+      select 1 from family_members fm
+      where fm.family_id = invitations.family_id
+        and fm.auth_user_id = auth.uid()
+        and fm.role = 'parent'
+    )
+  );
+
+-- Public preview RPC: given a token, return only the family name, the
+-- invitee's name/email and expiry. Used by the accept screen so the
+-- invitations table itself stays members-only.
+create or replace function public.get_invitation_preview(p_token uuid)
+returns table (
+  family_name text,
+  invitee_name text,
+  invitee_email text,
+  expires_at timestamptz,
+  accepted boolean
+)
+language sql stable security definer set search_path = public as $$
+  select f.name,
+         inv.name,
+         inv.email,
+         inv.expires_at,
+         inv.accepted_at is not null
+    from invitations inv
+    join families f on f.id = inv.family_id
+   where inv.token = p_token;
+$$;
+revoke execute on function public.get_invitation_preview(uuid) from public;
+grant execute on function public.get_invitation_preview(uuid) to anon, authenticated;
 
 alter table day_plan_blocks enable row level security;
 alter table activity_pool_items enable row level security;
@@ -599,40 +680,88 @@ create policy "family members can manage activity pool" on activity_pool_items
   );
 
 -- ---- Helper: accept an invitation after signup -----------------------------
-
-create or replace function accept_invitation(p_token uuid)
-returns void language plpgsql security definer as $$
+-- Returns the family_id so the client can hydrate without a second round-trip.
+-- Verifies the caller's email matches the invitation. Idempotent — calling
+-- twice with the same token does not create duplicate family_members rows.
+create or replace function public.accept_invitation(p_token uuid)
+returns uuid
+language plpgsql security definer
+set search_path = public as $$
 declare
-  inv invitations%rowtype;
+  inv         invitations%rowtype;
+  caller_uid  uuid := auth.uid();
+  caller_em   text;
+  existing    uuid;
+  linked      int;
 begin
-  select * into inv
-  from invitations
-  where token = p_token and accepted_at is null and expires_at > now();
-
-  if not found then
-    raise exception 'Invitation not found or expired';
+  if caller_uid is null then
+    raise exception 'Not authenticated';
   end if;
 
-  -- Link to existing placeholder member if name matches
-  update family_members
-  set auth_user_id = auth.uid()
-  where family_id = inv.family_id
-    and lower(name) = lower(coalesce(inv.name, ''))
-    and auth_user_id is null;
+  select email into caller_em from auth.users where id = caller_uid;
 
-  -- Otherwise create a new member row
+  select * into inv from invitations where token = p_token;
   if not found then
-    insert into family_members (family_id, name, role, color, auth_user_id)
+    raise exception 'Invitation not found';
+  end if;
+  if inv.accepted_at is not null then
+    if exists (
+      select 1 from family_members
+       where family_id = inv.family_id and auth_user_id = caller_uid
+    ) then
+      return inv.family_id;
+    end if;
+    raise exception 'Invitation already accepted';
+  end if;
+  if inv.expires_at <= now() then
+    raise exception 'Invitation expired';
+  end if;
+  if caller_em is null or lower(caller_em) <> lower(inv.email) then
+    raise exception 'This invitation was sent to %, but you are signed in as %',
+      inv.email, coalesce(caller_em, '(no email)');
+  end if;
+
+  -- Already a member? Return idempotently.
+  select id into existing
+    from family_members
+   where family_id = inv.family_id and auth_user_id = caller_uid
+   limit 1;
+
+  if existing is not null then
+    update invitations set accepted_at = now() where token = p_token;
+    return inv.family_id;
+  end if;
+
+  -- Try to link a named placeholder row first.
+  update family_members
+     set auth_user_id = caller_uid,
+         email        = coalesce(inv.email, email),
+         role         = coalesce(inv.role, role)
+   where family_id     = inv.family_id
+     and auth_user_id  is null
+     and lower(name)   = lower(coalesce(inv.name, ''))
+     and inv.name is not null
+     and inv.name <> '';
+
+  get diagnostics linked = row_count;
+
+  if linked = 0 then
+    insert into family_members (family_id, name, role, color, auth_user_id, email)
     values (
       inv.family_id,
-      coalesce(inv.name, split_part(auth.jwt() ->> 'email', '@', 1)),
-      'child', 'sage', auth.uid()
+      coalesce(inv.name, split_part(coalesce(caller_em, 'Member'), '@', 1)),
+      coalesce(inv.role, 'child'),
+      'sage',
+      caller_uid,
+      inv.email
     );
   end if;
 
   update invitations set accepted_at = now() where token = p_token;
+  return inv.family_id;
 end;
 $$;
+grant execute on function public.accept_invitation(uuid) to authenticated;
 
 -- ============================================================================
 -- Realtime — enable for all tables that need cross-device sync

@@ -65,6 +65,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       password,
       options: { data: { name, family_name: familyName } },
     });
+    if (!error) {
+      // Suppress the post-accept "Set a password" modal — the user just
+      // chose one here. FamilyContext reads & clears this flag after accept.
+      sessionStorage.setItem('password_chosen', '1');
+    }
     return error ? { error: error.message } : {};
   };
 

@@ -2,21 +2,31 @@ import { useState } from 'react';
 import { X, Mail, Loader2, CheckCircle2, Copy } from 'lucide-react';
 import { supabase, isSupabaseConfigured } from '@/lib/supabase';
 import { useFamily } from '@/context/FamilyContext';
+import type { Role } from '@/types';
 
 interface Props {
   open: boolean;
   onClose: () => void;
   defaultName?: string;
+  defaultRole?: Role;
 }
 
 type State = 'idle' | 'loading' | 'success' | 'error';
 
-export function InviteModal({ open, onClose, defaultName }: Props) {
+interface InviteResult {
+  token: string;
+  acceptUrl: string;
+  existing: boolean;
+}
+
+export function InviteModal({ open, onClose, defaultName, defaultRole = 'child' }: Props) {
   const { family, activeMember } = useFamily();
   const [email, setEmail] = useState('');
   const [name, setName] = useState(defaultName ?? '');
+  const [role, setRole] = useState<Role>(defaultRole);
   const [state, setState] = useState<State>('idle');
   const [errorMsg, setErrorMsg] = useState('');
+  const [result, setResult] = useState<InviteResult | null>(null);
   const [copied, setCopied] = useState(false);
 
   if (!open) return null;
@@ -24,8 +34,10 @@ export function InviteModal({ open, onClose, defaultName }: Props) {
   const handleClose = () => {
     setEmail('');
     setName(defaultName ?? '');
+    setRole(defaultRole);
     setState('idle');
     setErrorMsg('');
+    setResult(null);
     setCopied(false);
     onClose();
   };
@@ -46,10 +58,11 @@ export function InviteModal({ open, onClose, defaultName }: Props) {
     setErrorMsg('');
 
     try {
-      const { error } = await supabase.functions.invoke('send-invite', {
+      const { data, error } = await supabase.functions.invoke('send-invite', {
         body: {
           email: email.trim(),
           name: name.trim() || null,
+          role,
           family_id: family.id,
           family_name: family.name,
           invited_by_name: activeMember?.name ?? 'A family member',
@@ -58,6 +71,18 @@ export function InviteModal({ open, onClose, defaultName }: Props) {
       });
 
       if (error) throw new Error(error.message);
+
+      const payload = data as
+        | { ok?: boolean; token?: string; accept_url?: string; existing?: boolean; error?: string }
+        | null;
+      if (!payload || payload.error || !payload.token) {
+        throw new Error(payload?.error || 'Invitation could not be created.');
+      }
+      setResult({
+        token: payload.token,
+        acceptUrl: payload.accept_url ?? `${window.location.origin}/accept-invite?token=${payload.token}`,
+        existing: Boolean(payload.existing),
+      });
       setState('success');
     } catch (err) {
       setState('error');
@@ -66,8 +91,7 @@ export function InviteModal({ open, onClose, defaultName }: Props) {
   };
 
   const handleCopyLink = async () => {
-    // Fallback: copy the app URL for manual sharing
-    const url = window.location.origin;
+    const url = result?.acceptUrl ?? `${window.location.origin}/accept-invite`;
     await navigator.clipboard.writeText(url).catch(() => {});
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
@@ -94,19 +118,38 @@ export function InviteModal({ open, onClose, defaultName }: Props) {
         </div>
 
         <div className="p-5">
-          {state === 'success' ? (
+          {state === 'success' && result ? (
             <div className="text-center py-4">
               <CheckCircle2 size={40} className="text-green-500 mx-auto mb-3" />
-              <div className="font-medium text-text mb-1">Invitation sent!</div>
-              <div className="text-sm text-text-faint">
-                {email} will receive an email with a link to join {family.name}.
+              <div className="font-medium text-text mb-1">
+                {result.existing ? 'They can sign in to join' : 'Invitation sent!'}
+              </div>
+              <div className="text-sm text-text-faint leading-relaxed">
+                {result.existing ? (
+                  <>
+                    <span className="font-mono">{email}</span> already has a Home Plus account.
+                    Ask them to sign in — they'll be added to {family.name} automatically.
+                  </>
+                ) : (
+                  <>
+                    {email} will receive an email with a link to join {family.name}.
+                  </>
+                )}
               </div>
               <button
-                onClick={handleClose}
-                className="mt-5 px-6 py-2.5 bg-accent text-white text-sm font-medium rounded-md hover:opacity-90"
+                onClick={handleCopyLink}
+                className="mt-4 inline-flex items-center gap-1.5 text-xs text-text-faint hover:text-text"
               >
-                Done
+                <Copy size={12} /> {copied ? 'Copied!' : 'Copy invite link'}
               </button>
+              <div>
+                <button
+                  onClick={handleClose}
+                  className="mt-5 px-6 py-2.5 bg-accent text-white text-sm font-medium rounded-md hover:opacity-90"
+                >
+                  Done
+                </button>
+              </div>
             </div>
           ) : (
             <>
@@ -129,6 +172,28 @@ export function InviteModal({ open, onClose, defaultName }: Props) {
                     className="w-full px-3 py-2.5 bg-surface-2 border border-border rounded-md text-text text-sm placeholder:text-text-faint focus:outline-none focus:border-accent"
                     disabled={state === 'loading'}
                   />
+                </div>
+
+                <div>
+                  <label className="block text-xs text-text-muted mb-1.5 font-medium">Role</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {(['parent', 'child'] as Role[]).map((r) => (
+                      <button
+                        key={r}
+                        type="button"
+                        onClick={() => setRole(r)}
+                        disabled={state === 'loading'}
+                        className={
+                          'py-2 text-sm font-medium rounded-md border-2 transition-all capitalize ' +
+                          (role === r
+                            ? 'border-accent bg-accent-soft text-accent'
+                            : 'border-border text-text-muted hover:border-border-strong')
+                        }
+                      >
+                        {r}
+                      </button>
+                    ))}
+                  </div>
                 </div>
 
                 <div>
@@ -164,16 +229,7 @@ export function InviteModal({ open, onClose, defaultName }: Props) {
                 family automatically.
               </div>
 
-              <div className="flex items-center justify-between mt-5">
-                <button
-                  onClick={handleCopyLink}
-                  className="flex items-center gap-1.5 text-xs text-text-faint hover:text-text transition-colors"
-                  title="Copy the app URL to share manually"
-                >
-                  <Copy size={12} />
-                  {copied ? 'Copied!' : 'Copy app link'}
-                </button>
-
+              <div className="flex items-center justify-end mt-5">
                 <div className="flex gap-2">
                   <button
                     onClick={handleClose}

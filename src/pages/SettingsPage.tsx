@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   Sun,
   Moon,
@@ -18,6 +18,11 @@ import {
   Sparkles,
   ChefHat,
   PawPrint,
+  Send,
+  Trash2,
+  Mail,
+  Loader2,
+  Copy,
 } from 'lucide-react';
 import { DragHandle } from '@/components/DragHandle';
 import { useListDragReorder } from '@/hooks/useListDragReorder';
@@ -31,7 +36,7 @@ import { InviteModal } from '@/components/InviteModal';
 import { AddMemberModal } from '@/components/AddMemberModal';
 import { EditMemberModal } from '@/components/EditMemberModal';
 import { MEMBER_COLORS } from '@/lib/colors';
-import { isSupabaseConfigured } from '@/lib/supabase';
+import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 import type { ThemeMode, FamilyMember } from '@/types';
 
 interface GeoResult {
@@ -189,6 +194,15 @@ export function SettingsPage() {
           })}
         </div>
       </section>
+
+      {/* Pending invites */}
+      {isParent && isSupabaseConfigured && (
+        <InvitesSection
+          familyId={family.id}
+          familyName={family.name}
+          invitedByName={activeMember?.name ?? 'A family member'}
+        />
+      )}
 
       {/* Pages */}
       <section className="card p-5">
@@ -768,5 +782,175 @@ function ShopDaysEditor() {
         </div>
       )}
     </div>
+  );
+}
+
+interface PendingInvite {
+  id: string;
+  email: string;
+  name: string | null;
+  role: 'parent' | 'child';
+  token: string;
+  created_at: string;
+  expires_at: string;
+  accepted_at: string | null;
+}
+
+function InvitesSection({
+  familyId,
+  familyName,
+  invitedByName,
+}: {
+  familyId: string;
+  familyName: string;
+  invitedByName: string;
+}) {
+  const [invites, setInvites] = useState<PendingInvite[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [busyId, setBusyId] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    if (!supabase) return;
+    setLoading(true);
+    setError('');
+    const { data, error } = await supabase
+      .from('invitations')
+      .select('id, email, name, role, token, created_at, expires_at, accepted_at')
+      .eq('family_id', familyId)
+      .order('created_at', { ascending: false });
+    if (error) setError(error.message);
+    else setInvites((data ?? []) as PendingInvite[]);
+    setLoading(false);
+  }, [familyId]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  const revoke = async (id: string) => {
+    if (!supabase) return;
+    if (!confirm('Revoke this invitation? The link will stop working.')) return;
+    setBusyId(id);
+    const { error } = await supabase.from('invitations').delete().eq('id', id);
+    setBusyId(null);
+    if (error) {
+      setError(error.message);
+      return;
+    }
+    setInvites((cur) => cur.filter((i) => i.id !== id));
+  };
+
+  const resend = async (invite: PendingInvite) => {
+    if (!supabase) return;
+    setBusyId(invite.id);
+    setError('');
+    try {
+      // Refresh expiry and send a new email by invoking send-invite. The
+      // function will create a *new* invitation row — revoke the old one
+      // first so we don't clutter the list.
+      await supabase.from('invitations').delete().eq('id', invite.id);
+      const { error: fnErr } = await supabase.functions.invoke('send-invite', {
+        body: {
+          email: invite.email,
+          name: invite.name,
+          role: invite.role,
+          family_id: familyId,
+          family_name: familyName,
+          invited_by_name: invitedByName,
+          site_url: window.location.origin,
+        },
+      });
+      if (fnErr) throw new Error(fnErr.message);
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Resend failed.');
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const copyLink = async (token: string) => {
+    const url = `${window.location.origin}/accept-invite?token=${token}`;
+    await navigator.clipboard.writeText(url).catch(() => {});
+  };
+
+  const pending = invites.filter((i) => !i.accepted_at);
+
+  return (
+    <section className="card p-5">
+      <div className="flex items-center justify-between mb-3">
+        <h2 className="font-display text-lg text-text flex items-center gap-2">
+          <Mail size={16} className="text-accent" /> Pending invitations
+        </h2>
+        <button
+          onClick={load}
+          className="text-xs text-text-faint hover:text-text"
+          disabled={loading}
+        >
+          {loading ? <Loader2 size={12} className="animate-spin" /> : 'Refresh'}
+        </button>
+      </div>
+
+      {error && (
+        <div className="text-sm text-red-500 bg-red-500/10 px-3 py-2 rounded-md mb-3">{error}</div>
+      )}
+
+      {pending.length === 0 ? (
+        <div className="text-sm text-text-faint py-2">
+          No pending invitations. Use "Invite by email" above to send one.
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {pending.map((inv) => {
+            const expired = new Date(inv.expires_at) <= new Date();
+            return (
+              <div
+                key={inv.id}
+                className="flex items-center gap-3 p-3 rounded-md bg-surface-2/40"
+              >
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm text-text font-medium truncate">
+                    {inv.name || inv.email}
+                  </div>
+                  <div className="text-xs text-text-faint truncate">
+                    {inv.email} · {inv.role}
+                    {expired ? ' · expired' : ''}
+                  </div>
+                </div>
+                <button
+                  onClick={() => copyLink(inv.token)}
+                  className="px-2 py-1.5 rounded-md text-xs text-text-muted border border-border hover:bg-surface-2"
+                  title="Copy invite link"
+                >
+                  <Copy size={12} />
+                </button>
+                <button
+                  onClick={() => resend(inv)}
+                  disabled={busyId === inv.id}
+                  className="px-2 py-1.5 rounded-md text-xs text-text-muted border border-border hover:bg-surface-2 flex items-center gap-1"
+                  title="Resend invite email"
+                >
+                  {busyId === inv.id ? (
+                    <Loader2 size={12} className="animate-spin" />
+                  ) : (
+                    <Send size={12} />
+                  )}
+                  Resend
+                </button>
+                <button
+                  onClick={() => revoke(inv.id)}
+                  disabled={busyId === inv.id}
+                  className="px-2 py-1.5 rounded-md text-xs text-red-500 border border-red-500/30 hover:bg-red-500/10"
+                  title="Revoke invitation"
+                >
+                  <Trash2 size={12} />
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </section>
   );
 }

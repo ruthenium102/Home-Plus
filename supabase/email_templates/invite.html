@@ -3,44 +3,96 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="x-apple-disable-message-reformatting" />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="supported-color-schemes" content="light dark" />
     <title>You've been invited to Home Plus</title>
+    <!--[if mso]>
+      <style>
+        body, table, td, a { font-family: Arial, Helvetica, sans-serif !important; }
+      </style>
+    <![endif]-->
   </head>
   <body style="margin:0;padding:0;background:#f4ede0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;color:#201c18;-webkit-font-smoothing:antialiased;">
+    <!-- Preheader: shown in inbox preview, hidden in body -->
+    <div style="display:none;max-height:0;overflow:hidden;mso-hide:all;font-size:1px;line-height:1px;color:#f4ede0;">
+      {{ .Data.invited_by_name }} invited you to join {{ .Data.family_name }} on Home Plus.
+    </div>
+
     <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background:#f4ede0;padding:32px 16px;">
       <tr>
         <td align="center">
           <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="520" style="max-width:520px;width:100%;background:#fffaf3;border:1px solid #e6decf;border-radius:16px;overflow:hidden;">
+            <!-- Brand header -->
             <tr>
-              <td style="padding:32px 32px 8px 32px;text-align:center;">
+              <td style="padding:36px 32px 8px 32px;text-align:center;">
+                <!--
+                  LOGO: replace the <div> wordmark below with an <img> once you
+                  host a logo (PNG/SVG, ~96px wide, 2x for retina). Example:
+                  <img src="https://YOUR-CDN/home-plus-logo.png" width="48" height="48"
+                       alt="Home Plus" style="display:block;margin:0 auto 10px;border:0;" />
+                -->
                 <div style="font-family:Georgia,'Times New Roman',serif;font-size:26px;font-weight:600;color:#201c18;letter-spacing:-0.01em;">Home Plus</div>
                 <div style="font-size:11px;text-transform:uppercase;letter-spacing:0.15em;color:#9c8e7b;margin-top:6px;">Family operating system</div>
               </td>
             </tr>
+
+            <!-- Body -->
             <tr>
               <td style="padding:24px 32px 8px 32px;">
-                <h1 style="font-family:Georgia,'Times New Roman',serif;font-size:22px;line-height:1.25;margin:0 0 12px 0;color:#201c18;font-weight:500;">You've been invited.</h1>
+                <h1 style="font-family:Georgia,'Times New Roman',serif;font-size:22px;line-height:1.25;margin:0 0 12px 0;color:#201c18;font-weight:500;">
+                  You're invited to join {{ .Data.family_name }}.
+                </h1>
                 <p style="margin:0 0 16px 0;font-size:15px;line-height:1.55;color:#3a3329;">
-                  Someone in your family is using Home Plus — the shared calendar, chores, lists and habits board on your kitchen tablet — and they'd like you to join.
+                  {{ .Data.invited_by_name }} uses Home Plus &mdash; the shared calendar, chores, lists and habits board for the home &mdash; and would like you to join the family.
                 </p>
                 <p style="margin:0 0 24px 0;font-size:15px;line-height:1.55;color:#3a3329;">
-                  Tap the button below to set up your account.
+                  Tap the button below to set up your account and choose a password.
                 </p>
               </td>
             </tr>
+
+            <!-- Bulletproof button (Outlook-safe) -->
             <tr>
-              <td style="padding:0 32px 32px 32px;text-align:center;">
+              <td style="padding:0 32px 8px 32px;text-align:center;">
+                <!--[if mso]>
+                <v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word"
+                  href="{{ .ConfirmationURL }}" style="height:48px;v-text-anchor:middle;width:220px;" arcsize="21%" stroke="f" fillcolor="#c44d2e">
+                  <w:anchorlock/>
+                  <center style="color:#ffffff;font-family:Arial,sans-serif;font-size:15px;font-weight:bold;">Accept invitation</center>
+                </v:roundrect>
+                <![endif]-->
+                <!--[if !mso]><!-- -->
                 <a href="{{ .ConfirmationURL }}" style="display:inline-block;background:#c44d2e;color:#ffffff;text-decoration:none;padding:14px 28px;border-radius:10px;font-size:15px;font-weight:600;letter-spacing:0.01em;">
                   Accept invitation
                 </a>
-                <p style="margin:20px 0 0 0;font-size:12px;color:#6e6458;line-height:1.5;">
+                <!--<![endif]-->
+              </td>
+            </tr>
+
+            <tr>
+              <td style="padding:8px 32px 32px 32px;text-align:center;">
+                <p style="margin:12px 0 0 0;font-size:12px;color:#6e6458;line-height:1.5;">
+                  This invitation expires in 7 days.<br />
                   Or paste this link into your browser:<br />
                   <span style="word-break:break-all;color:#9c8e7b;">{{ .ConfirmationURL }}</span>
                 </p>
               </td>
             </tr>
+
+            <!-- Footer -->
             <tr>
               <td style="padding:20px 32px;background:#f2ede4;border-top:1px solid #e6decf;text-align:center;font-size:11px;color:#9c8e7b;line-height:1.5;">
                 If you weren't expecting this invite, you can safely ignore this email.
+              </td>
+            </tr>
+          </table>
+
+          <!-- Sub-footer -->
+          <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="520" style="max-width:520px;width:100%;">
+            <tr>
+              <td style="padding:16px 32px;text-align:center;font-size:11px;color:#b3a791;line-height:1.5;">
+                Home Plus &middot; Your family, organised
               </td>
             </tr>
           </table>

@@ -74,36 +74,60 @@ export function AddMemberModal({ open, onClose }: Props) {
     setError('');
     setLoading(true);
 
-    addMember({
-      ...BLANK,
-      name: name.trim(),
-      role,
-      color,
-      birthday: birthday || null,
-      email: email.trim() || null,
-    });
+    // When sending an invite, don't also create a local placeholder member —
+    // accept_invitation() on the server creates / links the row when the
+    // invitee accepts. Creating one here causes a duplicate row.
+    const wantsInvite = sendInvite && email.trim() && supabase && isSupabaseConfigured;
 
-    // Optionally send a Supabase invite so this person can log in on their own device
-    if (sendInvite && email.trim() && supabase && isSupabaseConfigured) {
-      try {
-        const { error: fnErr } = await supabase.functions.invoke('send-invite', {
-          body: {
-            email: email.trim(),
-            name: name.trim(),
-            family_id: family.id,
-            family_name: family.name,
-            invited_by_name: activeMember?.name ?? 'A family member',
-            site_url: window.location.origin,
-          },
-        });
-        if (fnErr) setError('Member added, but invite failed: ' + fnErr.message);
-      } catch {
-        setError('Member added, but invite email could not be sent.');
-      }
+    if (!wantsInvite) {
+      addMember({
+        ...BLANK,
+        name: name.trim(),
+        role,
+        color,
+        birthday: birthday || null,
+        email: email.trim() || null,
+      });
+      setLoading(false);
+      handleClose();
+      return;
     }
 
-    setLoading(false);
-    if (!error) handleClose();
+    try {
+      const { data, error: fnErr } = await supabase!.functions.invoke('send-invite', {
+        body: {
+          email: email.trim(),
+          name: name.trim(),
+          role,
+          family_id: family.id,
+          family_name: family.name,
+          invited_by_name: activeMember?.name ?? 'A family member',
+          site_url: window.location.origin,
+        },
+      });
+
+      if (fnErr) {
+        setError('Invite failed: ' + fnErr.message);
+        setLoading(false);
+        return;
+      }
+
+      const payload = data as
+        | { ok?: boolean; token?: string; existing?: boolean; error?: string }
+        | null;
+      if (!payload || payload.error || !payload.token) {
+        setError(payload?.error || 'Invite could not be created.');
+        setLoading(false);
+        return;
+      }
+
+      // Definite success path — close the modal.
+      setLoading(false);
+      handleClose();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Invite email could not be sent.');
+      setLoading(false);
+    }
   };
 
   return (
@@ -208,7 +232,9 @@ export function AddMemberModal({ open, onClose }: Props) {
                 />
               )}
               <p className="text-xs text-text-faint">
-                They'll get an email so they can log in from their own device.
+                {sendInvite
+                  ? 'They join the family when they accept — no local row is created here.'
+                  : "They'll get an email so they can log in from their own device."}
               </p>
             </div>
           )}
@@ -232,7 +258,7 @@ export function AddMemberModal({ open, onClose }: Props) {
             className="flex-1 py-2.5 bg-accent text-white rounded-md text-sm font-semibold hover:opacity-90 disabled:opacity-50 flex items-center justify-center gap-2"
           >
             {loading && <Loader2 size={14} className="animate-spin" />}
-            Add member
+            {sendInvite ? 'Send invite' : 'Add member'}
           </button>
         </div>
       </div>

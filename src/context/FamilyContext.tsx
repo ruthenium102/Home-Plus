@@ -412,24 +412,57 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
       }
 
       // 3. Check for a pending invite token (user arrived via email invite link).
-      //    Call the accept_invitation() function which links them to the family,
-      //    then re-fetch the family_member row that was just created.
-      const pendingInvite = sessionStorage.getItem('pending_invite');
-      if (pendingInvite) {
-        sessionStorage.removeItem('pending_invite');
-        try {
-          await supabase!.rpc('accept_invitation', { p_token: pendingInvite });
-        } catch (e) {
-          console.warn('[handleAuth] accept_invitation error:', e);
-        }
-        // Re-query for the member row that accept_invitation just created/updated
-        const { data: newMemberRow } = await supabase!
-          .from('family_members')
-          .select('family_id')
-          .eq('auth_user_id', userId)
+      //    Call accept_invitation() — it now returns the family_id directly
+      //    so we don't need a second round-trip to find the row it just made.
+      //    If no URL token is present, fall back to looking up a pending
+      //    invitation by email (handles cases where the token got dropped
+      //    from the URL by Supabase's #access_token redirect).
+      const urlInvite = sessionStorage.getItem('pending_invite');
+      let inviteToken: string | null = urlInvite;
+      if (!inviteToken && userEmail) {
+        const { data: pendingForEmail } = await supabase!
+          .from('invitations')
+          .select('token')
+          .eq('email', userEmail)
+          .is('accepted_at', null)
+          .gt('expires_at', new Date().toISOString())
+          .order('created_at', { ascending: false })
+          .limit(1)
           .maybeSingle();
-        if (newMemberRow?.family_id) {
-          const data = await dbLoadFamily(newMemberRow.family_id as string);
+        inviteToken = (pendingForEmail?.token as string | undefined) ?? null;
+      }
+
+      if (inviteToken) {
+        if (urlInvite) sessionStorage.removeItem('pending_invite');
+
+        let acceptedFamilyId: string | null = null;
+        try {
+          const { data: rpcData, error: rpcErr } = await supabase!.rpc(
+            'accept_invitation',
+            { p_token: inviteToken },
+          );
+          if (rpcErr) {
+            console.warn('[handleAuth] accept_invitation error:', rpcErr);
+          } else if (typeof rpcData === 'string') {
+            acceptedFamilyId = rpcData;
+          }
+        } catch (e) {
+          console.warn('[handleAuth] accept_invitation threw:', e);
+        }
+
+        // Fallback: if the RPC didn't return a uuid (e.g. older SQL still
+        // deployed), look the row up by auth_user_id.
+        if (!acceptedFamilyId) {
+          const { data: newMemberRow } = await supabase!
+            .from('family_members')
+            .select('family_id')
+            .eq('auth_user_id', userId)
+            .maybeSingle();
+          acceptedFamilyId = (newMemberRow?.family_id as string | null) ?? null;
+        }
+
+        if (acceptedFamilyId) {
+          const data = await dbLoadFamily(acceptedFamilyId);
           if (data) {
             setFamily(data.family);
             setMembers(data.members);
@@ -451,16 +484,23 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
               const sess: ActiveSession = { member_id: mine.id, authenticated_at: Date.now() };
               storage.set(SESSION_KEY, sess);
               setSession(sess);
-              // Save email to the member row if not already set
               if (userEmail && !mine.email) {
                 await supabase!
                   .from('family_members')
                   .update({ email: userEmail })
                   .eq('id', mine.id);
               }
-              // Flag that this user should be prompted to set a password
-              sessionStorage.setItem('needs_password_setup', '1');
-              setNeedsPasswordSetup(true);
+              // Prompt for password setup only if the user didn't just choose
+              // one (AuthPage's signUp sets `password_chosen` when the user
+              // creates their account with a password). Users who arrived via
+              // Supabase's inviteUserByEmail magic link bypass AuthPage and
+              // have no password — they need the modal.
+              const passwordChosen = sessionStorage.getItem('password_chosen') === '1';
+              sessionStorage.removeItem('password_chosen');
+              if (!passwordChosen) {
+                sessionStorage.setItem('needs_password_setup', '1');
+                setNeedsPasswordSetup(true);
+              }
             }
           }
           return;
