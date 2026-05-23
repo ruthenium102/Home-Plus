@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Trash2 } from 'lucide-react';
+import { hapticMedium } from '@/lib/native';
 
 interface Props {
   children: ReactNode;
@@ -54,6 +55,7 @@ export function SwipeableRow({
 
   const commitDelete = () => {
     setCommitting(true);
+    void hapticMedium();
     const width = containerRef.current?.offsetWidth ?? 400;
     setAnimating(true);
     setTranslate(-width);

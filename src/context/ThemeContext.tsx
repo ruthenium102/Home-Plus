@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useState, ReactNode } from 'react';
 import { storage } from '@/lib/storage';
+import { setStatusBarForTheme } from '@/lib/native';
 import type { ThemeMode } from '@/types';
 
 interface ThemeContextValue {
@@ -38,6 +39,8 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     // Update the meta theme-color so iOS/Android tinting matches
     const meta = document.querySelector('meta[name="theme-color"]');
     if (meta) meta.setAttribute('content', resolved === 'dark' ? '#1a1815' : '#f8f4ed');
+    // iOS: sync the native status-bar style. No-op on web.
+    void setStatusBarForTheme(resolved);
   }, [resolved]);
 
   const setMode = (m: ThemeMode) => {

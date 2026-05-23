@@ -10,6 +10,7 @@ import {
 } from 'react';
 import { localISO } from '@/lib/dates';
 import { dbUpsert, dbDelete, dbLoadFamily, dbCreateFamily, isPendingWrite } from '@/lib/db';
+import { hapticLight } from '@/lib/native';
 import {
   storage,
   DEMO_FAMILY,
@@ -1147,6 +1148,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
     (choreId: string, memberId: string, forDate: string): ChoreCompletion => {
       const chore = chores.find((c) => c.id === choreId);
       if (!chore) throw new Error('Chore not found: ' + choreId);
+      void hapticLight();
 
       const status: ChoreCompletion['status'] = chore.requires_approval
         ? 'pending_approval'
@@ -1479,6 +1481,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
     (habitId: string, memberId: string, forDate: string) => {
       const habit = habits.find((h) => h.id === habitId);
       if (!habit) return;
+      void hapticLight();
 
       const existing = checkIns.find(
         (c) => c.habit_id === habitId && c.member_id === memberId && c.for_date === forDate,

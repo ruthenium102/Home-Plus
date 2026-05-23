@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Delete } from 'lucide-react';
+import { hapticLight } from '@/lib/native';
 
 interface Props {
   length?: number;
@@ -51,6 +52,7 @@ export function PinPad({
     if (pin.length >= length) return;
     const next = pin + digit;
     setPin(next);
+    void hapticLight();
     if (submitMode === 'auto' && next.length === length) {
       // Defer slightly so the dot animation is visible
       setTimeout(() => onComplete(next), 120);
