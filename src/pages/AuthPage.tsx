@@ -87,7 +87,7 @@ export function AuthPage() {
   };
 
   return (
-    <div className="min-h-screen bg-bg flex flex-col items-center justify-center p-4">
+    <div className="min-h-[100dvh] bg-bg flex flex-col items-center justify-center p-4">
       {/* Brand header */}
       <div className="flex items-center gap-3 mb-8">
         <div className="w-12 h-12 rounded-2xl bg-accent flex items-center justify-center shadow-lg">

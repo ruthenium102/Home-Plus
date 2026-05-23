@@ -58,11 +58,13 @@ export function Modal({
 
   return (
     <div
-      className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4"
+      // On phones (< sm) the modal renders as a bottom sheet — anchored to
+      // the bottom of the viewport. On sm: and up it's a centered dialog.
+      className="fixed inset-0 z-50 bg-black/50 flex items-end sm:items-center justify-center sm:p-4"
       onClick={onClose}
     >
       <div
-        className={`card w-full ${MAX_WIDTH_CLS[maxWidth]} max-h-[85vh] flex flex-col ${className ?? ''}`}
+        className={`card w-full ${MAX_WIDTH_CLS[maxWidth]} max-h-[90vh] sm:max-h-[85vh] flex flex-col rounded-b-none sm:rounded-lg ${className ?? ''}`}
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
@@ -75,7 +77,7 @@ export function Modal({
               <button
                 onClick={onClose}
                 aria-label="Close"
-                className="w-9 h-9 rounded-md hover:bg-surface-2 flex items-center justify-center text-text-muted"
+                className="w-11 h-11 rounded-md hover:bg-surface-2 flex items-center justify-center text-text-muted"
               >
                 <X size={18} />
               </button>

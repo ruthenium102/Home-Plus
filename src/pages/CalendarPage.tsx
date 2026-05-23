@@ -471,7 +471,7 @@ function WeekView({
               key={dayKey}
               data-day-key={dayKey}
               className={
-                'rounded-md p-2 min-h-[200px] flex flex-col transition-colors ' +
+                'rounded-md p-2 min-h-[140px] sm:min-h-[180px] lg:min-h-[220px] flex flex-col transition-colors ' +
                 (isToday ? 'bg-accent-soft' : 'bg-surface-2') +
                 (isDragOver ? ' ring-2 ring-accent' : '')
               }
@@ -601,7 +601,7 @@ function MonthView({
               onClick={() => onJumpToDay(day)}
               onDoubleClick={() => onCreate(day)}
               className={
-                'rounded-md p-1.5 min-h-[80px] sm:min-h-[100px] flex flex-col text-left transition-colors hover:ring-1 hover:ring-border-strong ' +
+                'rounded-md p-1.5 min-h-[88px] sm:min-h-[110px] lg:min-h-[132px] flex flex-col text-left transition-colors hover:ring-1 hover:ring-border-strong ' +
                 (isToday ? 'bg-accent-soft' : inMonth ? 'bg-surface-2' : 'bg-surface-2/40') +
                 (isDragOver ? ' ring-2 ring-accent' : '')
               }

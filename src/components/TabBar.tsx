@@ -22,15 +22,13 @@ export type TabKey =
   | 'my-day'
   | 'settings';
 
-interface Tab {
+export interface Tab {
   key: TabKey;
   label: string;
   icon: LucideIcon;
 }
 
-interface Props {
-  active: TabKey;
-  onChange: (k: TabKey) => void;
+export interface TabVisibility {
   showMyDay?: boolean;
   showChores?: boolean;
   showHabits?: boolean;
@@ -38,16 +36,23 @@ interface Props {
   showKitchen?: boolean;
 }
 
-export function TabBar({
-  active,
-  onChange,
+interface Props extends TabVisibility {
+  active: TabKey;
+  onChange: (k: TabKey) => void;
+}
+
+/**
+ * Single source of truth for which tabs are shown for a given member.
+ * Used by both the bottom TabBar (phone) and the SideRail (iPad/desktop).
+ */
+export function buildTabList({
   showMyDay = false,
   showChores = true,
   showHabits = true,
   showPet = false,
   showKitchen = false,
-}: Props) {
-  const tabs: Tab[] = [
+}: TabVisibility): Tab[] {
+  return [
     { key: 'home', label: 'Home', icon: Home },
     { key: 'calendar', label: 'Calendar', icon: Calendar },
     ...(showMyDay ? [{ key: 'my-day' as TabKey, label: 'My Day', icon: Sun }] : []),
@@ -58,9 +63,15 @@ export function TabBar({
     ...(showKitchen ? [{ key: 'kitchen' as TabKey, label: 'Kitchen+', icon: ChefHat }] : []),
     { key: 'settings', label: 'Settings', icon: SettingsIcon },
   ];
+}
 
+export function TabBar({ active, onChange, ...visibility }: Props) {
+  const tabs = buildTabList(visibility);
+
+  // Buttons size to fit; with a sensible cap on tab count for phones this
+  // means no horizontal scroll. Min-h ≥44px for an iOS-friendly hit area.
   return (
-    <nav className="card p-1.5 flex gap-1 overflow-x-auto scroll-x-clean">
+    <nav className="card p-1.5 flex gap-1">
       {tabs.map((t) => {
         const Icon = t.icon;
         const isActive = active === t.key;
@@ -69,14 +80,14 @@ export function TabBar({
             key={t.key}
             onClick={() => onChange(t.key)}
             className={
-              'flex-1 min-w-[68px] flex flex-col items-center gap-1 px-2 py-2.5 rounded-md transition-all active:scale-95 ' +
+              'flex-1 min-w-0 min-h-[48px] flex flex-col items-center gap-1 px-1 py-2 rounded-md transition-all active:scale-95 ' +
               (isActive
                 ? 'bg-accent text-white shadow-sm'
                 : 'text-text-muted hover:bg-surface-2 hover:text-text')
             }
           >
             <Icon size={20} strokeWidth={isActive ? 2.2 : 1.6} />
-            <span className="text-[11px] font-medium">{t.label}</span>
+            <span className="text-xs font-medium truncate max-w-full">{t.label}</span>
           </button>
         );
       })}

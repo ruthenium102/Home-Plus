@@ -16,6 +16,7 @@ import { ToastProvider } from '@/context/ToastContext';
 import { WeatherProvider } from '@/hooks/useWeather';
 import { TopBar } from '@/components/TopBar';
 import { TabBar, type TabKey } from '@/components/TabBar';
+import { SideRail } from '@/components/SideRail';
 import { UserSwitcher } from '@/components/UserSwitcher';
 import { HomePage } from '@/pages/HomePage';
 import { TabFallback } from '@/components/TabFallback';
@@ -69,9 +70,23 @@ function AppShell() {
   }
 
   return (
-    <div className="min-h-screen bg-bg">
+    <div
+      className="min-h-[100dvh] bg-bg"
+      style={{ paddingTop: 'env(safe-area-inset-top)' }}
+    >
+      {/* iPad / desktop: left side rail (lg+). Hidden on phones. */}
+      <SideRail
+        active={tab}
+        onChange={setTab}
+        showMyDay={showMyDay}
+        showChores={showChores}
+        showHabits={showHabits}
+        showPet={showPet}
+        showKitchen={showKitchen}
+      />
+
       <div
-        className="max-w-6xl mx-auto p-4 sm:p-6 pb-36"
+        className="max-w-6xl mx-auto p-4 sm:p-6 pb-36 lg:pb-8 lg:ml-56"
         style={{ paddingBottom: 'max(9rem, calc(7rem + env(safe-area-inset-bottom)))' }}
       >
         <TopBar onSwitchUser={() => setSwitcherOpen(true)} />
@@ -93,9 +108,9 @@ function AppShell() {
         </main>
       </div>
 
-      {/* Sticky bottom tab bar — bottom-0 + safe-area padding so it sits above iPhone home indicator */}
+      {/* Phone: sticky bottom tab bar. Hidden on iPad/desktop (lg+). */}
       <div
-        className="fixed bottom-0 left-0 right-0 z-30 px-3 sm:px-6"
+        className="fixed bottom-0 left-0 right-0 z-30 px-3 sm:px-6 lg:hidden"
         style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}
       >
         <div className="max-w-6xl mx-auto">
@@ -131,7 +146,7 @@ function AuthGate() {
   // Waiting for Supabase to resolve the session
   if (loading) {
     return (
-      <div className="min-h-screen bg-bg flex items-center justify-center">
+      <div className="min-h-[100dvh] bg-bg flex items-center justify-center">
         <div className="text-text-faint text-sm animate-pulse">Loading…</div>
       </div>
     );
