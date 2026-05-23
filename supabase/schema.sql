@@ -683,6 +683,7 @@ create policy "family members can manage activity pool" on activity_pool_items
 -- Returns the family_id so the client can hydrate without a second round-trip.
 -- Verifies the caller's email matches the invitation. Idempotent — calling
 -- twice with the same token does not create duplicate family_members rows.
+drop function if exists public.accept_invitation(uuid);
 create or replace function public.accept_invitation(p_token uuid)
 returns uuid
 language plpgsql security definer

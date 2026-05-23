@@ -177,6 +177,11 @@ begin
   end loop;
 end$$;
 
+-- The return type is changing from void to uuid, so the old function must
+-- be dropped first — Postgres refuses CREATE OR REPLACE across return-type
+-- changes.
+drop function if exists public.accept_invitation(uuid);
+
 -- ---------------------------------------------------------------------------
 -- 6) Rewrite accept_invitation()
 --
