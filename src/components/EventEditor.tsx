@@ -120,7 +120,7 @@ export function EventEditor({ open, onClose, editing, initialStart }: Props) {
   // We intentionally exclude activeMember / initialStart from deps: their
   // references can churn on context syncs (members array reference flips on
   // every realtime tick), which would otherwise wipe the form mid-edit.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+   
   useEffect(() => {
     if (!open) return;
     userChangedEndRef.current = false;

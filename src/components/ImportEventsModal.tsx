@@ -568,7 +568,7 @@ async function fetchAndParseICal(url: string): Promise<ImportableEvent[]> {
     const res = await fetch(url);
     if (!res.ok) throw new Error('HTTP ' + res.status);
     text = await res.text();
-  } catch (err: any) {
+  } catch {
     // Most likely CORS — surface a clear message
     throw new Error(
       "Couldn't fetch that URL directly. The site may block cross-origin requests. " +

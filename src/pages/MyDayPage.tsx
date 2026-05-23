@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Plus,
   X,
@@ -34,7 +34,7 @@ import {
   Waves,
   type LucideIcon,
 } from 'lucide-react';
-import { addDays, format } from 'date-fns';
+import { format } from 'date-fns';
 import { useFamily } from '@/context/FamilyContext';
 import { localISO } from '@/lib/dates';
 import {
@@ -52,7 +52,7 @@ import {
   sectionForMin,
   snapMin,
 } from '@/lib/dayplan';
-import type { ActivityPoolItem, DayPlanBlock, DayPlanSection } from '@/types';
+import type { ActivityPoolItem, DayPlanBlock } from '@/types';
 
 // ---- Icon resolver --------------------------------------------------------
 

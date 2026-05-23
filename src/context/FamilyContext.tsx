@@ -808,7 +808,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
         return { ...pet, xp: newXp, unlocked_actions };
       }),
     );
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [completions, checkIns]);
 
   // Backfill `accessories` on pets created before the field existed.
@@ -818,7 +818,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
     setPets((prev) =>
       prev.map((p) => (Array.isArray(p.accessories) ? p : { ...p, accessories: [] })),
     );
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, []);
 
   // ---- Auth ----------------------------------------------------------------

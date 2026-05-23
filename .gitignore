@@ -2,9 +2,13 @@ node_modules
 dist
 dist-ssr
 *.local
+*.local.json
 .env
 .env.local
 .env.*.local
+
+# Claude Code (local machine settings)
+.claude/
 
 # Editor
 .vscode/*

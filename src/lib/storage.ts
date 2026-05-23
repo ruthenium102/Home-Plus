@@ -1,4 +1,4 @@
-import { localISO, localISODaysAgo } from '@/lib/dates';
+import { localISODaysAgo } from '@/lib/dates';
 import { isoWeekStr } from '@/lib/rotation';
 import type {
   ActivityPoolItem,

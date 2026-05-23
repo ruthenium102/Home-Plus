@@ -56,7 +56,7 @@ export function HabitEditor({ open, editing, onClose }: Props) {
   // Only re-init when the editor opens or the target habit changes.
   // activeMember is intentionally excluded — its reference flips on every
   // family-context sync, which would otherwise wipe the form mid-edit.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+   
   useEffect(() => {
     if (!open) return;
     if (editing) {

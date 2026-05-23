@@ -1,0 +1,10 @@
+node_modules
+dist
+dist-ssr
+ios
+api
+assets
+public
+package-lock.json
+*.local.json
+.claude

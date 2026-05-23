@@ -91,7 +91,7 @@ export function WeatherProvider({ children }: { children: ReactNode }) {
     }
   });
   // Name set by user manually — overrides reverse-geocoding result
-  const [manualName, setManualName] = useState<string | null>(() => {
+  const [_manualName, setManualName] = useState<string | null>(() => {
     const raw = localStorage.getItem(LOCATION_KEY);
     if (!raw) return null;
     try {
@@ -234,7 +234,7 @@ export function WeatherProvider({ children }: { children: ReactNode }) {
     } catch {
       // Ignore — leave cached coords in place
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, []);
 
   const resetLocation = useCallback(() => {

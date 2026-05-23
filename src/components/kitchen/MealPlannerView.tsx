@@ -292,7 +292,8 @@ function RepeatMealModal({
   const toggle = (wd: number) =>
     setSelected((prev) => {
       const next = new Set(prev);
-      next.has(wd) ? next.delete(wd) : next.add(wd);
+      if (next.has(wd)) next.delete(wd);
+      else next.add(wd);
       return next;
     });
 

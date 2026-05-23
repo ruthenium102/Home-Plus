@@ -107,7 +107,7 @@ export const PetEyes = forwardRef<PetEyesHandle, Props>(function PetEyes(
           if (!el) return;
           el.classList.remove('pet-blink');
           // Force reflow so we can re-trigger the animation.
-          // eslint-disable-next-line @typescript-eslint/no-unused-expressions
+           
           void el.getBoundingClientRect();
           el.classList.add('pet-blink');
         });
