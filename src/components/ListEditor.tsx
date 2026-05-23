@@ -44,6 +44,10 @@ export function ListEditor({ open, onClose, editing }: Props) {
   const [color, setColor] = useState<MemberColor | null>(null);
   const [ownerId, setOwnerId] = useState<string | null>(null);
 
+  // Only re-init when the editor opens or the target list changes.
+  // activeMember is intentionally excluded — its reference flips on every
+  // family-context sync, which would otherwise wipe the form mid-edit.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (!open) return;
     if (editing) {
@@ -57,7 +61,7 @@ export function ListEditor({ open, onClose, editing }: Props) {
       setColor(activeMember?.color || null);
       setOwnerId(null); // shared by default
     }
-  }, [open, editing, activeMember]);
+  }, [open, editing?.id]);
 
   if (!open) return null;
 

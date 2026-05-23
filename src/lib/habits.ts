@@ -109,6 +109,26 @@ export function visibleHabits(habits: Habit[], activeMemberId: string): Habit[] 
   );
 }
 
+/**
+ * Does `count` satisfy the habit's target given its comparison operator?
+ * Defaults to 'gte' (at least) to match historical behaviour when target_op
+ * is missing on older rows.
+ */
+export function targetMet(count: number, target: number, op?: Habit['target_op']): boolean {
+  switch (op ?? 'gte') {
+    case 'lte': return count <= target;
+    case 'eq':  return count === target;
+    case 'gte':
+    default:    return count >= target;
+  }
+}
+
+/** "≥ 3/day" style label. */
+export function targetLabel(target: number, op?: Habit['target_op']): string {
+  const sym = op === 'lte' ? '≤' : op === 'eq' ? '=' : '≥';
+  return `${sym} ${target}/day`;
+}
+
 export function nextStreakMilestone(streak: number): number {
   const milestones = [7, 30, 100, 365];
   return milestones.find((m) => m > streak) ?? streak + 100;

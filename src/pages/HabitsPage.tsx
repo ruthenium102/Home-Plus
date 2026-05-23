@@ -23,7 +23,9 @@ import {
   isCheckedIn,
   lastNDays,
   visibleHabits,
-  nextStreakMilestone
+  nextStreakMilestone,
+  targetMet,
+  targetLabel
 } from '@/lib/habits';
 import type { Habit } from '@/types';
 
@@ -53,11 +55,13 @@ export function HabitsPage() {
           description: snapshot.description,
           member_id: snapshot.member_id,
           cadence: snapshot.cadence,
+          weekdays: snapshot.weekdays ?? [],
           visibility: snapshot.visibility,
           streak_rewards: snapshot.streak_rewards,
           archived: snapshot.archived,
           count_mode: snapshot.count_mode ?? false,
-          daily_target: snapshot.daily_target ?? 1
+          daily_target: snapshot.daily_target ?? 1,
+          target_op: snapshot.target_op
         });
       }
     });
@@ -155,7 +159,7 @@ export function HabitsPage() {
                       (c) => c.habit_id === habit.id && c.member_id === member.id && c.for_date === d.date
                     );
                     const dayCount = ci ? (ci.count ?? 1) : 0;
-                    return { date: d.date, checked: dayCount >= target, count: dayCount };
+                    return { date: d.date, checked: targetMet(dayCount, target, habit.target_op), count: dayCount };
                   });
 
                   const dragProps = isActive ? habitDnd.getRowProps(habit.id) : null;
@@ -291,7 +295,7 @@ function HabitRow({
         </div>
         <div className="flex items-center gap-2 mt-0.5 text-xs">
           <span className="text-text-faint tabular-nums">
-            Target {target}/day
+            {targetLabel(target, habit.target_op)}
           </span>
           <span className="text-text-faint">·</span>
           <div className="flex items-center gap-1">

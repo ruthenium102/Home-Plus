@@ -656,23 +656,20 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
     [session, members]
   );
 
-  // Auto-revert "Away til..." when the until date passes
+  // Auto-revert "Away til..." when the until date passes.
+  // Re-runs whenever members change (incl. async load from Supabase) so a
+  // stale location_until doesn't linger after the app re-mounts. Also
+  // persists via dbUpsert so the next realtime sync doesn't bring it back.
   useEffect(() => {
     const now = new Date();
     members.forEach((m) => {
       if (m.location_until && new Date(m.location_until) < now) {
-        setMembers((prev) =>
-          prev.map((x) =>
-            x.id === m.id
-              ? { ...x, current_location: 'Home', location_until: null }
-              : x
-          )
-        );
+        const cleared = { ...m, current_location: 'Home', location_until: null };
+        setMembers((prev) => prev.map((x) => (x.id === m.id ? cleared : x)));
+        dbUpsert('family_members', cleared as unknown as Record<string, unknown>);
       }
     });
-    // Run only on mount and when members count changes
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [members]);
 
   // ---- Virtual Pet helpers -------------------------------------------------
 

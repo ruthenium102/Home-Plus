@@ -64,6 +64,8 @@ export interface CalendarEvent {
   all_day: boolean;
   location: string | null;
   category: EventCategory;
+  // Optional colour override. Null/undefined = derive from first assigned member.
+  color?: MemberColor | null;
   // Members this event applies to. Empty = whole family.
   member_ids: string[];
   // Recurrence — null for one-off. Otherwise an RRULE-like minimal struct.
@@ -296,6 +298,12 @@ export interface Habit {
   archived: boolean;
   count_mode: boolean;     // if true, track quantity instead of done/not-done
   daily_target: number;    // target count per day (default 1)
+  // How to compare today's count against daily_target. Defaults to 'gte'
+  // (at least N) when missing — matching the historical behaviour.
+  //   'gte' = ≥ N (at least)         e.g. drink ≥ 8 glasses
+  //   'eq'  = exactly N
+  //   'lte' = ≤ N (at most)          e.g. screen time ≤ 30 min
+  target_op?: 'lte' | 'eq' | 'gte';
   created_at: string;
 }
 

@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
-import { X, Trash2, Repeat, Bell, MapPin, Users } from 'lucide-react';
+import { X, Trash2, Repeat, Bell, MapPin, Users, Palette } from 'lucide-react';
 import { format } from 'date-fns';
 import { useFamily } from '@/context/FamilyContext';
 import { suggestDuration } from '@/lib/events';
+import { COLOR_OPTIONS, MEMBER_COLORS } from '@/lib/colors';
 import { Avatar } from './Avatar';
-import type { CalendarEvent, EventCategory, Recurrence } from '@/types';
+import type { CalendarEvent, EventCategory, MemberColor, Recurrence } from '@/types';
 
 interface Props {
   open: boolean;
@@ -16,6 +17,11 @@ interface Props {
 const CATEGORIES: EventCategory[] = [
   'general', 'school', 'work', 'sport', 'medical', 'social', 'travel', 'meal', 'wfh'
 ];
+
+function categoryLabel(c: EventCategory): string {
+  if (c === 'wfh') return 'WFH';
+  return c.charAt(0).toUpperCase() + c.slice(1);
+}
 
 const QUICK_DURATIONS = [
   { label: '15min', mins: 15 },
@@ -91,6 +97,7 @@ export function EventEditor({ open, onClose, editing, initialStart }: Props) {
   const [endDate, setEndDate] = useState('');
   const [endTime, setEndTime] = useState('');
   const [memberIds, setMemberIds] = useState<string[]>([]);
+  const [color, setColor] = useState<MemberColor | null>(null);
   const [recurFreq, setRecurFreq] = useState<'none' | 'daily' | 'weekly' | 'monthly' | 'yearly'>('none');
   const [byweekday, setByweekday] = useState<number[]>([]);
   const [reminderMin, setReminderMin] = useState<number | null>(null);
@@ -99,6 +106,10 @@ export function EventEditor({ open, onClose, editing, initialStart }: Props) {
   // True once the user has manually picked an end time — stops smart-duration overwriting it.
   const userChangedEndRef = useRef(false);
 
+  // Only re-init when the editor opens or the target event changes.
+  // We intentionally exclude activeMember / initialStart from deps: their
+  // references can churn on context syncs (members array reference flips on
+  // every realtime tick), which would otherwise wipe the form mid-edit.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (!open) return;
@@ -117,6 +128,7 @@ export function EventEditor({ open, onClose, editing, initialStart }: Props) {
       setEndDate(format(e, 'yyyy-MM-dd'));
       setEndTime(format(e, 'HH:mm'));
       setMemberIds(editing.member_ids);
+      setColor(editing.color ?? null);
       setRecurFreq((editing.recurrence?.freq as 'daily' | 'weekly' | 'monthly' | 'yearly') ?? 'none');
       setByweekday((editing.recurrence?.byweekday as number[]) ?? []);
       setReminderMin(editing.reminder_offsets[0] ?? null);
@@ -137,11 +149,12 @@ export function EventEditor({ open, onClose, editing, initialStart }: Props) {
       setEndDate(end.date);
       setEndTime(end.time);
       setMemberIds(activeMember ? [activeMember.id] : []);
+      setColor(null);
       setRecurFreq('none');
       setByweekday([]);
       setReminderMin(null);
     }
-  }, [open, editing, initialStart, activeMember]);
+  }, [open, editing?.id]);
 
   if (!open) return null;
 
@@ -244,6 +257,7 @@ export function EventEditor({ open, onClose, editing, initialStart }: Props) {
       description: description.trim() || null,
       location: location.trim() || null,
       category,
+      color,
       all_day: allDay,
       start_at: startISO,
       end_at: endISO,
@@ -447,9 +461,18 @@ export function EventEditor({ open, onClose, editing, initialStart }: Props) {
                   </button>
                 );
               })}
-            </div>
-            <div className="text-xs text-text-faint mt-1.5">
-              Leave empty for whole-family events
+              <button
+                onClick={() => setMemberIds([])}
+                className={
+                  'flex items-center gap-1.5 px-3 py-1 rounded-full border transition-all ' +
+                  (memberIds.length === 0
+                    ? 'bg-surface-2 border-accent'
+                    : 'border-border hover:border-border-strong opacity-70')
+                }
+              >
+                <Users size={14} />
+                <span className="text-sm text-text">Family</span>
+              </button>
             </div>
           </div>
 
@@ -476,14 +499,49 @@ export function EventEditor({ open, onClose, editing, initialStart }: Props) {
                   key={c}
                   onClick={() => handleCategoryChange(c)}
                   className={
-                    'px-3 py-1.5 rounded-full text-xs capitalize border transition-colors ' +
+                    'px-3 py-1.5 rounded-full text-xs border transition-colors ' +
                     (category === c
                       ? 'bg-accent text-white border-accent'
                       : 'border-border text-text-muted hover:border-border-strong')
                   }
                 >
-                  {c}
+                  {categoryLabel(c)}
                 </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Colour override */}
+          <div>
+            <div className="flex items-center gap-2 text-sm text-text-muted mb-2">
+              <Palette size={14} /> Colour
+            </div>
+            <div className="flex flex-wrap gap-1.5 items-center">
+              <button
+                type="button"
+                onClick={() => setColor(null)}
+                title="Auto (use member colour)"
+                className={
+                  'px-3 h-8 rounded-full text-xs border transition-colors ' +
+                  (color === null
+                    ? 'bg-accent text-white border-accent'
+                    : 'border-border text-text-muted hover:border-border-strong')
+                }
+              >
+                Auto
+              </button>
+              {COLOR_OPTIONS.map((c) => (
+                <button
+                  key={c}
+                  type="button"
+                  onClick={() => setColor(c)}
+                  title={c}
+                  className={
+                    'w-8 h-8 rounded-full transition-transform ' +
+                    (color === c ? 'ring-2 ring-text-muted scale-110' : '')
+                  }
+                  style={{ background: MEMBER_COLORS[c].base }}
+                />
               ))}
             </div>
           </div>

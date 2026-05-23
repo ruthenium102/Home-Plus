@@ -13,7 +13,7 @@ import { useSwipeMode } from '@/hooks/useSwipeMode';
 import { getColorTokens } from '@/lib/colors';
 import { isParent, formatBalance } from '@/lib/chores';
 import { isDueSoon, isOverdue, formatDue, visibleLists } from '@/lib/lists';
-import { computeHabitStreak, visibleHabits, isHabitDue } from '@/lib/habits';
+import { computeHabitStreak, visibleHabits, isHabitDue, targetMet } from '@/lib/habits';
 import type { TabKey } from '@/components/TabBar';
 
 interface Props {
@@ -113,7 +113,7 @@ export function HomePage({ onNavigate }: Props) {
           habit: h,
           count,
           target,
-          checked: count >= target,
+          checked: targetMet(count, target, h.target_op),
           streak: computeHabitStreak(checkIns, h.id, activeMember.id),
         };
       });

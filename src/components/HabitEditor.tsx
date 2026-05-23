@@ -42,7 +42,12 @@ export function HabitEditor({ open, editing, onClose }: Props) {
   const [visibility, setVisibility] = useState<'private' | 'shared'>('private');
   const [streakRewards, setStreakRewards] = useState(false);
   const [dailyTarget, setDailyTarget] = useState(1);
+  const [targetOp, setTargetOp] = useState<'lte' | 'eq' | 'gte'>('gte');
 
+  // Only re-init when the editor opens or the target habit changes.
+  // activeMember is intentionally excluded — its reference flips on every
+  // family-context sync, which would otherwise wipe the form mid-edit.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (!open) return;
     if (editing) {
@@ -55,6 +60,7 @@ export function HabitEditor({ open, editing, onClose }: Props) {
       setVisibility(editing.visibility);
       setStreakRewards(editing.streak_rewards);
       setDailyTarget(editing.daily_target ?? 1);
+      setTargetOp(editing.target_op ?? 'gte');
     } else {
       setTitle('');
       setDescription('');
@@ -65,8 +71,9 @@ export function HabitEditor({ open, editing, onClose }: Props) {
       setVisibility('private');
       setStreakRewards(false);
       setDailyTarget(1);
+      setTargetOp('gte');
     }
-  }, [open, editing, activeMember]);
+  }, [open, editing?.id]);
 
   if (!open) return null;
 
@@ -96,6 +103,7 @@ export function HabitEditor({ open, editing, onClose }: Props) {
         archived: false,
         count_mode: true,
         daily_target: Math.max(1, dailyTarget),
+        target_op: targetOp,
       });
     } else {
       if (selectedMemberIds.length === 0) return;
@@ -112,6 +120,7 @@ export function HabitEditor({ open, editing, onClose }: Props) {
           archived: false,
           count_mode: true,
           daily_target: Math.max(1, dailyTarget),
+          target_op: targetOp,
         });
       }
     }
@@ -324,35 +333,56 @@ export function HabitEditor({ open, editing, onClose }: Props) {
           )}
 
           {/* Daily target — every habit has one (default 1). Count mode is
-              now implicit. */}
-          <div className="flex items-center gap-3 px-3 py-2.5 rounded-md bg-surface-2/60 border border-border">
-            <span className="text-sm text-text-muted flex-1">Daily target</span>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => setDailyTarget((v) => Math.max(1, v - 1))}
-                className="w-7 h-7 rounded-md border border-border flex items-center justify-center text-text-muted hover:bg-surface-2 hover:text-text text-base leading-none"
-              >
-                −
-              </button>
-              <input
-                type="number"
-                min={1}
-                max={99}
-                value={dailyTarget}
-                onChange={(e) => {
-                  const v = parseInt(e.target.value, 10);
-                  if (!isNaN(v)) setDailyTarget(Math.min(99, Math.max(1, v)));
-                }}
-                className="w-12 text-center px-1 py-1 bg-surface-2 border border-border rounded-md text-text text-sm font-medium focus:outline-none focus:border-accent"
-              />
-              <button
-                type="button"
-                onClick={() => setDailyTarget((v) => Math.min(99, v + 1))}
-                className="w-7 h-7 rounded-md border border-border flex items-center justify-center text-text-muted hover:bg-surface-2 hover:text-text text-base leading-none"
-              >
-                +
-              </button>
+              now implicit. Op picker lets the user set ≤ / = / ≥ semantics. */}
+          <div className="px-3 py-2.5 rounded-md bg-surface-2/60 border border-border space-y-2.5">
+            <div className="flex items-center gap-3">
+              <span className="text-sm text-text-muted flex-1">Daily target</span>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setDailyTarget((v) => Math.max(1, v - 1))}
+                  className="w-7 h-7 rounded-md border border-border flex items-center justify-center text-text-muted hover:bg-surface-2 hover:text-text text-base leading-none"
+                  aria-label="Decrease target"
+                >
+                  −
+                </button>
+                <div
+                  className="w-12 text-center px-1 py-1 bg-surface-2 border border-border rounded-md text-text text-sm font-medium tabular-nums select-none"
+                  aria-live="polite"
+                >
+                  {dailyTarget}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setDailyTarget((v) => Math.min(99, v + 1))}
+                  className="w-7 h-7 rounded-md border border-border flex items-center justify-center text-text-muted hover:bg-surface-2 hover:text-text text-base leading-none"
+                  aria-label="Increase target"
+                >
+                  +
+                </button>
+              </div>
+            </div>
+            <div className="flex items-center gap-1.5">
+              {([
+                { v: 'lte', label: '≤', title: 'Met when count is at most the target' },
+                { v: 'eq',  label: '=', title: 'Met only when count equals the target' },
+                { v: 'gte', label: '≥', title: 'Met when count is at least the target' },
+              ] as const).map((opt) => (
+                <button
+                  key={opt.v}
+                  type="button"
+                  onClick={() => setTargetOp(opt.v)}
+                  title={opt.title}
+                  className={
+                    'flex-1 px-3 py-1.5 rounded-md text-sm font-medium border transition-colors ' +
+                    (targetOp === opt.v
+                      ? 'bg-accent text-white border-accent'
+                      : 'border-border text-text-muted hover:border-border-strong')
+                  }
+                >
+                  {opt.label}
+                </button>
+              ))}
             </div>
           </div>
 
