@@ -410,25 +410,68 @@ function RosterDragList({
   rosterRoleName,
   onRoleNameChange,
 }: RosterDragListProps) {
-  const dragIndexRef = useRef<number | null>(null);
+  // Pointer-event drag-to-reorder — HTML5 DnD doesn't work on iOS touch.
+  // We use elementsFromPoint to find which chip the pointer is hovering and
+  // reorder live (matching the previous live-feedback behaviour).
+  const dragIdRef = useRef<string | null>(null);
+  const rosterRef = useRef(roster);
+  rosterRef.current = roster;
 
-  const handleDragStart = (i: number) => {
-    dragIndexRef.current = i;
-  };
+  const startDrag = (id: string, downEv: React.PointerEvent) => {
+    if (downEv.button !== undefined && downEv.button !== 0) return;
+    const target = downEv.currentTarget as HTMLElement;
+    const startX = downEv.clientX;
+    const startY = downEv.clientY;
+    let started = false;
+    const pointerId = downEv.pointerId;
 
-  const handleDragOver = (e: React.DragEvent, i: number) => {
-    e.preventDefault();
-    const from = dragIndexRef.current;
-    if (from === null || from === i) return;
-    const next = [...roster];
-    const [item] = next.splice(from, 1);
-    next.splice(i, 0, item);
-    dragIndexRef.current = i;
-    onChange(next);
-  };
+    const findRosterIdAt = (clientX: number, clientY: number): string | null => {
+      const els = document.elementsFromPoint(clientX, clientY);
+      for (const el of els) {
+        const chip = (el as HTMLElement).closest?.('[data-roster-id]') as HTMLElement | null;
+        if (chip) return chip.dataset.rosterId ?? null;
+      }
+      return null;
+    };
 
-  const handleDragEnd = () => {
-    dragIndexRef.current = null;
+    const move = (ev: PointerEvent) => {
+      if (!started) {
+        if (Math.abs(ev.clientY - startY) < 6 && Math.abs(ev.clientX - startX) < 6) return;
+        started = true;
+        try {
+          target.setPointerCapture(pointerId);
+        } catch {
+          /* ignore */
+        }
+        dragIdRef.current = id;
+      }
+      const overId = findRosterIdAt(ev.clientX, ev.clientY);
+      if (!overId || overId === id) return;
+      const cur = rosterRef.current;
+      const from = cur.indexOf(id);
+      const to = cur.indexOf(overId);
+      if (from < 0 || to < 0 || from === to) return;
+      const next = cur.slice();
+      const [item] = next.splice(from, 1);
+      next.splice(to, 0, item);
+      onChange(next);
+      ev.preventDefault();
+    };
+    const cleanup = () => {
+      target.removeEventListener('pointermove', move);
+      target.removeEventListener('pointerup', cleanup);
+      target.removeEventListener('pointercancel', cleanup);
+      try {
+        target.releasePointerCapture(pointerId);
+      } catch {
+        /* ignore */
+      }
+      dragIdRef.current = null;
+    };
+
+    target.addEventListener('pointermove', move);
+    target.addEventListener('pointerup', cleanup);
+    target.addEventListener('pointercancel', cleanup);
   };
 
   return (
@@ -441,10 +484,9 @@ function RosterDragList({
           return (
             <span
               key={id}
-              draggable
-              onDragStart={() => handleDragStart(i)}
-              onDragOver={(e) => handleDragOver(e, i)}
-              onDragEnd={handleDragEnd}
+              data-roster-id={id}
+              style={{ touchAction: 'none' }}
+              onPointerDown={(ev) => startDrag(id, ev)}
               className="flex items-center gap-1 bg-surface border border-border px-2 py-0.5 rounded-full text-xs text-text cursor-grab active:cursor-grabbing select-none"
             >
               <span className="text-text-faint">{i + 1}.</span> {m.name}

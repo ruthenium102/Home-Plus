@@ -100,8 +100,77 @@ export function CalendarPage() {
     setEditorOpen(true);
   };
 
-  const handleDragStart = (e: ExpandedEvent) => {
-    draggingRef.current = e;
+  // Pointer-based drag of an event chip onto a day cell. HTML5 DnD does not
+  // work on iOS touch — we instead capture the pointer, watch pointermove
+  // for the day under it (via data-day-key), then commit on pointerup.
+  const startEventDrag = (e: ExpandedEvent, downEv: React.PointerEvent) => {
+    if (downEv.button !== undefined && downEv.button !== 0) return;
+    const target = downEv.currentTarget as HTMLElement;
+    const startX = downEv.clientX;
+    const startY = downEv.clientY;
+    let started = false;
+    const pointerId = downEv.pointerId;
+
+    const findDayKeyAt = (clientX: number, clientY: number): string | null => {
+      const els = document.elementsFromPoint(clientX, clientY);
+      for (const el of els) {
+        const cell = (el as HTMLElement).closest?.('[data-day-key]') as HTMLElement | null;
+        if (cell) return cell.dataset.dayKey ?? null;
+      }
+      return null;
+    };
+
+    const move = (ev: PointerEvent) => {
+      if (!started) {
+        if (Math.abs(ev.clientY - startY) < 6 && Math.abs(ev.clientX - startX) < 6) return;
+        started = true;
+        try {
+          target.setPointerCapture(pointerId);
+        } catch {
+          /* ignore */
+        }
+        draggingRef.current = e;
+      }
+      const key = findDayKeyAt(ev.clientX, ev.clientY);
+      setDragOverDayKey(key);
+      ev.preventDefault();
+    };
+    const cleanup = () => {
+      target.removeEventListener('pointermove', move);
+      target.removeEventListener('pointerup', up);
+      target.removeEventListener('pointercancel', cancel);
+      try {
+        target.releasePointerCapture(pointerId);
+      } catch {
+        /* ignore */
+      }
+    };
+    const up = (ev: PointerEvent) => {
+      cleanup();
+      if (!started) {
+        draggingRef.current = null;
+        setDragOverDayKey(null);
+        return;
+      }
+      const key = findDayKeyAt(ev.clientX, ev.clientY);
+      if (!key) {
+        draggingRef.current = null;
+        setDragOverDayKey(null);
+        return;
+      }
+      // dayKey is an ISO string written by the views — parsing it back gives
+      // the same Date the views used for layout.
+      handleDropOnDay(new Date(key));
+    };
+    const cancel = () => {
+      cleanup();
+      draggingRef.current = null;
+      setDragOverDayKey(null);
+    };
+
+    target.addEventListener('pointermove', move);
+    target.addEventListener('pointerup', up);
+    target.addEventListener('pointercancel', cancel);
   };
 
   const handleDropOnDay = (day: Date) => {
@@ -262,10 +331,8 @@ export function CalendarPage() {
           events={expanded}
           onEdit={handleEditEvent}
           onCreate={handleNew}
-          onDragStart={handleDragStart}
-          onDropOnDay={handleDropOnDay}
+          onStartEventDrag={startEventDrag}
           dragOverDayKey={dragOverDayKey}
-          onDragOverDay={setDragOverDayKey}
         />
       )}
       {view === 'month' && (
@@ -280,10 +347,8 @@ export function CalendarPage() {
             setCursor(d);
             setView('day');
           }}
-          onDragStart={handleDragStart}
-          onDropOnDay={handleDropOnDay}
+          onStartEventDrag={startEventDrag}
           dragOverDayKey={dragOverDayKey}
-          onDragOverDay={setDragOverDayKey}
         />
       )}
 
@@ -378,19 +443,15 @@ function WeekView({
   events,
   onEdit,
   onCreate,
-  onDragStart,
-  onDropOnDay,
+  onStartEventDrag,
   dragOverDayKey,
-  onDragOverDay,
 }: {
   weekStart: Date;
   events: ExpandedEvent[];
   onEdit: (e: ExpandedEvent) => void;
   onCreate: (d: Date) => void;
-  onDragStart: (e: ExpandedEvent) => void;
-  onDropOnDay: (day: Date) => void;
+  onStartEventDrag: (e: ExpandedEvent, downEv: React.PointerEvent) => void;
   dragOverDayKey: string | null;
-  onDragOverDay: (key: string | null) => void;
 }) {
   const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
   const today = new Date();
@@ -408,17 +469,12 @@ function WeekView({
           return (
             <div
               key={dayKey}
+              data-day-key={dayKey}
               className={
                 'rounded-md p-2 min-h-[200px] flex flex-col transition-colors ' +
                 (isToday ? 'bg-accent-soft' : 'bg-surface-2') +
                 (isDragOver ? ' ring-2 ring-accent' : '')
               }
-              onDragOver={(ev) => {
-                ev.preventDefault();
-                onDragOverDay(dayKey);
-              }}
-              onDragLeave={() => onDragOverDay(null)}
-              onDrop={() => onDropOnDay(day)}
             >
               <div className="flex items-baseline gap-1.5 mb-2">
                 <div
@@ -449,9 +505,8 @@ function WeekView({
                   ) : (
                     <div
                       key={e.occurrence_key}
-                      draggable
-                      onDragStart={() => onDragStart(e)}
-                      onDragEnd={() => onDragOverDay(null)}
+                      style={{ touchAction: 'none' }}
+                      onPointerDown={(ev) => onStartEventDrag(e, ev)}
                     >
                       <EventChip event={e} onClick={() => onEdit(e)} variant="week" />
                     </div>
@@ -482,10 +537,8 @@ function MonthView({
   onEdit,
   onCreate,
   onJumpToDay,
-  onDragStart,
-  onDropOnDay,
+  onStartEventDrag,
   dragOverDayKey,
-  onDragOverDay,
 }: {
   monthCursor: Date;
   gridStart: Date;
@@ -494,10 +547,8 @@ function MonthView({
   onEdit: (e: ExpandedEvent) => void;
   onCreate: (d: Date) => void;
   onJumpToDay: (d: Date) => void;
-  onDragStart: (e: ExpandedEvent) => void;
-  onDropOnDay: (day: Date) => void;
+  onStartEventDrag: (e: ExpandedEvent, downEv: React.PointerEvent) => void;
   dragOverDayKey: string | null;
-  onDragOverDay: (key: string | null) => void;
 }) {
   const { resolved } = useTheme();
   const { members } = useFamily();
@@ -546,14 +597,9 @@ function MonthView({
           return (
             <button
               key={dayKey}
+              data-day-key={dayKey}
               onClick={() => onJumpToDay(day)}
               onDoubleClick={() => onCreate(day)}
-              onDragOver={(ev) => {
-                ev.preventDefault();
-                onDragOverDay(dayKey);
-              }}
-              onDragLeave={() => onDragOverDay(null)}
-              onDrop={() => onDropOnDay(day)}
               className={
                 'rounded-md p-1.5 min-h-[80px] sm:min-h-[100px] flex flex-col text-left transition-colors hover:ring-1 hover:ring-border-strong ' +
                 (isToday ? 'bg-accent-soft' : inMonth ? 'bg-surface-2' : 'bg-surface-2/40') +
@@ -614,16 +660,15 @@ function MonthView({
                   ) : (
                     <div
                       key={e.occurrence_key}
-                      draggable
+                      style={{ touchAction: 'none' }}
                       onClick={(ev) => {
                         ev.stopPropagation();
                         onEdit(e);
                       }}
-                      onDragStart={(ev) => {
+                      onPointerDown={(ev) => {
                         ev.stopPropagation();
-                        onDragStart(e);
+                        onStartEventDrag(e, ev);
                       }}
-                      onDragEnd={() => onDragOverDay(null)}
                     >
                       {chip}
                     </div>

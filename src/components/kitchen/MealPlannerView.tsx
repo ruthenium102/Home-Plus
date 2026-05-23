@@ -84,16 +84,71 @@ export function MealPlannerView() {
     setSelectedDay(null);
   }
 
-  function handleDragStart(e: React.DragEvent, recipeId: string) {
-    e.dataTransfer.setData('recipe-id', recipeId);
-    e.dataTransfer.effectAllowed = 'copy';
-  }
+  // Pointer-event drag: recipe chips dragged onto day cells. We track the
+  // recipe being dragged in a ref because the drop detection runs in a
+  // global pointermove and pointerup loop (HTML5 DnD does not work on iOS).
+  const draggingRecipeRef = useRef<string | null>(null);
 
-  function handleDrop(e: React.DragEvent, dateStr: string) {
-    e.preventDefault();
-    setDragOverDay(null);
-    const recipeId = e.dataTransfer.getData('recipe-id');
-    if (recipeId) handleAdd(recipeId, dateStr, selectedMealType);
+  function startRecipeDrag(recipeId: string, downEv: React.PointerEvent) {
+    if (downEv.button !== undefined && downEv.button !== 0) return;
+    const target = downEv.currentTarget as HTMLElement;
+    const startX = downEv.clientX;
+    const startY = downEv.clientY;
+    let started = false;
+    const pointerId = downEv.pointerId;
+
+    const findDayAt = (clientX: number, clientY: number): string | null => {
+      const els = document.elementsFromPoint(clientX, clientY);
+      for (const el of els) {
+        const cell = (el as HTMLElement).closest?.('[data-meal-day]') as HTMLElement | null;
+        if (cell) return cell.dataset.mealDay ?? null;
+      }
+      return null;
+    };
+
+    const move = (ev: PointerEvent) => {
+      if (!started) {
+        if (Math.abs(ev.clientY - startY) < 6 && Math.abs(ev.clientX - startX) < 6) return;
+        started = true;
+        try {
+          target.setPointerCapture(pointerId);
+        } catch {
+          /* ignore */
+        }
+        draggingRecipeRef.current = recipeId;
+      }
+      setDragOverDay(findDayAt(ev.clientX, ev.clientY));
+      ev.preventDefault();
+    };
+    const cleanup = () => {
+      target.removeEventListener('pointermove', move);
+      target.removeEventListener('pointerup', up);
+      target.removeEventListener('pointercancel', cancel);
+      try {
+        target.releasePointerCapture(pointerId);
+      } catch {
+        /* ignore */
+      }
+    };
+    const up = (ev: PointerEvent) => {
+      cleanup();
+      const dropTarget = started ? findDayAt(ev.clientX, ev.clientY) : null;
+      const recipe = draggingRecipeRef.current;
+      draggingRecipeRef.current = null;
+      setDragOverDay(null);
+      if (started && dropTarget && recipe) {
+        handleAdd(recipe, dropTarget, selectedMealType);
+      }
+    };
+    const cancel = () => {
+      cleanup();
+      draggingRecipeRef.current = null;
+      setDragOverDay(null);
+    };
+
+    target.addEventListener('pointermove', move);
+    target.addEventListener('pointerup', up);
+    target.addEventListener('pointercancel', cancel);
   }
 
   return (
@@ -152,8 +207,8 @@ export function MealPlannerView() {
                 sidebarRecipes.map((r) => (
                   <div
                     key={r.id}
-                    draggable
-                    onDragStart={(e) => handleDragStart(e, r.id)}
+                    style={{ touchAction: 'none' }}
+                    onPointerDown={(e) => startRecipeDrag(r.id, e)}
                     className="flex items-center gap-1.5 px-2 py-1.5 rounded-md text-sm bg-surface-2 hover:bg-surface-3 cursor-grab active:cursor-grabbing transition min-w-0"
                     onClick={() => selectedDay && handleAdd(r.id, selectedDay)}
                   >
@@ -179,13 +234,8 @@ export function MealPlannerView() {
               return (
                 <div
                   key={date}
+                  data-meal-day={date}
                   className={`card min-h-24 p-2 flex flex-col transition ${isOver ? 'ring-2 ring-accent' : ''}`}
-                  onDragOver={(e) => {
-                    e.preventDefault();
-                    setDragOverDay(date);
-                  }}
-                  onDragLeave={() => setDragOverDay(null)}
-                  onDrop={(e) => handleDrop(e, date)}
                 >
                   <div
                     className={`text-center mb-1 ${isToday ? 'text-accent font-bold' : 'text-text-muted'}`}
