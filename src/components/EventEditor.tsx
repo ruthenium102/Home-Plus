@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
-import { X, Trash2, Repeat, Bell, MapPin, Users, Palette } from 'lucide-react';
+import { Trash2, Repeat, Bell, MapPin, Users, Palette } from 'lucide-react';
 import { format } from 'date-fns';
 import { useFamily } from '@/context/FamilyContext';
 import { suggestDuration } from '@/lib/events';
 import { COLOR_OPTIONS, MEMBER_COLORS } from '@/lib/colors';
 import { Avatar } from './Avatar';
+import { Modal } from './Modal';
 import type { CalendarEvent, EventCategory, MemberColor, Recurrence } from '@/types';
 
 interface Props {
@@ -168,8 +169,6 @@ export function EventEditor({ open, onClose, editing, initialStart }: Props) {
     }
   }, [open, editing?.id]);
 
-  if (!open) return null;
-
   // ---- handlers ---------------------------------------------------------------
 
   const handleTitleChange = (val: string) => {
@@ -302,27 +301,39 @@ export function EventEditor({ open, onClose, editing, initialStart }: Props) {
     'px-3 py-2 bg-surface-2 border border-border rounded-md text-text text-sm focus:outline-none focus:border-accent';
 
   return (
-    <div
-      className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4"
-      onClick={onClose}
+    <Modal
+      open={open}
+      onClose={onClose}
+      title={editing ? 'Edit event' : 'New event'}
+      maxWidth="2xl"
+      footer={
+        <>
+          {editing ? (
+            <button
+              onClick={handleDelete}
+              className="flex items-center gap-1.5 text-text-muted hover:text-accent text-sm transition-colors"
+            >
+              <Trash2 size={15} /> Delete
+            </button>
+          ) : (
+            <span />
+          )}
+          <div className="flex gap-2">
+            <button onClick={onClose} className="px-4 py-2 text-sm text-text-muted hover:text-text">
+              Cancel
+            </button>
+            <button
+              onClick={handleSave}
+              disabled={!title.trim()}
+              className="px-5 py-2 bg-accent text-white text-sm font-medium rounded-md hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              Save
+            </button>
+          </div>
+        </>
+      }
     >
-      <div
-        className="card w-full max-w-2xl max-h-[85vh] flex flex-col"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-border shrink-0">
-          <h2 className="font-display text-xl text-text">{editing ? 'Edit event' : 'New event'}</h2>
-          <button
-            onClick={onClose}
-            className="w-9 h-9 rounded-md hover:bg-surface-2 flex items-center justify-center text-text-muted"
-          >
-            <X size={18} />
-          </button>
-        </div>
-
-        <div className="p-4 space-y-4 overflow-y-auto flex-1">
-          {/* Title */}
+      {/* Title */}
           <input
             type="text"
             value={title}
@@ -649,34 +660,6 @@ export function EventEditor({ open, onClose, editing, initialStart }: Props) {
             rows={2}
             className="w-full px-3 py-2.5 bg-surface-2 border border-border rounded-md text-text text-sm placeholder:text-text-faint focus:outline-none focus:border-accent resize-none"
           />
-        </div>
-
-        {/* Footer */}
-        <div className="flex items-center justify-between p-4 border-t border-border shrink-0 bg-surface">
-          {editing ? (
-            <button
-              onClick={handleDelete}
-              className="flex items-center gap-1.5 text-text-muted hover:text-accent text-sm transition-colors"
-            >
-              <Trash2 size={15} /> Delete
-            </button>
-          ) : (
-            <span />
-          )}
-          <div className="flex gap-2">
-            <button onClick={onClose} className="px-4 py-2 text-sm text-text-muted hover:text-text">
-              Cancel
-            </button>
-            <button
-              onClick={handleSave}
-              disabled={!title.trim()}
-              className="px-5 py-2 bg-accent text-white text-sm font-medium rounded-md hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed"
-            >
-              Save
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
+    </Modal>
   );
 }

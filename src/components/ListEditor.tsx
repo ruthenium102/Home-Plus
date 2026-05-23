@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import {
-  X,
   Trash2,
   Wrench,
   Hammer,
@@ -15,6 +14,7 @@ import {
 } from 'lucide-react';
 import { useFamily } from '@/context/FamilyContext';
 import { COLOR_OPTIONS, MEMBER_COLORS } from '@/lib/colors';
+import { Modal } from './Modal';
 import type { TodoList, MemberColor } from '@/types';
 
 interface Props {
@@ -63,7 +63,6 @@ export function ListEditor({ open, onClose, editing }: Props) {
     }
   }, [open, editing?.id]);
 
-  if (!open) return null;
 
   const handleSave = () => {
     if (!name.trim()) return;
@@ -91,25 +90,38 @@ export function ListEditor({ open, onClose, editing }: Props) {
   };
 
   return (
-    <div
-      className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4"
-      onClick={onClose}
+    <Modal
+      open={open}
+      onClose={onClose}
+      title={editing ? 'Edit list' : 'New list'}
+      maxWidth="lg"
+      footer={
+        <>
+          {editing ? (
+            <button
+              onClick={handleDelete}
+              className="flex items-center gap-1.5 text-text-muted hover:text-accent text-sm transition-colors"
+            >
+              <Trash2 size={15} /> Delete
+            </button>
+          ) : (
+            <span />
+          )}
+          <div className="flex gap-2">
+            <button onClick={onClose} className="px-4 py-2 text-sm text-text-muted hover:text-text">
+              Cancel
+            </button>
+            <button
+              onClick={handleSave}
+              disabled={!name.trim()}
+              className="px-5 py-2 bg-accent text-white text-sm font-medium rounded-md hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              Save
+            </button>
+          </div>
+        </>
+      }
     >
-      <div
-        className="card w-full max-w-md sm:max-w-lg max-h-[85vh] flex flex-col"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-center justify-between p-4 border-b border-border shrink-0">
-          <h2 className="font-display text-xl text-text">{editing ? 'Edit list' : 'New list'}</h2>
-          <button
-            onClick={onClose}
-            className="w-9 h-9 rounded-md hover:bg-surface-2 flex items-center justify-center text-text-muted"
-          >
-            <X size={18} />
-          </button>
-        </div>
-
-        <div className="p-4 space-y-4 overflow-y-auto flex-1">
           <input
             type="text"
             value={name}
@@ -202,34 +214,7 @@ export function ListEditor({ open, onClose, editing }: Props) {
               ))}
             </div>
           </div>
-        </div>
-
-        <div className="flex items-center justify-between p-4 border-t border-border shrink-0 bg-surface">
-          {editing ? (
-            <button
-              onClick={handleDelete}
-              className="flex items-center gap-1.5 text-text-muted hover:text-accent text-sm transition-colors"
-            >
-              <Trash2 size={15} /> Delete
-            </button>
-          ) : (
-            <span />
-          )}
-          <div className="flex gap-2">
-            <button onClick={onClose} className="px-4 py-2 text-sm text-text-muted hover:text-text">
-              Cancel
-            </button>
-            <button
-              onClick={handleSave}
-              disabled={!name.trim()}
-              className="px-5 py-2 bg-accent text-white text-sm font-medium rounded-md hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed"
-            >
-              Save
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
+    </Modal>
   );
 }
 

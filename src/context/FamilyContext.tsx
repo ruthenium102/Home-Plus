@@ -205,6 +205,11 @@ interface FamilyContextValue {
 
 const FamilyContext = createContext<FamilyContextValue | null>(null);
 
+// Persists a slice to localStorage whenever it changes.
+function usePersisted<T>(key: string, value: T) {
+  useEffect(() => storage.set(key, value), [key, value]);
+}
+
 const SESSION_KEY = 'session';
 const FAMILY_KEY = 'demo:family';
 const EVENTS_KEY = 'demo:events';
@@ -573,160 +578,75 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
         return prev.filter((x) => x.id !== id);
       });
 
-    const channel = supabase
-      .channel(`hp-${fid}`)
-      .on(
+    // Data-driven realtime subscription config: one entry per synced table.
+    // Each entry tells the channel which setter to call on insert/update and
+    // delete. Adding a new table only needs an extra row, not another .on().
+    const subs: Array<{
+      table: string;
+      setter: React.Dispatch<React.SetStateAction<{ id: string }[]>>;
+    }> = [
+      { table: 'family_members', setter: setMembers as never },
+      { table: 'events', setter: setEvents as never },
+      { table: 'chores', setter: setChores as never },
+      { table: 'chore_completions', setter: setCompletions as never },
+      { table: 'todo_lists', setter: setLists as never },
+      { table: 'todo_items', setter: setListItems as never },
+      { table: 'habits', setter: setHabits as never },
+      { table: 'habit_check_ins', setter: setCheckIns as never },
+      { table: 'reward_goals', setter: setGoals as never },
+      { table: 'redemptions', setter: setRedemptions as never },
+      { table: 'day_plan_blocks', setter: setDayPlanBlocks as never },
+      { table: 'activity_pool_items', setter: setActivityPool as never },
+      { table: 'recipes', setter: setRecipes as never },
+      { table: 'meal_plans', setter: setMealPlans as never },
+    ];
+
+    let channel = supabase.channel(`hp-${fid}`);
+    for (const { table, setter } of subs) {
+      channel = channel.on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'family_members', filter: `family_id=eq.${fid}` },
+        { event: '*', schema: 'public', table, filter: `family_id=eq.${fid}` },
         ({ eventType, new: n, old: o }) => {
-          if (eventType === 'DELETE')
-            removeById('family_members', setMembers, (o as FamilyMember).id);
-          else upsertById('family_members', setMembers, n as FamilyMember);
+          if (eventType === 'DELETE') {
+            removeById(table, setter, (o as { id: string }).id);
+          } else {
+            upsertById(table, setter, n as { id: string });
+          }
         },
-      )
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'events', filter: `family_id=eq.${fid}` },
-        ({ eventType, new: n, old: o }) => {
-          if (eventType === 'DELETE') removeById('events', setEvents, (o as CalendarEvent).id);
-          else upsertById('events', setEvents, n as CalendarEvent);
-        },
-      )
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'chores', filter: `family_id=eq.${fid}` },
-        ({ eventType, new: n, old: o }) => {
-          if (eventType === 'DELETE') removeById('chores', setChores, (o as Chore).id);
-          else upsertById('chores', setChores, n as Chore);
-        },
-      )
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'chore_completions', filter: `family_id=eq.${fid}` },
-        ({ eventType, new: n, old: o }) => {
-          if (eventType === 'DELETE')
-            removeById('chore_completions', setCompletions, (o as ChoreCompletion).id);
-          else upsertById('chore_completions', setCompletions, n as ChoreCompletion);
-        },
-      )
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'todo_lists', filter: `family_id=eq.${fid}` },
-        ({ eventType, new: n, old: o }) => {
-          if (eventType === 'DELETE') removeById('todo_lists', setLists, (o as TodoList).id);
-          else upsertById('todo_lists', setLists, n as TodoList);
-        },
-      )
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'todo_items', filter: `family_id=eq.${fid}` },
-        ({ eventType, new: n, old: o }) => {
-          if (eventType === 'DELETE') removeById('todo_items', setListItems, (o as TodoItem).id);
-          else upsertById('todo_items', setListItems, n as TodoItem);
-        },
-      )
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'habits', filter: `family_id=eq.${fid}` },
-        ({ eventType, new: n, old: o }) => {
-          if (eventType === 'DELETE') removeById('habits', setHabits, (o as Habit).id);
-          else upsertById('habits', setHabits, n as Habit);
-        },
-      )
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'habit_check_ins', filter: `family_id=eq.${fid}` },
-        ({ eventType, new: n, old: o }) => {
-          if (eventType === 'DELETE')
-            removeById('habit_check_ins', setCheckIns, (o as HabitCheckIn).id);
-          else upsertById('habit_check_ins', setCheckIns, n as HabitCheckIn);
-        },
-      )
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'reward_goals', filter: `family_id=eq.${fid}` },
-        ({ eventType, new: n, old: o }) => {
-          if (eventType === 'DELETE') removeById('reward_goals', setGoals, (o as RewardGoal).id);
-          else upsertById('reward_goals', setGoals, n as RewardGoal);
-        },
-      )
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'redemptions', filter: `family_id=eq.${fid}` },
-        ({ eventType, new: n, old: o }) => {
-          if (eventType === 'DELETE')
-            removeById('redemptions', setRedemptions, (o as Redemption).id);
-          else upsertById('redemptions', setRedemptions, n as Redemption);
-        },
-      )
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'day_plan_blocks', filter: `family_id=eq.${fid}` },
-        ({ eventType, new: n, old: o }) => {
-          if (eventType === 'DELETE')
-            removeById('day_plan_blocks', setDayPlanBlocks, (o as DayPlanBlock).id);
-          else upsertById('day_plan_blocks', setDayPlanBlocks, n as DayPlanBlock);
-        },
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'activity_pool_items',
-          filter: `family_id=eq.${fid}`,
-        },
-        ({ eventType, new: n, old: o }) => {
-          if (eventType === 'DELETE')
-            removeById('activity_pool_items', setActivityPool, (o as ActivityPoolItem).id);
-          else upsertById('activity_pool_items', setActivityPool, n as ActivityPoolItem);
-        },
-      )
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'recipes', filter: `family_id=eq.${fid}` },
-        ({ eventType, new: n, old: o }) => {
-          if (eventType === 'DELETE') removeById('recipes', setRecipes, (o as Recipe).id);
-          else upsertById('recipes', setRecipes, n as Recipe);
-        },
-      )
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'meal_plans', filter: `family_id=eq.${fid}` },
-        ({ eventType, new: n, old: o }) => {
-          if (eventType === 'DELETE') removeById('meal_plans', setMealPlans, (o as MealPlan).id);
-          else upsertById('meal_plans', setMealPlans, n as MealPlan);
-        },
-      )
-      .subscribe();
+      );
+    }
+    channel.subscribe();
 
     return () => {
       supabase!.removeChannel(channel);
     };
   }, [family.id]);
 
-  // Persist
-  useEffect(() => storage.set(FAMILY_KEY, family), [family]);
-  useEffect(() => storage.set(MEMBERS_KEY, members), [members]);
-  useEffect(() => storage.set(MEMBER_ORDER_KEY, memberOrder), [memberOrder]);
-  useEffect(() => storage.set(HABIT_ORDER_KEY, habitOrder), [habitOrder]);
-  useEffect(() => storage.set(CHORE_ORDER_KEY, choreOrder), [choreOrder]);
-  useEffect(() => storage.set(LIST_ORDER_KEY, listOrder), [listOrder]);
-  useEffect(() => storage.set(EVENTS_KEY, events), [events]);
-  useEffect(() => storage.set(CHORES_KEY, chores), [chores]);
-  useEffect(() => storage.set(COMPLETIONS_KEY, completions), [completions]);
-  useEffect(() => storage.set(REDEMPTIONS_KEY, redemptions), [redemptions]);
-  useEffect(() => storage.set(GOALS_KEY, goals), [goals]);
-  useEffect(() => storage.set(LISTS_KEY, lists), [lists]);
-  useEffect(() => storage.set(LIST_ITEMS_KEY, listItems), [listItems]);
-  useEffect(() => storage.set(HABITS_KEY, habits), [habits]);
-  useEffect(() => storage.set(CHECKINS_KEY, checkIns), [checkIns]);
-  useEffect(() => storage.set(DAY_PLAN_KEY, dayPlanBlocks), [dayPlanBlocks]);
-  useEffect(() => storage.set(ACTIVITY_POOL_KEY, activityPool), [activityPool]);
-  useEffect(() => storage.set(RECIPES_KEY, recipes), [recipes]);
-  useEffect(() => storage.set(MEAL_PLANS_KEY, mealPlans), [mealPlans]);
-  useEffect(() => storage.set(KITCHEN_SETTINGS_KEY, kitchenSettings), [kitchenSettings]);
-  useEffect(() => storage.set(PETS_KEY, pets), [pets]);
+  // Persist each slice to localStorage when it changes. usePersisted is a
+  // tiny wrapper around the previous one-effect-per-slice pattern; behaviour
+  // is identical (write only when that specific slice changes) but the
+  // wall-of-useEffects collapses to one line per key.
+  usePersisted(FAMILY_KEY, family);
+  usePersisted(MEMBERS_KEY, members);
+  usePersisted(MEMBER_ORDER_KEY, memberOrder);
+  usePersisted(HABIT_ORDER_KEY, habitOrder);
+  usePersisted(CHORE_ORDER_KEY, choreOrder);
+  usePersisted(LIST_ORDER_KEY, listOrder);
+  usePersisted(EVENTS_KEY, events);
+  usePersisted(CHORES_KEY, chores);
+  usePersisted(COMPLETIONS_KEY, completions);
+  usePersisted(REDEMPTIONS_KEY, redemptions);
+  usePersisted(GOALS_KEY, goals);
+  usePersisted(LISTS_KEY, lists);
+  usePersisted(LIST_ITEMS_KEY, listItems);
+  usePersisted(HABITS_KEY, habits);
+  usePersisted(CHECKINS_KEY, checkIns);
+  usePersisted(DAY_PLAN_KEY, dayPlanBlocks);
+  usePersisted(ACTIVITY_POOL_KEY, activityPool);
+  usePersisted(RECIPES_KEY, recipes);
+  usePersisted(MEAL_PLANS_KEY, mealPlans);
+  usePersisted(KITCHEN_SETTINGS_KEY, kitchenSettings);
+  usePersisted(PETS_KEY, pets);
   useEffect(() => {
     if (session) storage.set(SESSION_KEY, session);
     else storage.remove(SESSION_KEY);
