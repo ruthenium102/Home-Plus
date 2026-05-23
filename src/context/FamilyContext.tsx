@@ -667,7 +667,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
       if (m.location_until && new Date(m.location_until) < now) {
         const cleared = { ...m, current_location: 'Home', location_until: null };
         setMembers((prev) => prev.map((x) => (x.id === m.id ? cleared : x)));
-        dbUpsert('family_members', cleared as unknown as Record<string, unknown>);
+        dbUpsert('family_members', cleared);
       }
     });
   }, [members]);
@@ -847,26 +847,26 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
         supabase!.from('meal_plans').select('*').eq('family_id', family.id),
       ]);
       const [mems, evs, ch, cc, tl, ti, hb, hci, rg, rd, dpb, api, rec, mp] = probes;
-      setMembers(mergePolled('family_members', (mems.data ?? []) as unknown as FamilyMember[]));
-      setEvents(mergePolled('events', (evs.data ?? []) as unknown as CalendarEvent[]));
-      setChores(mergePolled('chores', (ch.data ?? []) as unknown as Chore[]));
+      setMembers(mergePolled('family_members', (mems.data ?? [])));
+      setEvents(mergePolled('events', (evs.data ?? [])));
+      setChores(mergePolled('chores', (ch.data ?? [])));
       setCompletions(
-        mergePolled('chore_completions', (cc.data ?? []) as unknown as ChoreCompletion[]),
+        mergePolled('chore_completions', (cc.data ?? [])),
       );
-      setLists(mergePolled('todo_lists', (tl.data ?? []) as unknown as TodoList[]));
-      setListItems(mergePolled('todo_items', (ti.data ?? []) as unknown as TodoItem[]));
-      setHabits(mergePolled('habits', (hb.data ?? []) as unknown as Habit[]));
-      setCheckIns(mergePolled('habit_check_ins', (hci.data ?? []) as unknown as HabitCheckIn[]));
-      setGoals(mergePolled('reward_goals', (rg.data ?? []) as unknown as RewardGoal[]));
-      setRedemptions(mergePolled('redemptions', (rd.data ?? []) as unknown as Redemption[]));
+      setLists(mergePolled('todo_lists', (tl.data ?? [])));
+      setListItems(mergePolled('todo_items', (ti.data ?? [])));
+      setHabits(mergePolled('habits', (hb.data ?? [])));
+      setCheckIns(mergePolled('habit_check_ins', (hci.data ?? [])));
+      setGoals(mergePolled('reward_goals', (rg.data ?? [])));
+      setRedemptions(mergePolled('redemptions', (rd.data ?? [])));
       setDayPlanBlocks(
-        mergePolled('day_plan_blocks', (dpb.data ?? []) as unknown as DayPlanBlock[]),
+        mergePolled('day_plan_blocks', (dpb.data ?? [])),
       );
       setActivityPool(
-        mergePolled('activity_pool_items', (api.data ?? []) as unknown as ActivityPoolItem[]),
+        mergePolled('activity_pool_items', (api.data ?? [])),
       );
-      setRecipes(mergePolled('recipes', (rec.data ?? []) as unknown as Recipe[]));
-      setMealPlans(mergePolled('meal_plans', (mp.data ?? []) as unknown as MealPlan[]));
+      setRecipes(mergePolled('recipes', (rec.data ?? [])));
+      setMealPlans(mergePolled('meal_plans', (mp.data ?? [])));
       setLastReloadAt(Date.now());
 
       const detail = fErrMsg
@@ -933,7 +933,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
         family_id: family.id,
       };
       setEvents((prev) => [...prev, newEvent]);
-      dbUpsert('events', newEvent as unknown as Record<string, unknown>);
+      dbUpsert('events', newEvent);
     },
     [family.id],
   );
@@ -944,7 +944,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
         prev.map((e) => {
           if (e.id !== id) return e;
           const updated = { ...e, ...patch };
-          dbUpsert('events', updated as unknown as Record<string, unknown>);
+          dbUpsert('events', updated);
           // If this is a meal event whose date changed, sync the linked meal
           // plan's date so the planner stays in lockstep with the calendar.
           if (updated.category === 'meal' && patch.start_at && patch.start_at !== e.start_at) {
@@ -953,7 +953,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
               mps.map((mp) => {
                 if (mp.calendar_event_id !== id || mp.date === newDate) return mp;
                 const next = { ...mp, date: newDate };
-                dbUpsert('meal_plans', next as unknown as Record<string, unknown>);
+                dbUpsert('meal_plans', next);
                 return next;
               }),
             );
@@ -987,7 +987,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
         created_at: new Date().toISOString(),
       };
       setMembers((prev) => [...prev, newMember]);
-      dbUpsert('family_members', newMember as unknown as Record<string, unknown>);
+      dbUpsert('family_members', newMember);
     },
     [family.id],
   );
@@ -998,7 +998,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
         prev.map((m) => {
           if (m.id !== id) return m;
           const updated = { ...m, ...patch };
-          dbUpsert('family_members', updated as unknown as Record<string, unknown>);
+          dbUpsert('family_members', updated);
           return updated;
         }),
       ),
@@ -1060,7 +1060,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
         const newPos = orderedItemIds.indexOf(item.id);
         if (newPos < 0 || newPos === item.position) return item;
         const updated = { ...item, position: newPos };
-        dbUpsert('todo_items', updated as unknown as Record<string, unknown>);
+        dbUpsert('todo_items', updated);
         return updated;
       }),
     );
@@ -1071,7 +1071,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
       prev.map((m) => {
         if (m.id !== id) return m;
         const updated = { ...m, pin_hash: pin ? hashPinSync(pin) : null };
-        dbUpsert('family_members', updated as unknown as Record<string, unknown>);
+        dbUpsert('family_members', updated);
         return updated;
       }),
     );
@@ -1083,7 +1083,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
         prev.map((m) => {
           if (m.id !== id) return m;
           const updated = { ...m, current_location: location, location_until: until };
-          dbUpsert('family_members', updated as unknown as Record<string, unknown>);
+          dbUpsert('family_members', updated);
           return updated;
         }),
       );
@@ -1102,7 +1102,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
         family_id: family.id,
       };
       setChores((prev) => [...prev, newChore]);
-      dbUpsert('chores', newChore as unknown as Record<string, unknown>);
+      dbUpsert('chores', newChore);
     },
     [family.id],
   );
@@ -1113,7 +1113,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
         prev.map((c) => {
           if (c.id !== id) return c;
           const updated = { ...c, ...patch };
-          dbUpsert('chores', updated as unknown as Record<string, unknown>);
+          dbUpsert('chores', updated);
           return updated;
         }),
       ),
@@ -1168,7 +1168,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
       };
 
       setCompletions((prev) => [...prev, completion]);
-      dbUpsert('chore_completions', completion as unknown as Record<string, unknown>);
+      dbUpsert('chore_completions', completion);
 
       if (status === 'approved') {
         setMembers((prev) => applyPayout(prev, memberId, chore.payout, 1));
@@ -1204,7 +1204,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
           approved_by: approverId,
           approved_at: new Date().toISOString(),
         };
-        dbUpsert('chore_completions', updated as unknown as Record<string, unknown>);
+        dbUpsert('chore_completions', updated);
         return updated;
       });
     });
@@ -1221,7 +1221,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
             approved_by: approverId,
             approved_at: new Date().toISOString(),
           };
-          dbUpsert('chore_completions', updated as unknown as Record<string, unknown>);
+          dbUpsert('chore_completions', updated);
           return updated;
         }),
       ),
@@ -1250,7 +1250,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
       };
 
       setRedemptions((prev) => [...prev, redemption]);
-      dbUpsert('redemptions', redemption as unknown as Record<string, unknown>);
+      dbUpsert('redemptions', redemption);
 
       if (autoApprove) {
         setMembers((prev) => applyPayout(prev, memberId, { [category]: amount } as any, -1));
@@ -1274,7 +1274,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
           approved_by: approverId,
           approved_at: new Date().toISOString(),
         };
-        dbUpsert('redemptions', updated as unknown as Record<string, unknown>);
+        dbUpsert('redemptions', updated);
         return updated;
       });
     });
@@ -1291,7 +1291,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
             approved_by: approverId,
             approved_at: new Date().toISOString(),
           };
-          dbUpsert('redemptions', updated as unknown as Record<string, unknown>);
+          dbUpsert('redemptions', updated);
           return updated;
         }),
       ),
@@ -1310,7 +1310,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
         achieved_at: null,
       };
       setGoals((prev) => [...prev, newGoal]);
-      dbUpsert('reward_goals', newGoal as unknown as Record<string, unknown>);
+      dbUpsert('reward_goals', newGoal);
     },
     [family.id],
   );
@@ -1332,7 +1332,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
         family_id: family.id,
       };
       setLists((prev) => [...prev, newList]);
-      dbUpsert('todo_lists', newList as unknown as Record<string, unknown>);
+      dbUpsert('todo_lists', newList);
       return id;
     },
     [family.id],
@@ -1344,7 +1344,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
         prev.map((l) => {
           if (l.id !== id) return l;
           const updated = { ...l, ...patch };
-          dbUpsert('todo_lists', updated as unknown as Record<string, unknown>);
+          dbUpsert('todo_lists', updated);
           return updated;
         }),
       ),
@@ -1366,7 +1366,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
         family_id: family.id,
       };
       setListItems((prev) => [...prev, newItem]);
-      dbUpsert('todo_items', newItem as unknown as Record<string, unknown>);
+      dbUpsert('todo_items', newItem);
     },
     [family.id],
   );
@@ -1377,7 +1377,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
         prev.map((i) => {
           if (i.id !== id) return i;
           const updated = { ...i, ...patch };
-          dbUpsert('todo_items', updated as unknown as Record<string, unknown>);
+          dbUpsert('todo_items', updated);
           return updated;
         }),
       ),
@@ -1427,7 +1427,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
         // Persist to Supabase so other devices (and our own next reload)
         // see the change. Previously this only updated local state, which
         // caused completed items to revert on the next poll.
-        dbUpsert('todo_items', updated as unknown as Record<string, unknown>);
+        dbUpsert('todo_items', updated);
         return updated;
       }),
     );
@@ -1451,7 +1451,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
         family_id: family.id,
       };
       setHabits((prev) => [...prev, newHabit]);
-      dbUpsert('habits', newHabit as unknown as Record<string, unknown>);
+      dbUpsert('habits', newHabit);
     },
     [family.id],
   );
@@ -1462,7 +1462,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
         prev.map((h) => {
           if (h.id !== id) return h;
           const updated = { ...h, ...patch };
-          dbUpsert('habits', updated as unknown as Record<string, unknown>);
+          dbUpsert('habits', updated);
           return updated;
         }),
       ),
@@ -1501,7 +1501,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
 
       const nextCheckIns = [...checkIns, newCheckIn];
       setCheckIns(nextCheckIns);
-      dbUpsert('habit_check_ins', newCheckIn as unknown as Record<string, unknown>);
+      dbUpsert('habit_check_ins', newCheckIn);
 
       // Streak rewards — for kids on habits with streak_rewards enabled.
       // Awarded whenever a check-in causes the streak to land on a milestone,
@@ -1538,7 +1538,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
         );
         if (existing) {
           const updated = { ...existing, count: (existing.count ?? 1) + 1 };
-          dbUpsert('habit_check_ins', updated as unknown as Record<string, unknown>);
+          dbUpsert('habit_check_ins', updated);
           return prev.map((c) => (c.id === existing.id ? updated : c));
         }
         const newCheckIn: HabitCheckIn = {
@@ -1550,7 +1550,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
           count: 1,
           created_at: new Date().toISOString(),
         };
-        dbUpsert('habit_check_ins', newCheckIn as unknown as Record<string, unknown>);
+        dbUpsert('habit_check_ins', newCheckIn);
         return [...prev, newCheckIn];
       });
     },
@@ -1569,7 +1569,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
         return prev.filter((c) => c.id !== existing.id);
       }
       const updated = { ...existing, count: currentCount - 1 };
-      dbUpsert('habit_check_ins', updated as unknown as Record<string, unknown>);
+      dbUpsert('habit_check_ins', updated);
       return prev.map((c) => (c.id === existing.id ? updated : c));
     });
   }, []);
@@ -1585,13 +1585,13 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
         family_id: family.id,
       };
       setDayPlanBlocks((prev) => [...prev, newBlock]);
-      dbUpsert('day_plan_blocks', newBlock as unknown as Record<string, unknown>);
+      dbUpsert('day_plan_blocks', newBlock);
       if (block.source === 'other') {
         setActivityPool((prev) =>
           prev.map((p) => {
             if (p.id !== block.source_id) return p;
             const updated = { ...p, usage_count: p.usage_count + 1 };
-            dbUpsert('activity_pool_items', updated as unknown as Record<string, unknown>);
+            dbUpsert('activity_pool_items', updated);
             return updated;
           }),
         );
@@ -1607,7 +1607,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
         prev.map((b) => {
           if (b.id !== id) return b;
           const updated = { ...b, ...patch };
-          dbUpsert('day_plan_blocks', updated as unknown as Record<string, unknown>);
+          dbUpsert('day_plan_blocks', updated);
           return updated;
         }),
       ),
@@ -1626,7 +1626,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
           const u = updates.find((x) => x.id === b.id);
           if (!u) return b;
           const updated = { ...b, position: u.position, section: u.section };
-          dbUpsert('day_plan_blocks', updated as unknown as Record<string, unknown>);
+          dbUpsert('day_plan_blocks', updated);
           return updated;
         }),
       ),
@@ -1643,7 +1643,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
             done: !b.done,
             done_at: !b.done ? new Date().toISOString() : null,
           };
-          dbUpsert('day_plan_blocks', updated as unknown as Record<string, unknown>);
+          dbUpsert('day_plan_blocks', updated);
           return updated;
         }),
       ),
@@ -1659,7 +1659,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
         family_id: family.id,
       };
       setActivityPool((prev) => [...prev, newItem]);
-      dbUpsert('activity_pool_items', newItem as unknown as Record<string, unknown>);
+      dbUpsert('activity_pool_items', newItem);
     },
     [family.id],
   );
@@ -1670,7 +1670,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
         prev.map((p) => {
           if (p.id !== id) return p;
           const updated = { ...p, ...patch };
-          dbUpsert('activity_pool_items', updated as unknown as Record<string, unknown>);
+          dbUpsert('activity_pool_items', updated);
           return updated;
         }),
       ),
@@ -1683,7 +1683,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
         prev.map((p) => {
           if (p.id !== id) return p;
           const updated = { ...p, archived: true };
-          dbUpsert('activity_pool_items', updated as unknown as Record<string, unknown>);
+          dbUpsert('activity_pool_items', updated);
           return updated;
         }),
       ),
@@ -1701,7 +1701,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
         family_id: family.id,
       };
       setRecipes((prev) => [...prev, newRecipe]);
-      dbUpsert('recipes', newRecipe as unknown as Record<string, unknown>);
+      dbUpsert('recipes', newRecipe);
     },
     [family.id],
   );
@@ -1712,7 +1712,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
         prev.map((r) => {
           if (r.id !== id) return r;
           const updated = { ...r, ...patch };
-          dbUpsert('recipes', updated as unknown as Record<string, unknown>);
+          dbUpsert('recipes', updated);
           return updated;
         }),
       ),
@@ -1742,7 +1742,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
         prev.map((r) => {
           if (r.id !== id) return r;
           const updated = { ...r, favorite: !r.favorite };
-          dbUpsert('recipes', updated as unknown as Record<string, unknown>);
+          dbUpsert('recipes', updated);
           return updated;
         }),
       ),
@@ -1788,8 +1788,8 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
 
       setEvents((prev) => [...prev, newEvent]);
       setMealPlans((prev) => [...prev, newMealPlan]);
-      dbUpsert('events', newEvent as unknown as Record<string, unknown>);
-      dbUpsert('meal_plans', newMealPlan as unknown as Record<string, unknown>);
+      dbUpsert('events', newEvent);
+      dbUpsert('meal_plans', newMealPlan);
     },
     [family.id, recipes, activeMember],
   );
@@ -1871,8 +1871,8 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
       if (newPlans.length === 0) return;
       setEvents((prev) => [...prev, ...newEvents]);
       setMealPlans((prev) => [...prev, ...newPlans]);
-      newEvents.forEach((e) => dbUpsert('events', e as unknown as Record<string, unknown>));
-      newPlans.forEach((p) => dbUpsert('meal_plans', p as unknown as Record<string, unknown>));
+      newEvents.forEach((e) => dbUpsert('events', e));
+      newPlans.forEach((p) => dbUpsert('meal_plans', p));
     },
     [mealPlans, recipes, family.id, activeMember],
   );

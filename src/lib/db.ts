@@ -11,6 +11,7 @@
  */
 
 import { supabase } from './supabase';
+import type { Database } from '@/types/supabase';
 import type {
   Family,
   FamilyMember,
@@ -28,6 +29,9 @@ import type {
   Recipe,
   MealPlan,
 } from '@/types';
+
+type Tables = Database['public']['Tables'];
+type TableName = keyof Tables;
 
 // ---------------------------------------------------------------------------
 // Pending-write tracking
@@ -77,8 +81,8 @@ export function isPendingWrite(table: string, id: string): boolean {
 // Generic helpers
 // ---------------------------------------------------------------------------
 
-export function dbUpsert(table: string, data: Record<string, unknown>): void {
-  const id = typeof data.id === 'string' ? data.id : null;
+export function dbUpsert<T extends TableName>(table: T, data: Tables[T]['Insert']): void {
+  const id = typeof (data as { id?: unknown }).id === 'string' ? (data as { id: string }).id : null;
   if (id) markPending(table, id);
   if (!supabase) return;
   supabase
@@ -90,7 +94,7 @@ export function dbUpsert(table: string, data: Record<string, unknown>): void {
     });
 }
 
-export function dbDelete(table: string, id: string): void {
+export function dbDelete(table: TableName, id: string): void {
   markPending(table, id);
   if (!supabase) return;
   supabase
@@ -165,21 +169,21 @@ export async function dbLoadFamily(familyId: string): Promise<FamilyData | null>
     if (fe || !family) return null;
 
     return {
-      family: family as unknown as Family,
-      members: (members ?? []) as unknown as FamilyMember[],
-      events: (events ?? []) as unknown as CalendarEvent[],
-      chores: (chores ?? []) as unknown as Chore[],
-      completions: (completions ?? []) as unknown as ChoreCompletion[],
-      lists: (lists ?? []) as unknown as TodoList[],
-      listItems: (listItems ?? []) as unknown as TodoItem[],
-      habits: (habits ?? []) as unknown as Habit[],
-      checkIns: (checkIns ?? []) as unknown as HabitCheckIn[],
-      goals: (goals ?? []) as unknown as RewardGoal[],
-      redemptions: (redemptions ?? []) as unknown as Redemption[],
-      dayPlanBlocks: (dayPlanBlocks ?? []) as unknown as DayPlanBlock[],
-      activityPool: (activityPool ?? []) as unknown as ActivityPoolItem[],
-      recipes: (recipes ?? []) as unknown as Recipe[],
-      mealPlans: (mealPlans ?? []) as unknown as MealPlan[],
+      family,
+      members: members ?? [],
+      events: events ?? [],
+      chores: chores ?? [],
+      completions: completions ?? [],
+      lists: lists ?? [],
+      listItems: listItems ?? [],
+      habits: habits ?? [],
+      checkIns: checkIns ?? [],
+      goals: goals ?? [],
+      redemptions: redemptions ?? [],
+      dayPlanBlocks: dayPlanBlocks ?? [],
+      activityPool: activityPool ?? [],
+      recipes: recipes ?? [],
+      mealPlans: mealPlans ?? [],
     };
   } catch (e) {
     console.warn('[db] loadFamily error:', e);
