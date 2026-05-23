@@ -10,7 +10,10 @@ This is **v4**. Phases 1, 2, 3 plus the v4 polish pass are complete.
 
 ```bash
 npm install
-npm run dev
+npm run dev       # vite dev server
+npm run build     # tsc + production build
+npm run lint      # eslint, must pass with --max-warnings=0
+npm run format    # prettier across src/
 ```
 
 The app runs at <http://localhost:5173>.
@@ -34,6 +37,63 @@ You can change PINs in **Settings → Family members → tap "PIN set" / "No PIN
    - `VITE_SUPABASE_ANON_KEY`
    - `ANTHROPIC_API_KEY` *(optional — enables AI extraction in the Import Events flow. Without it, the app falls back to a regex extractor.)*
 6. Deploy.
+
+---
+
+## What's new in v4.x (cleanup pass)
+
+### 🧹 Tooling
+- **ESLint + Prettier** wired up. `npm run lint` (`--max-warnings=0`) and
+  `npm run format`. Flat config in `eslint.config.js`.
+- `.claude/` and `*.local.json` are gitignored so local-machine paths
+  don't leak into commits.
+
+### ⚡ Context perf
+- `FamilyContext` value is now `useMemo`'d with an explicit dep list,
+  so a chore-completion no longer re-renders every list/habit/recipe
+  consumer. All mutators were already `useCallback`'d.
+
+### 🧩 Shared `<Modal>` primitive
+- Five editors (Event/Chore/Habit/List/ListItem) now share one overlay
+  scaffold with Escape close, backdrop close, sticky header + footer,
+  and `safe-area-inset-bottom` padding.
+- On phone (`< sm:`) the modal renders as a **bottom sheet**; centered
+  dialog on tablet+.
+
+### 🪶 Data-driven realtime + persistence
+- Supabase realtime subscription is a `for` loop over a config array —
+  adding a synced table is one line.
+- Persistence is now a single `usePersisted(key, value)` helper instead
+  of 21 hand-rolled `useEffect`s.
+
+### 🔒 Real Supabase types
+- `src/types/supabase.ts` adds a hand-written `Database` type. `dbUpsert`
+  is generic on table name. **73 `as unknown as` casts removed.**
+
+### 📱 Pointer-event DnD for iPad
+- HTML5 drag-and-drop is broken on iOS touch. The four highest-impact
+  flows now use Pointer Events with `elementsFromPoint` hit testing:
+  - `useListDragReorder` (members/habits/chores/lists/list-items)
+  - Calendar event drag between days (Week + Month views)
+  - Meal-planner recipe → day cell
+  - Chore editor rotation roster
+
+### 📐 iPad layout
+- `min-h-screen` → `min-h-[100dvh]` (Safari bottom-bar fix).
+- Top safe-area inset for notch/Dynamic Island.
+- **Side rail at lg:+** replaces the bottom tab bar on iPad/desktop.
+  Both surfaces driven from the same `buildTabList()`.
+- Responsive Calendar cell heights.
+- Modal close button bumped to 44×44pt.
+
+### 🤖 Native polish (Capacitor)
+- `@capacitor/status-bar` syncs to the active theme.
+- `@capacitor/keyboard` set to `Body` resize so on-screen keyboard
+  doesn't cover modal inputs.
+- `@capacitor/haptics` — light tap on PIN digit / chore complete /
+  habit toggle; medium tap on swipe-to-delete commit.
+- All wrapped in `src/lib/native.ts` with `isNativePlatform()` guards,
+  so the web build is unaffected.
 
 ---
 
@@ -152,20 +212,26 @@ Home Plus/
 │   └── extract-events.js     Claude API for paste-text imports
 ├── src/
 │   ├── components/           Reusable UI pieces
-│   │   ├── SwipeableRow.tsx  Universal swipe-to-delete (v4)
-│   │   ├── ImportEventsModal.tsx  Three-source event import (v4)
+│   │   ├── Modal.tsx         Shared modal/bottom-sheet primitive
+│   │   ├── SwipeableRow.tsx  Universal swipe-to-delete
+│   │   ├── TabBar.tsx        Phone bottom tab bar (single tab-list source)
+│   │   ├── SideRail.tsx      iPad/desktop side rail (lg:+)
 │   │   └── ...
-│   ├── context/              Family + Theme + Toast (v4) global state
-│   ├── hooks/                Reusable hooks
-│   │   └── useSwipeMode.ts   Picks partial/full based on role (v4)
-│   ├── lib/                  Domain helpers
-│   │   ├── holidays.ts       WA holidays + school terms (v4)
+│   ├── context/              Family + Theme + Toast global state
+│   ├── hooks/                Reusable hooks (pointer-based DnD lives here)
+│   ├── lib/
+│   │   ├── native.ts         Capacitor wrappers (status bar, keyboard, haptics)
+│   │   ├── db.ts             Typed Supabase wrappers
 │   │   └── ...
 │   ├── pages/                Route-level views (lazy-loaded)
 │   ├── styles/               Global CSS + Tailwind base
-│   └── types/                Shared TypeScript types
+│   └── types/
+│       ├── index.ts          Domain types
+│       └── supabase.ts       Database row/insert/update types
 └── supabase/
-    └── schema.sql            Database schema + RLS policies
+    ├── schema.sql            Source of truth for a fresh DB
+    ├── reset.sql / drop.sql  Destructive helpers
+    └── migrations/           Historical migrate_v1..v5 + README
 ```
 
 ### Key design decisions
