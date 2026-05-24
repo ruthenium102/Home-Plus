@@ -9,7 +9,8 @@ import {
   ReactNode,
 } from 'react';
 import { localISO } from '@/lib/dates';
-import { dbUpsert, dbDelete, dbLoadFamily, dbCreateFamily, isPendingWrite } from '@/lib/db';
+import { dbUpsert, dbDelete, dbLoadFamily, dbCreateFamily, isPendingWrite, setDbErrorHandler } from '@/lib/db';
+import { useToast } from '@/context/ToastContext';
 import { syncEventToGoogle, unsyncEventFromGoogle } from '@/lib/googleSync';
 import { hapticLight } from '@/lib/native';
 import {
@@ -350,6 +351,21 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
   const [needsPasswordSetup, setNeedsPasswordSetup] = useState(
     () => sessionStorage.getItem('needs_password_setup') === '1',
   );
+
+  // Surface silent dbUpsert/dbDelete failures via toast. Without this, a
+  // failed Supabase write (RLS rejection, enum mismatch, etc) only logged to
+  // console and then the row got nuked by the next reconcile poll — which
+  // showed up as "I saved it but it disappeared".
+  const { show: showToast } = useToast();
+  useEffect(() => {
+    setDbErrorHandler(({ table, op, message }) => {
+      showToast({
+        message: `Couldn't ${op === 'upsert' ? 'save' : 'delete'} ${table}: ${message}`,
+        duration: 8000,
+      });
+    });
+    return () => setDbErrorHandler(null);
+  }, [showToast]);
 
   // On auth, load data from Supabase. On first login, create the initial family.
   const handled = useRef(false);

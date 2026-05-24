@@ -81,6 +81,18 @@ export function isPendingWrite(table: string, id: string): boolean {
 // Generic helpers
 // ---------------------------------------------------------------------------
 
+// Module-level error handler — wired up by FamilyContext to surface failed
+// writes via the toast system, so silent Supabase rejections (RLS, schema
+// mismatch, enum violation) become visible to the user instead of just
+// disappearing local state.
+let onWriteError: ((info: { table: string; op: 'upsert' | 'delete'; message: string }) => void) | null = null;
+
+export function setDbErrorHandler(
+  fn: ((info: { table: string; op: 'upsert' | 'delete'; message: string }) => void) | null,
+): void {
+  onWriteError = fn;
+}
+
 export function dbUpsert<T extends TableName>(table: T, data: Tables[T]['Insert']): void {
   const id = typeof (data as { id?: unknown }).id === 'string' ? (data as { id: string }).id : null;
   if (id) markPending(table, id);
@@ -89,7 +101,10 @@ export function dbUpsert<T extends TableName>(table: T, data: Tables[T]['Insert'
     .from(table)
     .upsert(data)
     .then(({ error }) => {
-      if (error) console.warn(`[db] upsert ${table}:`, error.message);
+      if (error) {
+        console.warn(`[db] upsert ${table}:`, error.message);
+        onWriteError?.({ table, op: 'upsert', message: error.message });
+      }
       if (id) tailPending(table, id);
     });
 }
@@ -102,7 +117,10 @@ export function dbDelete(table: TableName, id: string): void {
     .delete()
     .eq('id', id)
     .then(({ error }) => {
-      if (error) console.warn(`[db] delete ${table}:`, error.message);
+      if (error) {
+        console.warn(`[db] delete ${table}:`, error.message);
+        onWriteError?.({ table, op: 'delete', message: error.message });
+      }
       tailPending(table, id);
     });
 }

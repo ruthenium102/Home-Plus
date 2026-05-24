@@ -438,8 +438,8 @@ export function HabitEditor({ open, editing, onClose }: Props) {
                               (state === 'met'
                                 ? 'bg-emerald-500'
                                 : state === 'violated'
-                                  ? 'bg-orange-500'
-                                  : 'bg-orange-100 dark:bg-orange-900/30')
+                                  ? 'bg-red-500'
+                                  : 'bg-orange-200 dark:bg-orange-900/30')
                             }
                             title={`${format(day, 'EEE d MMM')} — ${count}/${target}`}
                           >
