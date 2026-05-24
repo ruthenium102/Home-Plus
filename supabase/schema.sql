@@ -784,7 +784,8 @@ begin
     'reward_goals',
     'redemptions',
     'day_plan_blocks',
-    'activity_pool_items'
+    'activity_pool_items',
+    'invitations'
   ])
   loop
     begin

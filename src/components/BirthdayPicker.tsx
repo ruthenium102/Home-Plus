@@ -50,7 +50,7 @@ export function BirthdayPicker({ value, onChange }: Props) {
   const days = Array.from({ length: daysInMonth }, (_, i) => String(i + 1).padStart(2, '0'));
 
   const selectClass =
-    'flex-1 px-2 py-2 bg-surface-2 border border-border rounded-md text-text text-sm focus:outline-none focus:border-accent';
+    'flex-1 px-2 py-2.5 bg-surface-2 border border-border rounded-md text-text text-sm focus:outline-none focus:border-accent';
 
   return (
     <div className="flex gap-2">

@@ -62,6 +62,7 @@ import { HomePage } from '@/pages/HomePage';
 import { TabFallback } from '@/components/TabFallback';
 import { SetPasswordModal } from '@/components/SetPasswordModal';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
+import { useDockPlacement } from '@/lib/dockPreference';
 
 // Lazy-load tab pages so the lock screen + home tab load fast.
 // Each chunk is fetched on first visit to that tab.
@@ -94,6 +95,7 @@ function AppShell() {
   const showPet = activeMember?.pet_enabled ?? false;
   const [tab, setTab] = useState<TabKey>('home');
   const [switcherOpen, setSwitcherOpen] = useState(false);
+  const [dockPlacement] = useDockPlacement();
   const [passwordRecovery, setPasswordRecovery] = useState(
     () => sessionStorage.getItem('password_recovery') === '1',
   );
@@ -128,25 +130,35 @@ function AppShell() {
     return <UserSwitcher fullscreen />;
   }
 
+  const dockIsSide = dockPlacement === 'side';
+
   return (
     <div
       className="min-h-[100dvh] bg-bg"
       style={{ paddingTop: 'env(safe-area-inset-top)' }}
     >
-      {/* iPad / desktop: left side rail (lg+). Hidden on phones. */}
-      <SideRail
-        active={tab}
-        onChange={setTab}
-        showMyDay={showMyDay}
-        showChores={showChores}
-        showHabits={showHabits}
-        showPet={showPet}
-        showKitchen={showKitchen}
-      />
+      {/* Side rail — shown when dock placement preference is 'side'. */}
+      {dockIsSide && (
+        <SideRail
+          active={tab}
+          onChange={setTab}
+          showMyDay={showMyDay}
+          showChores={showChores}
+          showHabits={showHabits}
+          showPet={showPet}
+          showKitchen={showKitchen}
+        />
+      )}
 
       <div
-        className="max-w-6xl mx-auto p-4 sm:p-6 pb-36 lg:pb-8 lg:ml-56"
-        style={{ paddingBottom: 'max(9rem, calc(7rem + env(safe-area-inset-bottom)))' }}
+        className={
+          'max-w-6xl mx-auto p-4 sm:p-6 ' + (dockIsSide ? 'pb-8 ml-56' : 'pb-36')
+        }
+        style={
+          dockIsSide
+            ? undefined
+            : { paddingBottom: 'max(9rem, calc(7rem + env(safe-area-inset-bottom)))' }
+        }
       >
         <TopBar onSwitchUser={() => setSwitcherOpen(true)} />
 
@@ -167,23 +179,25 @@ function AppShell() {
         </main>
       </div>
 
-      {/* Phone: sticky bottom tab bar. Hidden on iPad/desktop (lg+). */}
-      <div
-        className="fixed bottom-0 left-0 right-0 z-30 px-3 sm:px-6 lg:hidden"
-        style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}
-      >
-        <div className="max-w-6xl mx-auto">
-          <TabBar
-            active={tab}
-            onChange={setTab}
-            showMyDay={showMyDay}
-            showChores={showChores}
-            showHabits={showHabits}
-            showPet={showPet}
-            showKitchen={showKitchen}
-          />
+      {/* Floating bottom dock — shown when dock placement is 'floating'. */}
+      {!dockIsSide && (
+        <div
+          className="fixed bottom-0 left-0 right-0 z-30 px-3 sm:px-6"
+          style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}
+        >
+          <div className="max-w-6xl mx-auto">
+            <TabBar
+              active={tab}
+              onChange={setTab}
+              showMyDay={showMyDay}
+              showChores={showChores}
+              showHabits={showHabits}
+              showPet={showPet}
+              showKitchen={showKitchen}
+            />
+          </div>
         </div>
-      </div>
+      )}
 
       {switcherOpen && <UserSwitcher onClose={() => setSwitcherOpen(false)} />}
 

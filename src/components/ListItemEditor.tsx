@@ -130,7 +130,7 @@ export function ListItemEditor({ open, list, editing, onClose }: Props) {
             <select
               value={repeat}
               onChange={(e) => setRepeat(e.target.value as ListItemRepeat)}
-              className="w-full px-3 py-2 bg-surface-2 border border-border rounded-md text-text text-sm focus:outline-none focus:border-accent"
+              className="w-full px-3 py-2.5 bg-surface-2 border border-border rounded-md text-text text-sm focus:outline-none focus:border-accent"
             >
               {REPEAT_OPTIONS.map((opt) => (
                 <option key={opt.v} value={opt.v}>
@@ -149,7 +149,7 @@ export function ListItemEditor({ open, list, editing, onClose }: Props) {
               type="date"
               value={dueDate}
               onChange={(e) => setDueDate(e.target.value)}
-              className="w-full px-3 py-2 bg-surface-2 border border-border rounded-md text-text text-sm focus:outline-none focus:border-accent"
+              className="w-full px-3 py-2.5 bg-surface-2 border border-border rounded-md text-text text-sm focus:outline-none focus:border-accent"
             />
           </div>
 

@@ -55,19 +55,21 @@ body {
   overscroll-behavior-y: contain;
 }
 
-/* Promote the document scroller onto its own composite layer so iOS uses
-   GPU for the scroll. Keeps fixed elements (tab bar) from causing whole-page
-   repaints on every frame. */
-body {
-  transform: translateZ(0);
-  -webkit-transform: translateZ(0);
-}
+/* NOTE: previously this rule applied transform: translateZ(0) to <body>
+   to promote the scroller onto a composite layer. That created a new
+   containing block for `position: fixed` descendants, breaking the
+   SideRail — it scrolled with content because "fixed" became relative to
+   body's static layout instead of the viewport. iOS Safari composites
+   scrollers on its own; we no longer need the manual hint. */
 
-/* Native selects render shorter than text inputs by default — force a
-   matching min-height so dropdowns sit at the same row-height as <input>. */
+/* Native selects render shorter than text inputs by default — force the
+   same vertical rhythm as our <input> baseline (Tailwind px-3 py-2.5 +
+   text-sm + border, ≈ 42px). Per-component classes can still override. */
 select {
-  min-height: 2.5rem;
+  min-height: 2.625rem;
   line-height: 1.25rem;
+  padding-top: 0.625rem;
+  padding-bottom: 0.625rem;
 }
 
 /* Touch-friendly defaults */

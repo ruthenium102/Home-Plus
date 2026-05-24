@@ -15,7 +15,7 @@ export function SideRail({ active, onChange, ...visibility }: Props) {
 
   return (
     <nav
-      className="hidden lg:flex flex-col gap-1 fixed left-0 top-0 bottom-0 w-56 px-3 py-4 bg-surface border-r border-border z-30 overflow-y-auto"
+      className="flex flex-col gap-1 fixed left-0 top-0 bottom-0 w-56 px-3 py-4 bg-surface border-r border-border z-30 overflow-y-auto"
       style={{
         paddingTop: 'max(1rem, env(safe-area-inset-top))',
         paddingBottom: 'max(1rem, env(safe-area-inset-bottom))',

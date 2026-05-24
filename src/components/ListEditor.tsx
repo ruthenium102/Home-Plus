@@ -164,7 +164,7 @@ export function ListEditor({ open, onClose, editing }: Props) {
               <select
                 value={ownerId}
                 onChange={(e) => setOwnerId(e.target.value)}
-                className="w-full mt-2 px-3 py-2 bg-surface-2 border border-border rounded-md text-text text-sm focus:outline-none focus:border-accent"
+                className="w-full mt-2 px-3 py-2.5 bg-surface-2 border border-border rounded-md text-text text-sm focus:outline-none focus:border-accent"
               >
                 {members.map((m) => (
                   <option key={m.id} value={m.id}>

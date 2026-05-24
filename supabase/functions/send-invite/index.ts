@@ -200,10 +200,16 @@ Deno.serve(async (req) => {
     ).replace(/\/+$/, '');
     const acceptUrl = `${siteUrl}/accept-invite?token=${token}`;
 
-    // Look up whether the email already has a Supabase auth account so we
-    // can decide whether to send a fresh signup link or just record the
-    // invitation. Uses listUsers paginated.
-    let existingUser = false;
+    // Look up the auth.users row for this email (if any). We distinguish:
+    //   - "confirmed"   — fully-signed-in user; don't re-send the email,
+    //                     they should just sign in (RLS auto-joins them
+    //                     via the pending invitations row).
+    //   - "unconfirmed" — was invited previously but never completed
+    //                     signup. inviteUserByEmail will happily re-send
+    //                     the email for these users (GoTrue only 422s on
+    //                     confirmed accounts).
+    //   - "none"        — brand new email; standard invite path.
+    let existingUserState: 'none' | 'confirmed' | 'unconfirmed' = 'none';
     try {
       let page = 1;
       while (page < 50) {
@@ -212,8 +218,11 @@ Deno.serve(async (req) => {
           perPage: 200,
         });
         if (error) break;
-        if (data.users.some((u) => (u.email ?? '').toLowerCase() === email.toLowerCase())) {
-          existingUser = true;
+        const match = data.users.find(
+          (u) => (u.email ?? '').toLowerCase() === email.toLowerCase(),
+        );
+        if (match) {
+          existingUserState = match.email_confirmed_at ? 'confirmed' : 'unconfirmed';
           break;
         }
         if (data.users.length < 200) break;
@@ -222,6 +231,7 @@ Deno.serve(async (req) => {
     } catch {
       // non-fatal — if lookup fails we still proceed.
     }
+    const existingUser = existingUserState === 'confirmed';
 
     const resendKey = Deno.env.get('RESEND_API_KEY');
     const resendFromEmail = Deno.env.get('RESEND_FROM_EMAIL') || 'invites@homeplus.app';

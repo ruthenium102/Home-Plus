@@ -37,6 +37,7 @@ import { AddMemberModal } from '@/components/AddMemberModal';
 import { EditMemberModal } from '@/components/EditMemberModal';
 import { MEMBER_COLORS } from '@/lib/colors';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
+import { useDockPlacement, type DockPlacement } from '@/lib/dockPreference';
 import type { ThemeMode, FamilyMember } from '@/types';
 
 interface GeoResult {
@@ -63,6 +64,7 @@ export function SettingsPage() {
   const { authSignOut } = useAuth();
   const memberDnd = useListDragReorder(members, reorderMembers);
   const { mode, setMode } = useTheme();
+  const [dockPlacement, setDockPlacement] = useDockPlacement();
   const { temp, locationName, locationStatus, resetLocation, setManualLocation, unit, setUnit } =
     useWeather();
   const [pinTarget, setPinTarget] = useState<FamilyMember | null>(null);
@@ -153,56 +155,96 @@ export function SettingsPage() {
             </button>
           ))}
         </div>
-      </section>
 
-      {/* Members */}
-      <section className="card p-5">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="font-display text-lg text-text">Family members</h2>
-          {isParent && (
-            <div className="flex gap-2">
+        {/* Dock placement */}
+        <div className="mt-5 pt-5 border-t border-border">
+          <h3 className="text-sm font-medium text-text mb-1">Dock</h3>
+          <p className="text-xs text-text-faint mb-3">
+            Where the navigation lives on this device. Per-device — not synced across logins.
+          </p>
+          <div className="grid grid-cols-2 gap-2">
+            {(
+              [
+                { v: 'floating', label: 'Floating', hint: 'Bar across the bottom' },
+                { v: 'side', label: 'Side', hint: 'Rail on the left' },
+              ] as const
+            ).map(({ v, label, hint }) => (
               <button
-                onClick={() => setAddMemberOpen(true)}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-accent border border-accent/30 rounded-md hover:bg-accent/10 transition-colors font-medium"
+                key={v}
+                onClick={() => setDockPlacement(v as DockPlacement)}
+                className={
+                  'p-3 rounded-md border-2 transition-all text-left ' +
+                  (dockPlacement === v
+                    ? 'border-accent bg-accent-soft'
+                    : 'border-border hover:border-border-strong')
+                }
               >
-                <UserPlus size={13} /> Add member
-              </button>
-              {isSupabaseConfigured && (
-                <button
-                  onClick={() => setInviteOpen(true)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-text-muted border border-border rounded-md hover:bg-surface-2 transition-colors font-medium"
+                <div
+                  className={
+                    'text-sm font-medium ' +
+                    (dockPlacement === v ? 'text-text' : 'text-text-muted')
+                  }
                 >
-                  Invite by email
-                </button>
-              )}
-            </div>
-          )}
-        </div>
-        <div className="space-y-2">
-          {members.map((m) => {
-            const rowProps = isParent && members.length > 1 ? memberDnd.getRowProps(m.id) : null;
-            return (
-              <MemberRow
-                key={m.id}
-                member={m}
-                isActive={activeMember?.id === m.id}
-                dragProps={rowProps}
-                onEdit={() => setEditTarget(m)}
-                onSetPin={() => setPinTarget(m)}
-              />
-            );
-          })}
+                  {label}
+                </div>
+                <div className="text-xs text-text-faint mt-0.5">{hint}</div>
+              </button>
+            ))}
+          </div>
         </div>
       </section>
 
-      {/* Pending invites */}
-      {isParent && isSupabaseConfigured && (
-        <InvitesSection
-          familyId={family.id}
-          familyName={family.name}
-          invitedByName={activeMember?.name ?? 'A family member'}
-        />
-      )}
+      {/* Members + pending invites — visually grouped (one card, divider between) */}
+      <section className="card">
+        <div className="p-5">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="font-display text-lg text-text">Family members</h2>
+            {isParent && (
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setAddMemberOpen(true)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-accent border border-accent/30 rounded-md hover:bg-accent/10 transition-colors font-medium"
+                >
+                  <UserPlus size={13} /> Add member
+                </button>
+                {isSupabaseConfigured && (
+                  <button
+                    onClick={() => setInviteOpen(true)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-text-muted border border-border rounded-md hover:bg-surface-2 transition-colors font-medium"
+                  >
+                    Invite by email
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+          <div className="space-y-2">
+            {members.map((m) => {
+              const rowProps = isParent && members.length > 1 ? memberDnd.getRowProps(m.id) : null;
+              return (
+                <MemberRow
+                  key={m.id}
+                  member={m}
+                  isActive={activeMember?.id === m.id}
+                  dragProps={rowProps}
+                  onEdit={() => setEditTarget(m)}
+                  onSetPin={() => setPinTarget(m)}
+                />
+              );
+            })}
+          </div>
+        </div>
+
+        {isParent && isSupabaseConfigured && (
+          <div className="p-5 border-t border-border">
+            <InvitesSection
+              familyId={family.id}
+              familyName={family.name}
+              invitedByName={activeMember?.name ?? 'A family member'}
+            />
+          </div>
+        )}
+      </section>
 
       {/* Pages */}
       <section className="card p-5">
@@ -409,38 +451,6 @@ export function SettingsPage() {
             </div>
           </div>
 
-          <div>
-            <h3 className="text-sm font-medium text-text mb-1">WFH Colour</h3>
-            <p className="text-xs text-text-faint mb-3">
-              Colour used when work-from-home appears on the calendar.
-            </p>
-            <div className="flex flex-wrap gap-2">
-              {[
-                '#8b5cf6',
-                '#3b82f6',
-                '#ec4899',
-                '#f97316',
-                '#22c55e',
-                '#14b8a6',
-                '#f59e0b',
-                '#ef4444',
-              ].map((hex) => {
-                const active = (kitchenSettings.wfh_color ?? '#8b5cf6') === hex;
-                return (
-                  <button
-                    key={hex}
-                    onClick={() => updateKitchenSettings({ wfh_color: hex })}
-                    className={
-                      'w-8 h-8 rounded-full border-2 transition-all ' +
-                      (active ? 'border-text scale-110' : 'border-transparent hover:scale-105')
-                    }
-                    style={{ background: hex }}
-                    title={hex}
-                  />
-                );
-              })}
-            </div>
-          </div>
         </section>
       )}
 
@@ -741,7 +751,7 @@ function ShopDaysEditor() {
               primary_shop_day: e.target.value === '' ? null : Number(e.target.value),
             })
           }
-          className="w-full px-3 py-2 bg-surface-2 border border-border rounded-md text-text text-sm focus:outline-none focus:border-accent"
+          className="w-full px-3 py-2.5 bg-surface-2 border border-border rounded-md text-text text-sm focus:outline-none focus:border-accent"
         >
           <option value="">None</option>
           {DAYS.map((d, i) => (
@@ -770,7 +780,7 @@ function ShopDaysEditor() {
                 mid_week_shop_day: e.target.value === '' ? null : Number(e.target.value),
               })
             }
-            className="w-full px-3 py-2 bg-surface-2 border border-border rounded-md text-text text-sm focus:outline-none focus:border-accent"
+            className="w-full px-3 py-2.5 bg-surface-2 border border-border rounded-md text-text text-sm focus:outline-none focus:border-accent"
           >
             <option value="">None</option>
             {DAYS.map((d, i) => (
@@ -806,13 +816,11 @@ function InvitesSection({
   invitedByName: string;
 }) {
   const [invites, setInvites] = useState<PendingInvite[]>([]);
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [busyId, setBusyId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!supabase) return;
-    setLoading(true);
     setError('');
     const { data, error } = await supabase
       .from('invitations')
@@ -821,12 +829,36 @@ function InvitesSection({
       .order('created_at', { ascending: false });
     if (error) setError(error.message);
     else setInvites((data ?? []) as PendingInvite[]);
-    setLoading(false);
   }, [familyId]);
 
   useEffect(() => {
     load();
   }, [load]);
+
+  // Subscribe to realtime changes so the list stays in sync without a
+  // manual Refresh button. invitations is in the supabase_realtime
+  // publication (migrate_v8.sql).
+  useEffect(() => {
+    if (!supabase) return;
+    const channel = supabase
+      .channel(`invitations:${familyId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'invitations',
+          filter: `family_id=eq.${familyId}`,
+        },
+        () => {
+          load();
+        },
+      )
+      .subscribe();
+    return () => {
+      supabase!.removeChannel(channel);
+    };
+  }, [familyId, load]);
 
   const revoke = async (id: string) => {
     if (!supabase) return;
@@ -878,18 +910,11 @@ function InvitesSection({
   const pending = invites.filter((i) => !i.accepted_at);
 
   return (
-    <section className="card p-5">
-      <div className="flex items-center justify-between mb-3">
+    <div>
+      <div className="mb-3">
         <h2 className="font-display text-lg text-text flex items-center gap-2">
           <Mail size={16} className="text-accent" /> Pending invitations
         </h2>
-        <button
-          onClick={load}
-          className="text-xs text-text-faint hover:text-text"
-          disabled={loading}
-        >
-          {loading ? <Loader2 size={12} className="animate-spin" /> : 'Refresh'}
-        </button>
       </div>
 
       {error && (
@@ -951,6 +976,6 @@ function InvitesSection({
           })}
         </div>
       )}
-    </section>
+    </div>
   );
 }
