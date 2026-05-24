@@ -434,7 +434,7 @@ create index if not exists idx_todo_items_family on todo_items(family_id);
 create index if not exists idx_todo_items_due on todo_items(family_id, next_due, due_date);
 
 -- Habits
-do $$ begin create type habit_cadence as enum ('daily','weekdays','weekend','weekly'); exception when duplicate_object then null; end $$;
+do $$ begin create type habit_cadence as enum ('daily','weekdays','weekend','weekly','pick_days'); exception when duplicate_object then null; end $$;
 do $$ begin create type habit_visibility as enum ('private','shared'); exception when duplicate_object then null; end $$;
 
 create table if not exists habits (

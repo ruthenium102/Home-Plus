@@ -362,7 +362,7 @@ function HabitRow({
                     ? 'bg-emerald-500'
                     : state === 'violated'
                       ? 'bg-orange-500'
-                      : 'bg-surface-2 border border-border')
+                      : 'bg-orange-100 dark:bg-orange-900/30')
                 }
               >
                 {showCount && (

@@ -148,8 +148,9 @@ export function habitCellState(
   target: number,
   op?: Habit['target_op'],
 ): HabitCellState {
-  if (count === 0) {
-    return targetMet(0, target, op) ? 'empty' : 'violated';
-  }
+  // No entries = neutral. We don't claim a day as "missed" until something
+  // has been logged on or after it — the existing streak/totals already
+  // signal under-tracking elsewhere in the UI.
+  if (count === 0) return 'empty';
   return targetMet(count, target, op) ? 'met' : 'violated';
 }
