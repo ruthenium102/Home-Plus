@@ -34,18 +34,7 @@ export default async function handler(req, res) {
     .single();
 
   if (memberErr || !member) {
-    return res.status(403).json({
-      error: 'Not a member of this family',
-      debug: {
-        user_id: user.id,
-        family_id,
-        supabase_error: memberErr?.message,
-        supabase_code: memberErr?.code,
-        service_role_key_set: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
-        service_role_key_len: process.env.SUPABASE_SERVICE_ROLE_KEY?.length || 0,
-        service_role_key_tail: (process.env.SUPABASE_SERVICE_ROLE_KEY || '').slice(-10),
-      },
-    });
+    return res.status(403).json({ error: 'Not a member of this family' });
   }
   if (member.role !== 'parent') {
     return res.status(403).json({ error: 'Only parents can connect Google Calendar' });
