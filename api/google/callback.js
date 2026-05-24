@@ -1,9 +1,13 @@
 // GET /api/google/callback?code=...&state=...
 //
 // Browser redirect target after the user grants consent on accounts.google.com.
-// Exchanges the code for tokens, creates a dedicated "Home Plus – [Family]"
-// Google Calendar, opens a push channel, persists the integration row, then
-// redirects the browser to /settings?google=connected (or ?google=error).
+// Exchanges the code for tokens, creates the family's dedicated calendar,
+// opens a push channel, persists a single integration row keyed on family_id,
+// then redirects to /settings?google=connected.
+//
+// If a family is already connected (re-connecting after a disconnect, or a
+// different parent reconnecting) the row is replaced — the unique(family_id)
+// constraint and onConflict make this idempotent.
 
 import { randomUUID } from 'node:crypto';
 import {
@@ -39,7 +43,6 @@ export default async function handler(req, res) {
 
   const admin = getSupabaseAdmin();
 
-  // Look up + consume the CSRF state row.
   const { data: stateRow, error: stateErr } = await admin
     .from('google_oauth_states')
     .select('family_member_id, expires_at')
@@ -52,10 +55,10 @@ export default async function handler(req, res) {
     await admin.from('google_oauth_states').delete().eq('state', state);
     return redirect(res, siteRedirect('/settings?google=error&reason=state_expired'));
   }
-  // Single-use — delete now so a replay can't reuse this state.
   await admin.from('google_oauth_states').delete().eq('state', state);
 
-  // Resolve the family member + family (for naming the calendar + timezone).
+  // Resolve the member who clicked Connect (for connected_by_member_id) and
+  // their family (for naming the calendar + timezone).
   const { data: member, error: memberErr } = await admin
     .from('family_members')
     .select('id, family_id, role, families:family_id(name, timezone)')
@@ -71,10 +74,6 @@ export default async function handler(req, res) {
   try {
     const tokens = await exchangeCodeForTokens(String(code));
     if (!tokens.refresh_token) {
-      // This happens if the user previously consented without prompt=consent.
-      // Our buildAuthUrl always sends prompt=consent so this is rare, but if
-      // it does occur the right fix is to have the user revoke the app on
-      // their Google account page and reconnect.
       return redirect(res, siteRedirect('/settings?google=error&reason=no_refresh_token'));
     }
 
@@ -82,17 +81,12 @@ export default async function handler(req, res) {
     const familyName = member.families?.name || 'Family';
     const timezone = member.families?.timezone || 'UTC';
 
-    // Create the dedicated calendar on the user's Google account.
     const calendar = await createCalendar(
       tokens.access_token,
       `Home Plus – ${familyName}`,
       timezone,
     );
 
-    // Open a push channel so Google notifies us of changes. The webhook
-    // endpoint URL must be HTTPS and publicly reachable, which Vercel
-    // gives us for free in prod. In local dev this will fail silently —
-    // the daily reconcile cron is the safety net.
     let channelInfo = null;
     try {
       const webhookUrl = siteRedirect('/api/google/webhook');
@@ -103,19 +97,16 @@ export default async function handler(req, res) {
         webhookUrl,
       );
     } catch (watchErr) {
-      // Non-fatal — sync still works via reconcile.
       console.warn('[google] watchCalendar failed, falling back to poll-only:', watchErr);
     }
 
-    // Upsert the integration row. If a row already exists for this parent
-    // (re-connect after a disconnect), replace it.
     const expiresAt = new Date(Date.now() + (tokens.expires_in ?? 3600) * 1000).toISOString();
     const { error: upsertErr } = await admin
       .from('google_calendar_integrations')
       .upsert(
         {
           family_id: member.family_id,
-          family_member_id: member.id,
+          connected_by_member_id: member.id,
           google_account_email: googleEmail,
           google_calendar_id: calendar.id,
           refresh_token: tokens.refresh_token,
@@ -131,7 +122,7 @@ export default async function handler(req, res) {
           last_sync_error: null,
           connected_at: new Date().toISOString(),
         },
-        { onConflict: 'family_member_id' },
+        { onConflict: 'family_id' },
       );
 
     if (upsertErr) {

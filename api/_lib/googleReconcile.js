@@ -1,15 +1,11 @@
-// Pull-side sync: take whatever the connected parent's Google Calendar
+// Pull-side sync: take whatever the family's connected Google Calendar
 // looks like right now and merge those changes into Home Plus.
 //
-// Uses Google's incremental sync token whenever we have one — that's a
-// pointer to the previous list response, so subsequent calls only return
-// rows that changed. If Google returns 410 GONE the token has expired and
-// we drop back to a bounded full sync (timeMin = now - 30d).
-//
-// Echoes: every event we *sent* to Google carries a
-// extendedProperties.private.homePlusEventId tag. When the watch channel
-// fires after our own write, those rows come back here — we just refresh
-// event_google_sync and skip the Home Plus upsert.
+// Uses Google's incremental sync token when we have one. If Google returns
+// 410 GONE the token expired and we fall back to a bounded full sync
+// (timeMin = now - 30d). Events that originated in Home Plus carry
+// extendedProperties.private.homePlusEventId — those are echoes of our own
+// writes; we just refresh events.google_event_id and skip the upsert.
 
 import { randomUUID } from 'node:crypto';
 import {
@@ -22,11 +18,6 @@ import { getSupabaseAdmin } from './supabaseAdmin.js';
 
 const CHANNEL_RENEW_AHEAD_MS = 24 * 60 * 60 * 1000; // renew if expiring within 24h
 const FULL_SYNC_WINDOW_DAYS = 30;
-
-function categoryGuess(_summary) {
-  // Cheap heuristic placeholder — keeps the type happy. Future: regex/AI.
-  return 'general';
-}
 
 function googleEventToHomePlusRow(g, integration) {
   const allDay = !!g.start?.date;
@@ -49,18 +40,18 @@ function googleEventToHomePlusRow(g, integration) {
     end_at: endISO,
     all_day: allDay,
     location: g.location || null,
-    category: categoryGuess(g.summary),
+    category: 'general',
     member_ids: [],
     recurrence: null,
     reminder_offsets: [],
-    created_by: integration.family_member_id,
+    created_by: integration.connected_by_member_id,
     sync_to_google: true,
+    google_event_id: g.id,
   };
 }
 
-async function fetchChanges(token, integration) {
-  // Full sync path — used on first sync or when Google invalidates the token.
-  if (!integration.sync_token) {
+async function fetchChanges(token, integration, useSyncToken) {
+  if (!useSyncToken || !integration.sync_token) {
     const timeMin = new Date(Date.now() - FULL_SYNC_WINDOW_DAYS * 24 * 60 * 60 * 1000).toISOString();
     return await listEvents(token, integration.google_calendar_id, {
       singleEvents: true,
@@ -89,9 +80,8 @@ async function maybeRenewChannel(token, integration, webhookUrl) {
     ? new Date(integration.channel_expires_at).getTime()
     : 0;
   if (integration.channel_id && exp - Date.now() > CHANNEL_RENEW_AHEAD_MS) {
-    return; // still healthy
+    return;
   }
-  // Stop the old channel (best-effort) then open a fresh one.
   if (integration.channel_id && integration.channel_resource_id) {
     try {
       await stopChannel(token, integration.channel_id, integration.channel_resource_id);
@@ -130,6 +120,7 @@ export async function reconcileIntegration(integrationId, webhookUrl) {
 
   let pageToken;
   let nextSyncToken;
+  let useSyncToken = true;
   let upserts = 0;
   let deletes = 0;
   let echoes = 0;
@@ -138,7 +129,9 @@ export async function reconcileIntegration(integrationId, webhookUrl) {
     const page = await fetchChanges(
       token,
       pageToken ? { ...integration, sync_token: null } : integration,
+      useSyncToken,
     );
+    useSyncToken = false; // subsequent page calls use page_token, not sync_token
     if (!page) break;
     if (page.nextPageToken) {
       pageToken = page.nextPageToken;
@@ -150,83 +143,45 @@ export async function reconcileIntegration(integrationId, webhookUrl) {
     for (const g of page.items || []) {
       const homePlusEventId = g.extendedProperties?.private?.homePlusEventId;
 
-      // Cancelled: delete from Home Plus if we have a mapping.
+      // Cancelled: drop the Home Plus row if we have a mapping.
       if (g.status === 'cancelled') {
         const { data: existing } = await admin
-          .from('event_google_sync')
-          .select('event_id')
-          .eq('integration_id', integration.id)
+          .from('events')
+          .select('id')
+          .eq('family_id', integration.family_id)
           .eq('google_event_id', g.id)
           .maybeSingle();
         if (existing) {
-          // Remove the mapping for this parent. If no other parent still
-          // mirrors this event, drop the Home Plus row too.
-          await admin
-            .from('event_google_sync')
-            .delete()
-            .eq('event_id', existing.event_id)
-            .eq('integration_id', integration.id);
-          const { count } = await admin
-            .from('event_google_sync')
-            .select('event_id', { count: 'exact', head: true })
-            .eq('event_id', existing.event_id);
-          if (!count || count === 0) {
-            await admin.from('events').delete().eq('id', existing.event_id);
-          }
+          await admin.from('events').delete().eq('id', existing.id);
           deletes += 1;
         }
         continue;
       }
 
-      // Echo of our own write — refresh the mapping, leave the row alone.
+      // Echo of our own write — make sure the google_event_id is recorded.
       if (homePlusEventId) {
         await admin
-          .from('event_google_sync')
-          .upsert(
-            {
-              event_id: homePlusEventId,
-              integration_id: integration.id,
-              google_event_id: g.id,
-              last_synced_at: new Date().toISOString(),
-            },
-            { onConflict: 'event_id,integration_id' },
-          );
+          .from('events')
+          .update({ google_event_id: g.id })
+          .eq('id', homePlusEventId);
         echoes += 1;
         continue;
       }
 
-      // External event — does this parent already have a mapping for it?
+      // External event — look up by google_event_id for an existing mirror.
       const { data: existing } = await admin
-        .from('event_google_sync')
-        .select('event_id')
-        .eq('integration_id', integration.id)
+        .from('events')
+        .select('id')
+        .eq('family_id', integration.family_id)
         .eq('google_event_id', g.id)
         .maybeSingle();
 
       const row = googleEventToHomePlusRow(g, integration);
 
-      if (existing?.event_id) {
-        await admin.from('events').update(row).eq('id', existing.event_id);
-        await admin
-          .from('event_google_sync')
-          .update({ last_synced_at: new Date().toISOString() })
-          .eq('event_id', existing.event_id)
-          .eq('integration_id', integration.id);
+      if (existing?.id) {
+        await admin.from('events').update(row).eq('id', existing.id);
       } else {
-        const { data: inserted, error: insErr } = await admin
-          .from('events')
-          .insert(row)
-          .select('id')
-          .single();
-        if (insErr || !inserted) continue;
-        await admin
-          .from('event_google_sync')
-          .insert({
-            event_id: inserted.id,
-            integration_id: integration.id,
-            google_event_id: g.id,
-            last_synced_at: new Date().toISOString(),
-          });
+        await admin.from('events').insert(row);
       }
       upserts += 1;
     }

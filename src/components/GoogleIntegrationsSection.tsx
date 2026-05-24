@@ -4,9 +4,8 @@ import { supabase } from '@/lib/supabase';
 import { useFamily } from '@/context/FamilyContext';
 
 interface IntegrationRow {
-  family_member_id: string;
-  member_name: string;
   google_account_email: string;
+  connected_by_name: string;
   connected_at: string;
   last_synced_at: string | null;
   last_sync_error: string | null;
@@ -42,21 +41,22 @@ async function authedFetch(path: string, body?: unknown): Promise<Response | nul
 }
 
 export function GoogleIntegrationsSection() {
-  const { family, members, activeMember } = useFamily();
-  const [rows, setRows] = useState<IntegrationRow[]>([]);
-  const [busyMember, setBusyMember] = useState<string | null>(null);
+  const { family, activeMember } = useFamily();
+  const [row, setRow] = useState<IntegrationRow | null>(null);
+  const [busy, setBusy] = useState<'connect' | 'disconnect' | 'sync' | null>(null);
   const [banner, setBanner] = useState<Banner>(null);
 
   const refresh = useCallback(async () => {
     if (!supabase) return;
-    const { data, error } = await supabase.rpc('get_family_google_integrations', {
+    const { data } = await supabase.rpc('get_family_google_integration', {
       p_family_id: family.id,
     });
-    if (!error && data) setRows(data as IntegrationRow[]);
+    const first = Array.isArray(data) ? (data[0] as IntegrationRow | undefined) : undefined;
+    setRow(first ?? null);
   }, [family.id]);
 
-  // Initial load + realtime subscription so a disconnect on another device
-  // updates this UI without a refresh.
+  // Initial load + realtime subscription so a connect/disconnect on another
+  // device updates this UI without a refresh.
   useEffect(() => {
     void refresh();
     if (!supabase) return;
@@ -64,7 +64,12 @@ export function GoogleIntegrationsSection() {
       .channel(`gci-${family.id}`)
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'google_calendar_integrations', filter: `family_id=eq.${family.id}` },
+        {
+          event: '*',
+          schema: 'public',
+          table: 'google_calendar_integrations',
+          filter: `family_id=eq.${family.id}`,
+        },
         () => void refresh(),
       )
       .subscribe();
@@ -73,8 +78,7 @@ export function GoogleIntegrationsSection() {
     };
   }, [family.id, refresh]);
 
-  // Handle the post-OAuth redirect banner. The callback endpoint redirects
-  // back to /settings?google=connected or ?google=error&reason=...
+  // Post-OAuth redirect banner from /api/google/callback.
   useEffect(() => {
     const url = new URL(window.location.href);
     const status = url.searchParams.get('google');
@@ -93,16 +97,12 @@ export function GoogleIntegrationsSection() {
     return () => window.clearTimeout(t);
   }, [refresh]);
 
-  const parents = members.filter((m) => m.role === 'parent');
   const activeIsParent = activeMember?.role === 'parent';
 
   const handleConnect = useCallback(async () => {
-    if (!activeMember) return;
-    setBusyMember(activeMember.id);
+    setBusy('connect');
     try {
-      const res = await authedFetch('/api/google/auth-init', {
-        family_member_id: activeMember.id,
-      });
+      const res = await authedFetch('/api/google/auth-init', { family_id: family.id });
       if (!res || !res.ok) {
         const msg = res ? (await res.json().catch(() => ({}))).error || res.statusText : 'Not signed in';
         setBanner({ kind: 'error', text: `Connect failed: ${msg}` });
@@ -113,33 +113,28 @@ export function GoogleIntegrationsSection() {
     } catch (err) {
       setBanner({ kind: 'error', text: err instanceof Error ? err.message : 'Connect failed' });
     } finally {
-      setBusyMember(null);
+      setBusy(null);
     }
-  }, [activeMember]);
+  }, [family.id]);
 
-  const handleDisconnect = useCallback(
-    async (memberId: string) => {
-      setBusyMember(memberId);
-      try {
-        const res = await authedFetch('/api/google/disconnect', {
-          family_member_id: memberId,
-        });
-        if (!res || !res.ok) {
-          const msg = res ? (await res.json().catch(() => ({}))).error || res.statusText : 'Not signed in';
-          setBanner({ kind: 'error', text: `Disconnect failed: ${msg}` });
-          return;
-        }
-        setBanner({ kind: 'success', text: 'Disconnected.' });
-        await refresh();
-      } finally {
-        setBusyMember(null);
+  const handleDisconnect = useCallback(async () => {
+    setBusy('disconnect');
+    try {
+      const res = await authedFetch('/api/google/disconnect', { family_id: family.id });
+      if (!res || !res.ok) {
+        const msg = res ? (await res.json().catch(() => ({}))).error || res.statusText : 'Not signed in';
+        setBanner({ kind: 'error', text: `Disconnect failed: ${msg}` });
+        return;
       }
-    },
-    [refresh],
-  );
+      setBanner({ kind: 'success', text: 'Disconnected.' });
+      await refresh();
+    } finally {
+      setBusy(null);
+    }
+  }, [family.id, refresh]);
 
   const handleReconcile = useCallback(async () => {
-    setBusyMember('__reconcile__');
+    setBusy('sync');
     try {
       const res = await authedFetch('/api/google/reconcile', { family_id: family.id });
       if (res?.ok) {
@@ -149,15 +144,9 @@ export function GoogleIntegrationsSection() {
         setBanner({ kind: 'error', text: 'Sync failed.' });
       }
     } finally {
-      setBusyMember(null);
+      setBusy(null);
     }
   }, [family.id, refresh]);
-
-  if (parents.length === 0) return null;
-
-  const activeRow = activeMember
-    ? rows.find((r) => r.family_member_id === activeMember.id)
-    : undefined;
 
   return (
     <section className="card p-5">
@@ -165,14 +154,14 @@ export function GoogleIntegrationsSection() {
         <h2 className="font-display text-lg text-text flex items-center gap-2">
           <Calendar size={16} className="text-accent" /> Google Calendar
         </h2>
-        {rows.length > 0 && (
+        {row && (
           <button
             onClick={handleReconcile}
-            disabled={busyMember === '__reconcile__'}
+            disabled={busy === 'sync'}
             className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs text-text-muted hover:text-text rounded-md hover:bg-surface-2 disabled:opacity-50"
             title="Pull the latest from Google"
           >
-            {busyMember === '__reconcile__' ? (
+            {busy === 'sync' ? (
               <Loader2 size={12} className="animate-spin" />
             ) : (
               <RefreshCw size={12} />
@@ -182,10 +171,10 @@ export function GoogleIntegrationsSection() {
         )}
       </div>
       <p className="text-sm text-text-muted mb-4">
-        Optional 2-way sync. When a parent connects, we create a dedicated
-        <em> Home Plus &ndash; {family.name}</em> calendar in their Google
-        account &mdash; we never touch their personal calendars. Other family
-        members can subscribe to it from Google Calendar.
+        Optional 2-way sync for the whole family. When connected, we create a
+        dedicated <em>Home Plus &ndash; {family.name}</em> calendar in your
+        Google account. The Google account can be any account &mdash; a shared
+        family Gmail works well.
       </p>
 
       {banner && (
@@ -200,80 +189,50 @@ export function GoogleIntegrationsSection() {
         </div>
       )}
 
-      <ul className="space-y-2">
-        {parents.map((p) => {
-          const row = rows.find((r) => r.family_member_id === p.id);
-          const isMe = activeMember?.id === p.id;
-          return (
-            <li
-              key={p.id}
-              className="flex items-center justify-between gap-3 px-3 py-2.5 rounded-md bg-surface-2 border border-border"
+      {row ? (
+        <div className="px-3 py-3 rounded-md bg-surface-2 border border-border">
+          <div className="text-sm text-text">
+            Connected as <span className="font-medium">{row.google_account_email}</span>
+          </div>
+          <div className="text-xs text-text-muted mt-0.5">
+            Set up by {row.connected_by_name} &middot; last sync {timeAgo(row.last_synced_at)}
+            {row.last_sync_error && (
+              <span className="text-red-600 dark:text-red-400">
+                {' '}&middot; {row.last_sync_error}
+              </span>
+            )}
+          </div>
+          {activeIsParent && (
+            <button
+              onClick={() => void handleDisconnect()}
+              disabled={busy === 'disconnect'}
+              className="mt-3 flex items-center gap-1.5 px-3 py-1.5 text-xs text-text-muted hover:text-text bg-surface border border-border rounded-md disabled:opacity-50"
             >
-              <div className="min-w-0">
-                <div className="text-sm text-text">{p.name}</div>
-                {row ? (
-                  <div className="text-xs text-text-muted truncate">
-                    {row.google_account_email}
-                    {' · last sync '}
-                    {timeAgo(row.last_synced_at)}
-                    {row.last_sync_error && (
-                      <span className="text-red-600 dark:text-red-400">
-                        {' · '}
-                        {row.last_sync_error}
-                      </span>
-                    )}
-                  </div>
-                ) : (
-                  <div className="text-xs text-text-muted">Not connected</div>
-                )}
-              </div>
-              <div className="shrink-0">
-                {row && isMe ? (
-                  <button
-                    onClick={() => void handleDisconnect(p.id)}
-                    disabled={busyMember === p.id}
-                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-text-muted hover:text-text bg-surface border border-border rounded-md disabled:opacity-50"
-                  >
-                    {busyMember === p.id ? (
-                      <Loader2 size={12} className="animate-spin" />
-                    ) : (
-                      <Unplug size={12} />
-                    )}
-                    Disconnect
-                  </button>
-                ) : !row && isMe && activeIsParent ? (
-                  <button
-                    onClick={() => void handleConnect()}
-                    disabled={busyMember === p.id}
-                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-white bg-accent rounded-md disabled:opacity-50"
-                  >
-                    {busyMember === p.id ? (
-                      <Loader2 size={12} className="animate-spin" />
-                    ) : (
-                      <Calendar size={12} />
-                    )}
-                    Connect
-                  </button>
-                ) : (
-                  <span className="text-xs text-text-muted italic">
-                    {row ? '' : 'awaiting them'}
-                  </span>
-                )}
-              </div>
-            </li>
-          );
-        })}
-      </ul>
-
-      {!activeIsParent && (
-        <p className="text-xs text-text-muted mt-3 italic">
+              {busy === 'disconnect' ? (
+                <Loader2 size={12} className="animate-spin" />
+              ) : (
+                <Unplug size={12} />
+              )}
+              Disconnect
+            </button>
+          )}
+        </div>
+      ) : activeIsParent ? (
+        <button
+          onClick={() => void handleConnect()}
+          disabled={busy === 'connect'}
+          className="flex items-center gap-1.5 px-4 py-2 text-sm text-white bg-accent rounded-md disabled:opacity-50"
+        >
+          {busy === 'connect' ? (
+            <Loader2 size={14} className="animate-spin" />
+          ) : (
+            <Calendar size={14} />
+          )}
+          Connect Google Calendar
+        </button>
+      ) : (
+        <p className="text-sm text-text-muted italic">
           Only parents can connect Google Calendar.
-        </p>
-      )}
-      {activeIsParent && !activeRow && (
-        <p className="text-xs text-text-muted mt-3">
-          When you connect, we'll open a Google sign-in window and ask for
-          calendar access only — no email or contacts.
         </p>
       )}
     </section>

@@ -180,7 +180,7 @@ export function EventEditor({ open, onClose, editing, initialStart }: Props) {
     if (!open || !supabase) return;
     let cancelled = false;
     supabase
-      .rpc('get_family_google_integrations', { p_family_id: family.id })
+      .rpc('get_family_google_integration', { p_family_id: family.id })
       .then(({ data }) => {
         if (!cancelled) setHasGoogleIntegration(Array.isArray(data) && data.length > 0);
       });

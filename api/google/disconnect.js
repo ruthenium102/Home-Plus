@@ -1,11 +1,11 @@
 // POST /api/google/disconnect
-// Body: { family_member_id: uuid }
+// Body: { family_id: uuid }
 // Auth:  Authorization: Bearer <supabase session token>
 //
-// Stops the push channel, revokes the refresh token on Google's side, and
-// deletes the integration row. Per-event sync rows cascade away. The Home
-// Plus event rows themselves are untouched (events stay; only the mirror
-// linkage is dropped).
+// Any parent in the family can disconnect. Stops the push channel, revokes
+// the refresh token on Google's side, deletes the integration row, and
+// clears google_event_id on the family's events (so re-connecting later
+// creates fresh mirrors rather than referencing stale ids).
 
 import { revokeToken } from '../_lib/googleAuth.js';
 import { stopChannel, getFreshAccessToken } from '../_lib/googleCalendar.js';
@@ -18,31 +18,29 @@ export default async function handler(req, res) {
   const user = await getCallerUser(req);
   if (!user) return res.status(401).json({ error: 'Not authenticated' });
 
-  const { family_member_id } = req.body || {};
-  if (!family_member_id) {
-    return res.status(400).json({ error: 'family_member_id is required' });
-  }
+  const { family_id } = req.body || {};
+  if (!family_id) return res.status(400).json({ error: 'family_id is required' });
 
   const admin = getSupabaseAdmin();
 
-  const { data: member } = await admin
+  // Caller must be a parent in this family.
+  const { data: caller } = await admin
     .from('family_members')
-    .select('id, auth_user_id')
-    .eq('id', family_member_id)
+    .select('id, role')
+    .eq('auth_user_id', user.id)
+    .eq('family_id', family_id)
     .single();
-  if (!member || member.auth_user_id !== user.id) {
-    return res.status(403).json({ error: 'You can only disconnect your own integration' });
+  if (!caller || caller.role !== 'parent') {
+    return res.status(403).json({ error: 'Only parents can disconnect Google Calendar' });
   }
 
   const { data: integration } = await admin
     .from('google_calendar_integrations')
     .select('*')
-    .eq('family_member_id', family_member_id)
+    .eq('family_id', family_id)
     .single();
 
   if (integration) {
-    // Best-effort cleanup on Google's side. Failures here don't block the
-    // local delete — the user expects "disconnect" to actually disconnect.
     try {
       if (integration.channel_id && integration.channel_resource_id) {
         const token = await getFreshAccessToken(integration);
@@ -61,6 +59,14 @@ export default async function handler(req, res) {
       .from('google_calendar_integrations')
       .delete()
       .eq('id', integration.id);
+
+    // Clear stale Google ids so a future reconnect doesn't try to PATCH
+    // events that no longer exist on a deleted calendar.
+    await admin
+      .from('events')
+      .update({ google_event_id: null })
+      .eq('family_id', family_id)
+      .not('google_event_id', 'is', null);
   }
 
   return res.status(200).json({ ok: true });
