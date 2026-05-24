@@ -134,3 +134,22 @@ export function nextStreakMilestone(streak: number): number {
   const milestones = [7, 30, 100, 365];
   return milestones.find((m) => m > streak) ?? streak + 100;
 }
+
+/**
+ * What to show for a single habit-day cell — independent of the comparison
+ * operator. 'met' = within bounds with activity (green). 'violated' = out of
+ * bounds (orange). 'empty' = no activity AND zero would still satisfy the
+ * target (e.g. ≤ N habits before any data lands).
+ */
+export type HabitCellState = 'met' | 'violated' | 'empty';
+
+export function habitCellState(
+  count: number,
+  target: number,
+  op?: Habit['target_op'],
+): HabitCellState {
+  if (count === 0) {
+    return targetMet(0, target, op) ? 'empty' : 'violated';
+  }
+  return targetMet(count, target, op) ? 'met' : 'violated';
+}

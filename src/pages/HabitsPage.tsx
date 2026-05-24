@@ -19,6 +19,7 @@ import {
   nextStreakMilestone,
   targetMet,
   targetLabel,
+  habitCellState,
 } from '@/lib/habits';
 import type { Habit } from '@/types';
 
@@ -333,8 +334,10 @@ function HabitRow({
           const date = new Date(d.date);
           const dayLabel = date.toLocaleDateString(undefined, { weekday: 'narrow' });
           const target = habit.daily_target ?? 1;
-          const showCount = d.count >= 2;
+          const state = habitCellState(d.count, target, habit.target_op);
+          const showCount = d.count >= 1;
           void onToggleDate;
+          void color;
           return (
             <button
               key={d.date}
@@ -353,15 +356,17 @@ function HabitRow({
                 className={
                   'w-5 h-5 rounded-sm transition-transform relative flex items-center justify-center ' +
                   (canCheck ? 'group-hover:scale-110' : '') +
-                  (isToday ? ' ring-1 ring-text/30' : '')
+                  (isToday ? ' ring-1 ring-text/30' : '') +
+                  ' ' +
+                  (state === 'met'
+                    ? 'bg-emerald-500'
+                    : state === 'violated'
+                      ? 'bg-orange-500'
+                      : 'bg-surface-2 border border-border')
                 }
-                style={{
-                  background: d.checked ? color.base : color.soft,
-                  opacity: d.checked ? 1 : 0.5,
-                }}
               >
                 {showCount && (
-                  <span className="text-[9px] font-bold leading-none text-white/85 tabular-nums">
+                  <span className="text-[9px] font-bold leading-none text-white/90 tabular-nums">
                     {d.count}
                   </span>
                 )}

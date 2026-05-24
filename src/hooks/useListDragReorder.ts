@@ -72,6 +72,15 @@ export function useListDragReorder<T extends { id: string }>(
     (id: string) => (e: React.PointerEvent) => {
       // Only primary button / single-touch
       if (e.button !== undefined && e.button !== 0) return;
+      // Don't fight inner interactive elements (button/input/textarea/a). Their
+      // own onClick/onChange handles the gesture; if we install pointer
+      // listeners here the iOS browser can delay or swallow the click, which
+      // shows up as "needs two taps". Drag still works when the user grabs
+      // anywhere non-interactive on the row.
+      const evTarget = e.target as HTMLElement | null;
+      if (evTarget && evTarget.closest('button, a, input, textarea, select, [contenteditable]')) {
+        return;
+      }
       const target = e.currentTarget as HTMLElement;
       const startX = e.clientX;
       const startY = e.clientY;

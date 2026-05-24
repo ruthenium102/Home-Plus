@@ -7,6 +7,7 @@ import { Avatar } from './Avatar';
 import { Modal } from './Modal';
 import { localISO } from '@/lib/dates';
 import { getColorTokens } from '@/lib/colors';
+import { habitCellState } from '@/lib/habits';
 import type { Habit, HabitCadence } from '@/types';
 
 interface Props {
@@ -426,29 +427,26 @@ export function HabitEditor({ open, editing, onClose }: Props) {
                       const count = ci ? (ci.count ?? 1) : 0;
                       const isToday = iso === todayIso;
                       const target = Math.max(1, dailyTarget);
-                      const progress = Math.min(1, count / target);
-                      const targetMet = count >= target;
+                      const state = habitCellState(count, target, targetOp);
+                      void tokens;
                       return (
                         <div key={iso} className="flex flex-col items-stretch gap-1">
                           <div
                             className={
                               'relative h-14 rounded-md flex flex-col items-center justify-center ' +
-                              (isToday ? 'ring-2 ring-text/20 ' : '')
+                              (isToday ? 'ring-2 ring-text/20 ' : '') +
+                              (state === 'met'
+                                ? 'bg-emerald-500'
+                                : state === 'violated'
+                                  ? 'bg-orange-500'
+                                  : 'bg-surface-2 border border-border')
                             }
-                            style={{
-                              background: targetMet
-                                ? tokens.base
-                                : count > 0
-                                  ? `color-mix(in srgb, ${tokens.base} ${progress * 80}%, ${tokens.soft})`
-                                  : tokens.soft,
-                              opacity: count === 0 ? 0.5 : 1,
-                            }}
                             title={`${format(day, 'EEE d MMM')} — ${count}/${target}`}
                           >
                             <span
                               className={
                                 'text-lg font-bold tabular-nums leading-none ' +
-                                (count > 0 ? 'text-white' : 'text-text-faint')
+                                (state === 'empty' ? 'text-text-faint' : 'text-white')
                               }
                             >
                               {count > 0 ? count : ''}
@@ -456,7 +454,7 @@ export function HabitEditor({ open, editing, onClose }: Props) {
                             <span
                               className={
                                 'text-[9px] uppercase tracking-wider mt-0.5 leading-none ' +
-                                (count > 0 ? 'text-white/80' : 'text-text-faint')
+                                (state === 'empty' ? 'text-text-faint' : 'text-white/85')
                               }
                             >
                               {isToday ? 'Today' : format(day, 'EEE')}
