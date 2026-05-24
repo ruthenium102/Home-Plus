@@ -35,6 +35,7 @@ import { SetPinModal } from '@/components/SetPinModal';
 import { InviteModal } from '@/components/InviteModal';
 import { AddMemberModal } from '@/components/AddMemberModal';
 import { EditMemberModal } from '@/components/EditMemberModal';
+import { GoogleIntegrationsSection } from '@/components/GoogleIntegrationsSection';
 import { MEMBER_COLORS } from '@/lib/colors';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 import { useDockPlacement, type DockPlacement } from '@/lib/dockPreference';
@@ -546,6 +547,8 @@ export function SettingsPage() {
           <MapPin size={14} /> Reset to GPS location
         </button>
       </section>
+
+      {isSupabaseConfigured && <GoogleIntegrationsSection />}
 
       {/* Account */}
       <section className="card p-5">

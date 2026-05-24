@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
-import { Trash2, Repeat, Bell, MapPin, Users, Palette } from 'lucide-react';
+import { Trash2, Repeat, Bell, MapPin, Users, Palette, Calendar as CalendarIcon } from 'lucide-react';
 import { format } from 'date-fns';
 import { useFamily } from '@/context/FamilyContext';
 import { suggestDuration } from '@/lib/events';
 import { COLOR_OPTIONS, MEMBER_COLORS } from '@/lib/colors';
+import { supabase } from '@/lib/supabase';
 import { Avatar } from './Avatar';
 import { Modal } from './Modal';
 import type { CalendarEvent, EventCategory, MemberColor, Recurrence } from '@/types';
@@ -94,7 +95,9 @@ function applyMins(
 }
 
 export function EventEditor({ open, onClose, editing, initialStart }: Props) {
-  const { members, events, addEvent, updateEvent, deleteEvent, activeMember } = useFamily();
+  const { members, events, addEvent, updateEvent, deleteEvent, activeMember, family } = useFamily();
+  const [hasGoogleIntegration, setHasGoogleIntegration] = useState(false);
+  const [syncToGoogle, setSyncToGoogle] = useState(true);
 
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -145,6 +148,7 @@ export function EventEditor({ open, onClose, editing, initialStart }: Props) {
       );
       setByweekday((editing.recurrence?.byweekday as number[]) ?? []);
       setReminderMin(editing.reminder_offsets[0] ?? null);
+      setSyncToGoogle(editing.sync_to_google !== false);
     } else {
       setShowCustomEnd(false);
       const s = initialStart || new Date();
@@ -166,8 +170,24 @@ export function EventEditor({ open, onClose, editing, initialStart }: Props) {
       setRecurFreq('none');
       setByweekday([]);
       setReminderMin(null);
+      setSyncToGoogle(true);
     }
   }, [open, editing?.id]);
+
+  // Detect whether the family has at least one connected Google integration —
+  // the per-event sync toggle is only meaningful when someone's connected.
+  useEffect(() => {
+    if (!open || !supabase) return;
+    let cancelled = false;
+    supabase
+      .rpc('get_family_google_integrations', { p_family_id: family.id })
+      .then(({ data }) => {
+        if (!cancelled) setHasGoogleIntegration(Array.isArray(data) && data.length > 0);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [open, family.id]);
 
   // ---- handlers ---------------------------------------------------------------
 
@@ -273,6 +293,7 @@ export function EventEditor({ open, onClose, editing, initialStart }: Props) {
       member_ids: memberIds,
       recurrence,
       reminder_offsets: reminderMin !== null ? [reminderMin] : [],
+      sync_to_google: syncToGoogle,
       created_by: activeMember?.id ?? null,
     };
 
@@ -660,6 +681,21 @@ export function EventEditor({ open, onClose, editing, initialStart }: Props) {
             rows={2}
             className="w-full px-3 py-2.5 bg-surface-2 border border-border rounded-md text-text text-sm placeholder:text-text-faint focus:outline-none focus:border-accent resize-none"
           />
+
+          {/* Google Calendar opt-out — only shown when at least one parent
+              has connected their Google account. */}
+          {hasGoogleIntegration && (
+            <label className="flex items-center gap-2 text-sm text-text-muted cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={syncToGoogle}
+                onChange={(e) => setSyncToGoogle(e.target.checked)}
+                className="accent-accent"
+              />
+              <CalendarIcon size={14} />
+              <span>Sync to connected Google Calendars</span>
+            </label>
+          )}
     </Modal>
   );
 }

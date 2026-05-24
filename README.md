@@ -35,8 +35,43 @@ You can change PINs in **Settings → Family members → tap "PIN set" / "No PIN
 5. Set environment variables in Vercel:
    - `VITE_SUPABASE_URL`
    - `VITE_SUPABASE_ANON_KEY`
+   - `SUPABASE_URL` *(server-side; same value as VITE_SUPABASE_URL)*
+   - `SUPABASE_SERVICE_ROLE_KEY` *(server-side; used by the Google Calendar endpoints to bypass RLS)*
+   - `SUPABASE_ANON_KEY` *(server-side; used to verify caller JWTs)*
+   - `SITE_URL` *(e.g. `https://homeplus.app` — used to build OAuth redirect URLs and the watch-channel webhook URL)*
    - `ANTHROPIC_API_KEY` *(optional — enables AI extraction in the Import Events flow. Without it, the app falls back to a regex extractor.)*
+   - `GOOGLE_OAUTH_CLIENT_ID` *(optional — see "Google Calendar integration" below)*
+   - `GOOGLE_OAUTH_CLIENT_SECRET`
+   - `GOOGLE_OAUTH_REDIRECT_URI` *(e.g. `https://homeplus.app/api/google/callback`)*
+   - `CRON_SECRET` *(optional — shared secret for the reconcile cron)*
 6. Deploy.
+
+### Google Calendar integration (optional)
+
+Each parent in a family can connect their Google account. Home Plus creates a
+dedicated **"Home Plus – [Family Name]"** calendar on their Google account and
+runs a 2-way sync. Children and unconnected families are unaffected.
+
+**Google Cloud setup** (do once per environment):
+
+1. Create a Google Cloud project at <https://console.cloud.google.com>.
+2. **APIs & Services → Library** → enable **Google Calendar API**.
+3. **OAuth consent screen** → External → fill app name + support email →
+   add scope `https://www.googleapis.com/auth/calendar` → add your account
+   as a test user (up to 100 testers without verification; submit for
+   verification before opening to the public).
+4. **Credentials → Create OAuth 2.0 Client ID → Web application** →
+   authorised redirect URIs include both:
+   - `http://localhost:5173/api/google/callback` (dev)
+   - `https://<your-domain>/api/google/callback` (prod)
+5. Copy the Client ID + Client Secret into the Vercel env vars above.
+6. Run `supabase/migrations/migrate_v9.sql` against any existing database
+   (fresh installs from `schema.sql` already include it).
+
+**Optional cron** for missed-webhook safety net: schedule any service (Vercel
+Cron, GitHub Actions, etc.) to POST `https://<your-domain>/api/google/reconcile?secret=<CRON_SECRET>`
+once a day. Without it, the app reconciles on user open via the in-app
+"Sync now" button.
 
 ---
 

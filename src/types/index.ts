@@ -72,6 +72,8 @@ export interface CalendarEvent {
   recurrence: Recurrence | null;
   // Reminder offsets in minutes before start (e.g. [10, 60])
   reminder_offsets: number[];
+  // Mirror this event to connected parents' Google Calendars. Defaults to true.
+  sync_to_google?: boolean;
   created_by: string | null; // member id
   created_at: string;
 }

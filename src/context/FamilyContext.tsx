@@ -10,6 +10,7 @@ import {
 } from 'react';
 import { localISO } from '@/lib/dates';
 import { dbUpsert, dbDelete, dbLoadFamily, dbCreateFamily, isPendingWrite } from '@/lib/db';
+import { syncEventToGoogle, unsyncEventFromGoogle } from '@/lib/googleSync';
 import { hapticLight } from '@/lib/native';
 import {
   storage,
@@ -975,6 +976,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
       };
       setEvents((prev) => [...prev, newEvent]);
       dbUpsert('events', newEvent);
+      syncEventToGoogle(newEvent.id);
     },
     [family.id],
   );
@@ -986,6 +988,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
           if (e.id !== id) return e;
           const updated = { ...e, ...patch };
           dbUpsert('events', updated);
+          syncEventToGoogle(updated.id);
           // If this is a meal event whose date changed, sync the linked meal
           // plan's date so the planner stays in lockstep with the calendar.
           if (updated.category === 'meal' && patch.start_at && patch.start_at !== e.start_at) {
@@ -1014,6 +1017,9 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
       return linked.length ? mps.filter((mp) => mp.calendar_event_id !== id) : mps;
     });
     setEvents((prev) => prev.filter((e) => e.id !== id));
+    // Tell Google first while event_google_sync rows still exist (they
+    // cascade away when the events row is deleted below).
+    unsyncEventFromGoogle(id);
     dbDelete('events', id);
   }, []);
 
@@ -1771,6 +1777,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
         dbDelete('meal_plans', m.id);
         if (m.calendar_event_id) {
           setEvents((ev) => ev.filter((e) => e.id !== m.calendar_event_id));
+          unsyncEventFromGoogle(m.calendar_event_id);
           dbDelete('events', m.calendar_event_id);
         }
       });
@@ -1833,6 +1840,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
       setMealPlans((prev) => [...prev, newMealPlan]);
       dbUpsert('events', newEvent);
       dbUpsert('meal_plans', newMealPlan);
+      syncEventToGoogle(newEvent.id);
     },
     [family.id, recipes, activeMember],
   );
@@ -1842,6 +1850,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
       const target = prev.find((m) => m.id === id);
       if (target?.calendar_event_id) {
         setEvents((ev) => ev.filter((e) => e.id !== target.calendar_event_id));
+        unsyncEventFromGoogle(target.calendar_event_id);
         dbDelete('events', target.calendar_event_id);
       }
       dbDelete('meal_plans', id);
@@ -1916,6 +1925,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
       setMealPlans((prev) => [...prev, ...newPlans]);
       newEvents.forEach((e) => dbUpsert('events', e));
       newPlans.forEach((p) => dbUpsert('meal_plans', p));
+      newEvents.forEach((e) => syncEventToGoogle(e.id));
     },
     [mealPlans, recipes, family.id, activeMember],
   );

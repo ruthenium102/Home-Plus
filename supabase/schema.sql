@@ -103,6 +103,8 @@ create table if not exists events (
   recurrence jsonb,
   -- Reminder offsets in minutes (e.g. [10, 60])
   reminder_offsets int[] not null default '{}',
+  -- Per-event opt-out for Google Calendar sync (Phase 6)
+  sync_to_google boolean not null default true,
   created_by uuid references family_members(id) on delete set null,
   created_at timestamptz not null default now()
 );
@@ -768,6 +770,145 @@ grant execute on function public.accept_invitation(uuid) to authenticated;
 -- Realtime — enable for all tables that need cross-device sync
 -- Wrapped in a loop so re-running is safe (duplicate_object is swallowed).
 -- ============================================================================
+-- ============================================================================
+-- Phase 6: Google Calendar integration (parents only, 2-way sync)
+-- ============================================================================
+
+create table if not exists google_calendar_integrations (
+  id uuid primary key default uuid_generate_v4(),
+  family_id uuid not null references families(id) on delete cascade,
+  family_member_id uuid not null references family_members(id) on delete cascade,
+  google_account_email text not null,
+  google_calendar_id text not null,
+  refresh_token text not null,
+  access_token text,
+  access_token_expires_at timestamptz,
+  sync_token text,
+  channel_id text,
+  channel_resource_id text,
+  channel_expires_at timestamptz,
+  last_synced_at timestamptz,
+  last_sync_error text,
+  connected_at timestamptz not null default now(),
+  unique (family_member_id)
+);
+
+create index if not exists idx_gci_family on google_calendar_integrations(family_id);
+create index if not exists idx_gci_channel on google_calendar_integrations(channel_id) where channel_id is not null;
+
+create or replace function public.gci_require_parent()
+returns trigger language plpgsql as $$
+declare r member_role;
+begin
+  select role into r from family_members where id = NEW.family_member_id;
+  if r is null then raise exception 'family_member_id does not exist'; end if;
+  if r <> 'parent' then
+    raise exception 'Only parents can connect Google Calendar (member role = %)', r;
+  end if;
+  return NEW;
+end;
+$$;
+
+drop trigger if exists trg_gci_require_parent on google_calendar_integrations;
+create trigger trg_gci_require_parent
+  before insert or update on google_calendar_integrations
+  for each row execute function public.gci_require_parent();
+
+alter table google_calendar_integrations enable row level security;
+
+drop policy if exists "owner reads own gci"   on google_calendar_integrations;
+drop policy if exists "owner inserts own gci" on google_calendar_integrations;
+drop policy if exists "owner updates own gci" on google_calendar_integrations;
+drop policy if exists "owner deletes own gci" on google_calendar_integrations;
+create policy "owner reads own gci" on google_calendar_integrations
+  for select using (
+    exists (select 1 from family_members fm
+            where fm.id = google_calendar_integrations.family_member_id
+              and fm.auth_user_id = auth.uid())
+  );
+create policy "owner inserts own gci" on google_calendar_integrations
+  for insert with check (
+    exists (select 1 from family_members fm
+            where fm.id = google_calendar_integrations.family_member_id
+              and fm.auth_user_id = auth.uid()
+              and fm.role = 'parent')
+  );
+create policy "owner updates own gci" on google_calendar_integrations
+  for update using (
+    exists (select 1 from family_members fm
+            where fm.id = google_calendar_integrations.family_member_id
+              and fm.auth_user_id = auth.uid())
+  ) with check (
+    exists (select 1 from family_members fm
+            where fm.id = google_calendar_integrations.family_member_id
+              and fm.auth_user_id = auth.uid())
+  );
+create policy "owner deletes own gci" on google_calendar_integrations
+  for delete using (
+    exists (select 1 from family_members fm
+            where fm.id = google_calendar_integrations.family_member_id
+              and fm.auth_user_id = auth.uid())
+  );
+
+create table if not exists google_oauth_states (
+  state text primary key,
+  family_member_id uuid not null references family_members(id) on delete cascade,
+  created_at timestamptz not null default now(),
+  expires_at timestamptz not null default now() + interval '10 minutes'
+);
+create index if not exists idx_google_oauth_states_expiry on google_oauth_states(expires_at);
+alter table google_oauth_states enable row level security;
+-- No policies → service_role only.
+
+create table if not exists event_google_sync (
+  event_id uuid not null references events(id) on delete cascade,
+  integration_id uuid not null references google_calendar_integrations(id) on delete cascade,
+  google_event_id text not null,
+  last_synced_at timestamptz not null default now(),
+  primary key (event_id, integration_id)
+);
+create index if not exists idx_egs_integration_event on event_google_sync(integration_id, google_event_id);
+alter table event_google_sync enable row level security;
+
+drop policy if exists "members read event_google_sync" on event_google_sync;
+create policy "members read event_google_sync" on event_google_sync
+  for select using (
+    exists (
+      select 1 from events e
+        join family_members fm on fm.family_id = e.family_id
+       where e.id = event_google_sync.event_id
+         and fm.auth_user_id = auth.uid()
+    )
+  );
+
+create or replace function public.get_family_google_integrations(p_family_id uuid)
+returns table (
+  family_member_id uuid,
+  member_name text,
+  google_account_email text,
+  connected_at timestamptz,
+  last_synced_at timestamptz,
+  last_sync_error text
+)
+language sql stable security definer set search_path = public as $$
+  select gci.family_member_id,
+         fm.name,
+         gci.google_account_email,
+         gci.connected_at,
+         gci.last_synced_at,
+         gci.last_sync_error
+    from google_calendar_integrations gci
+    join family_members fm on fm.id = gci.family_member_id
+   where gci.family_id = p_family_id
+     and public.is_family_member(p_family_id);
+$$;
+revoke execute on function public.get_family_google_integrations(uuid) from public;
+grant execute on function public.get_family_google_integrations(uuid) to authenticated;
+
+-- ============================================================================
+-- Realtime — enable for all tables that need cross-device sync
+-- Wrapped in a loop so re-running is safe (duplicate_object is swallowed).
+-- ============================================================================
 do $$
 declare t text;
 begin
@@ -785,7 +926,9 @@ begin
     'redemptions',
     'day_plan_blocks',
     'activity_pool_items',
-    'invitations'
+    'invitations',
+    'google_calendar_integrations',
+    'event_google_sync'
   ])
   loop
     begin
