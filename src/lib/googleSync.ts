@@ -32,6 +32,19 @@ export function syncEventToGoogle(eventId: string): void {
   void postWithAuth('/api/google/sync-event', { event_id: eventId, action: 'upsert' });
 }
 
-export function unsyncEventFromGoogle(eventId: string): void {
-  void postWithAuth('/api/google/sync-event', { event_id: eventId, action: 'delete' });
+// Pass google_event_id from the client where we have it. The server can no
+// longer reliably read it from the DB because dbDelete races us — by the
+// time the server runs, the row may already be gone.
+export function unsyncEventFromGoogle(
+  eventId: string,
+  googleEventId: string | null | undefined,
+  familyId: string,
+): void {
+  if (!googleEventId) return; // not mirrored, nothing to delete on Google
+  void postWithAuth('/api/google/sync-event', {
+    event_id: eventId,
+    action: 'delete',
+    google_event_id: googleEventId,
+    family_id: familyId,
+  });
 }

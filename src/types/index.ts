@@ -74,6 +74,10 @@ export interface CalendarEvent {
   reminder_offsets: number[];
   // Mirror this event to connected parents' Google Calendars. Defaults to true.
   sync_to_google?: boolean;
+  // Set after the event has been mirrored to the family's Google Calendar.
+  // Kept on the client so deletes can pass it through to the sync endpoint
+  // without racing against the Supabase delete.
+  google_event_id?: string | null;
   created_by: string | null; // member id
   created_at: string;
 }

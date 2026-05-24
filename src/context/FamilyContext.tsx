@@ -1008,20 +1008,26 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
     [],
   );
 
-  const deleteEvent = useCallback((id: string) => {
-    // Remove any meal plan linked to this event so the planner and calendar
-    // stay in sync when a meal is deleted from the calendar side.
-    setMealPlans((mps) => {
-      const linked = mps.filter((mp) => mp.calendar_event_id === id);
-      linked.forEach((mp) => dbDelete('meal_plans', mp.id));
-      return linked.length ? mps.filter((mp) => mp.calendar_event_id !== id) : mps;
-    });
-    setEvents((prev) => prev.filter((e) => e.id !== id));
-    // Tell Google first while event_google_sync rows still exist (they
-    // cascade away when the events row is deleted below).
-    unsyncEventFromGoogle(id);
-    dbDelete('events', id);
-  }, []);
+  const deleteEvent = useCallback(
+    (id: string) => {
+      // Remove any meal plan linked to this event so the planner and calendar
+      // stay in sync when a meal is deleted from the calendar side.
+      setMealPlans((mps) => {
+        const linked = mps.filter((mp) => mp.calendar_event_id === id);
+        linked.forEach((mp) => dbDelete('meal_plans', mp.id));
+        return linked.length ? mps.filter((mp) => mp.calendar_event_id !== id) : mps;
+      });
+      // Capture the google_event_id BEFORE we drop the row from state, so the
+      // sync endpoint doesn't have to race the Supabase delete to look it up.
+      setEvents((prev) => {
+        const target = prev.find((e) => e.id === id);
+        unsyncEventFromGoogle(id, target?.google_event_id ?? null, family.id);
+        return prev.filter((e) => e.id !== id);
+      });
+      dbDelete('events', id);
+    },
+    [family.id],
+  );
 
   // ---- Members -------------------------------------------------------------
 
@@ -1768,23 +1774,30 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
     [],
   );
 
-  const deleteRecipe = useCallback((id: string) => {
-    setRecipes((prev) => prev.filter((r) => r.id !== id));
-    // Also remove any meal plans referencing this recipe
-    setMealPlans((prev) => {
-      const toRemove = prev.filter((m) => m.recipe_id === id);
-      toRemove.forEach((m) => {
-        dbDelete('meal_plans', m.id);
-        if (m.calendar_event_id) {
-          setEvents((ev) => ev.filter((e) => e.id !== m.calendar_event_id));
-          unsyncEventFromGoogle(m.calendar_event_id);
-          dbDelete('events', m.calendar_event_id);
-        }
+  const deleteRecipe = useCallback(
+    (id: string) => {
+      setRecipes((prev) => prev.filter((r) => r.id !== id));
+      // Also remove any meal plans referencing this recipe
+      setMealPlans((prev) => {
+        const toRemove = prev.filter((m) => m.recipe_id === id);
+        toRemove.forEach((m) => {
+          dbDelete('meal_plans', m.id);
+          const eid = m.calendar_event_id;
+          if (eid) {
+            setEvents((ev) => {
+              const evt = ev.find((e) => e.id === eid);
+              unsyncEventFromGoogle(eid, evt?.google_event_id ?? null, family.id);
+              return ev.filter((e) => e.id !== eid);
+            });
+            dbDelete('events', eid);
+          }
+        });
+        return prev.filter((m) => m.recipe_id !== id);
       });
-      return prev.filter((m) => m.recipe_id !== id);
-    });
-    dbDelete('recipes', id);
-  }, []);
+      dbDelete('recipes', id);
+    },
+    [family.id],
+  );
 
   const toggleRecipeFavorite = useCallback(
     (id: string) =>
@@ -1845,18 +1858,25 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
     [family.id, recipes, activeMember],
   );
 
-  const removeMealPlan = useCallback((id: string) => {
-    setMealPlans((prev) => {
-      const target = prev.find((m) => m.id === id);
-      if (target?.calendar_event_id) {
-        setEvents((ev) => ev.filter((e) => e.id !== target.calendar_event_id));
-        unsyncEventFromGoogle(target.calendar_event_id);
-        dbDelete('events', target.calendar_event_id);
-      }
-      dbDelete('meal_plans', id);
-      return prev.filter((m) => m.id !== id);
-    });
-  }, []);
+  const removeMealPlan = useCallback(
+    (id: string) => {
+      setMealPlans((prev) => {
+        const target = prev.find((m) => m.id === id);
+        const eid = target?.calendar_event_id;
+        if (eid) {
+          setEvents((ev) => {
+            const evt = ev.find((e) => e.id === eid);
+            unsyncEventFromGoogle(eid, evt?.google_event_id ?? null, family.id);
+            return ev.filter((e) => e.id !== eid);
+          });
+          dbDelete('events', eid);
+        }
+        dbDelete('meal_plans', id);
+        return prev.filter((m) => m.id !== id);
+      });
+    },
+    [family.id],
+  );
 
   const repeatMealPlan = useCallback(
     (sourceMealPlanId: string, weekdays: number[], weeks: number) => {

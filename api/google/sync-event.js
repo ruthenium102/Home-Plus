@@ -45,11 +45,66 @@ export default async function handler(req, res) {
   }
 
   const admin = getSupabaseAdmin();
-  const { event, integration } = await loadEventAndIntegration(admin, event_id);
 
+  // ---- DELETE path ---------------------------------------------------------
+  // For deletes we accept google_event_id + family_id from the client and
+  // skip the events-row read entirely, because by the time we run, the
+  // Supabase delete may have already cascaded the row away (race we lost
+  // before the v1.0.41 fix). family_id lets us authorise the caller and
+  // find the integration without needing the events row.
+  if (action === 'delete') {
+    const { google_event_id, family_id } = req.body || {};
+    if (!google_event_id || !family_id) {
+      // Fall back to DB lookup for older clients that don't send these.
+      const { event, integration } = await loadEventAndIntegration(admin, event_id);
+      if (!event || !integration?.google_calendar_id || !event.google_event_id) {
+        return res.status(200).json({ ok: true, deleted: 0 });
+      }
+      const { data: callerLegacy } = await admin
+        .from('family_members')
+        .select('id')
+        .eq('auth_user_id', user.id)
+        .eq('family_id', event.family_id)
+        .single();
+      if (!callerLegacy) return res.status(403).json({ error: 'Not a member of this family' });
+      const tok = await getFreshAccessToken(integration);
+      try {
+        await deleteEvent(tok, integration.google_calendar_id, event.google_event_id);
+      } catch (err) {
+        console.warn('[google] delete failed', err);
+      }
+      return res.status(200).json({ ok: true, deleted: 1 });
+    }
+
+    const { data: caller } = await admin
+      .from('family_members')
+      .select('id')
+      .eq('auth_user_id', user.id)
+      .eq('family_id', family_id)
+      .single();
+    if (!caller) return res.status(403).json({ error: 'Not a member of this family' });
+
+    const { data: integration } = await admin
+      .from('google_calendar_integrations')
+      .select('*')
+      .eq('family_id', family_id)
+      .maybeSingle();
+    if (!integration) {
+      return res.status(200).json({ ok: true, deleted: 0 });
+    }
+    try {
+      const tok = await getFreshAccessToken(integration);
+      await deleteEvent(tok, integration.google_calendar_id, google_event_id);
+    } catch (err) {
+      console.warn('[google] delete failed', err);
+    }
+    return res.status(200).json({ ok: true, deleted: 1 });
+  }
+
+  // ---- UPSERT path ---------------------------------------------------------
+  const { event, integration } = await loadEventAndIntegration(admin, event_id);
   if (!event) return res.status(404).json({ error: 'Event not found' });
 
-  // Caller must be a family member.
   const { data: caller } = await admin
     .from('family_members')
     .select('id')
@@ -59,26 +114,11 @@ export default async function handler(req, res) {
   if (!caller) return res.status(403).json({ error: 'Not a member of this family' });
 
   if (!integration) {
-    // No Google connected — nothing to mirror. Not an error.
     return res.status(200).json({ ok: true, mirrored: 0 });
   }
 
   const token = await getFreshAccessToken(integration);
 
-  // ---- DELETE path ---------------------------------------------------------
-  if (action === 'delete') {
-    if (!event.google_event_id) {
-      return res.status(200).json({ ok: true, deleted: 0 });
-    }
-    try {
-      await deleteEvent(token, integration.google_calendar_id, event.google_event_id);
-    } catch (err) {
-      console.warn('[google] delete failed', err);
-    }
-    return res.status(200).json({ ok: true, deleted: 1 });
-  }
-
-  // ---- UPSERT path ---------------------------------------------------------
   // Opt-out: if the user disabled sync on this event, remove any existing
   // mirror and stop.
   if (event.sync_to_google === false) {
