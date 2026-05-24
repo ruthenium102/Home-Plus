@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Calendar, Loader2, RefreshCw, Unplug } from 'lucide-react';
+import { Calendar, Loader2, RefreshCw, Unplug, Upload } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useFamily } from '@/context/FamilyContext';
 
@@ -43,7 +43,7 @@ async function authedFetch(path: string, body?: unknown): Promise<Response | nul
 export function GoogleIntegrationsSection() {
   const { family, activeMember } = useFamily();
   const [row, setRow] = useState<IntegrationRow | null>(null);
-  const [busy, setBusy] = useState<'connect' | 'disconnect' | 'sync' | null>(null);
+  const [busy, setBusy] = useState<'connect' | 'disconnect' | 'sync' | 'backfill' | null>(null);
   const [banner, setBanner] = useState<Banner>(null);
 
   const refresh = useCallback(async () => {
@@ -148,6 +148,28 @@ export function GoogleIntegrationsSection() {
     }
   }, [family.id, refresh]);
 
+  const handleBackfill = useCallback(async () => {
+    setBusy('backfill');
+    try {
+      const res = await authedFetch('/api/google/backfill', { family_id: family.id });
+      if (!res?.ok) {
+        const msg = res ? (await res.json().catch(() => ({}))).error || res.statusText : 'Not signed in';
+        setBanner({ kind: 'error', text: `Backfill failed: ${msg}` });
+        return;
+      }
+      const { pushed, failed } = await res.json();
+      if (pushed === 0 && failed === 0) {
+        setBanner({ kind: 'success', text: 'No events to push — already in sync.' });
+      } else {
+        const tail = failed > 0 ? ` (${failed} failed)` : '';
+        setBanner({ kind: 'success', text: `Pushed ${pushed} event${pushed === 1 ? '' : 's'} to Google${tail}.` });
+      }
+      await refresh();
+    } finally {
+      setBusy(null);
+    }
+  }, [family.id, refresh]);
+
   return (
     <section className="card p-5">
       <div className="flex items-start justify-between gap-2 mb-2">
@@ -203,18 +225,33 @@ export function GoogleIntegrationsSection() {
             )}
           </div>
           {activeIsParent && (
-            <button
-              onClick={() => void handleDisconnect()}
-              disabled={busy === 'disconnect'}
-              className="mt-3 flex items-center gap-1.5 px-3 py-1.5 text-xs text-text-muted hover:text-text bg-surface border border-border rounded-md disabled:opacity-50"
-            >
-              {busy === 'disconnect' ? (
-                <Loader2 size={12} className="animate-spin" />
-              ) : (
-                <Unplug size={12} />
-              )}
-              Disconnect
-            </button>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <button
+                onClick={() => void handleBackfill()}
+                disabled={busy === 'backfill'}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-text-muted hover:text-text bg-surface border border-border rounded-md disabled:opacity-50"
+                title="One-tap mirror of all existing Home Plus events to Google"
+              >
+                {busy === 'backfill' ? (
+                  <Loader2 size={12} className="animate-spin" />
+                ) : (
+                  <Upload size={12} />
+                )}
+                Push existing events
+              </button>
+              <button
+                onClick={() => void handleDisconnect()}
+                disabled={busy === 'disconnect'}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-text-muted hover:text-text bg-surface border border-border rounded-md disabled:opacity-50"
+              >
+                {busy === 'disconnect' ? (
+                  <Loader2 size={12} className="animate-spin" />
+                ) : (
+                  <Unplug size={12} />
+                )}
+                Disconnect
+              </button>
+            </div>
           )}
         </div>
       ) : activeIsParent ? (
