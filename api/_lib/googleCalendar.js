@@ -131,6 +131,45 @@ export async function stopChannel(token, channelId, resourceId) {
   });
 }
 
+// Convert a Home Plus Recurrence (freq/interval/byweekday/until/count) into
+// an RFC 5545 RRULE string. Returns null when there's no recurrence.
+//
+//   { freq: 'weekly', interval: 1, byweekday: [1,3,5] }
+//   → 'RRULE:FREQ=WEEKLY;INTERVAL=1;BYDAY=MO,WE,FR'
+//
+// Home Plus uses 0=Sun..6=Sat (US convention). RFC uses SU,MO,TU,...
+const RFC_WEEKDAYS = ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA'];
+
+function buildRRule(rec) {
+  if (!rec || typeof rec !== 'object') return null;
+  const freq = typeof rec.freq === 'string' ? rec.freq.toUpperCase() : null;
+  if (!['DAILY', 'WEEKLY', 'MONTHLY', 'YEARLY'].includes(freq)) return null;
+
+  const parts = [`FREQ=${freq}`];
+  const interval = Number.isFinite(rec.interval) && rec.interval > 1 ? rec.interval : 1;
+  if (interval > 1) parts.push(`INTERVAL=${interval}`);
+
+  if (Array.isArray(rec.byweekday) && rec.byweekday.length > 0) {
+    const days = rec.byweekday
+      .filter((d) => Number.isInteger(d) && d >= 0 && d <= 6)
+      .map((d) => RFC_WEEKDAYS[d]);
+    if (days.length > 0) parts.push(`BYDAY=${days.join(',')}`);
+  }
+
+  if (rec.until) {
+    // RRULE UNTIL must be UTC in basic format: YYYYMMDDTHHMMSSZ
+    const d = new Date(rec.until);
+    if (!isNaN(d.getTime())) {
+      const iso = d.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z');
+      parts.push(`UNTIL=${iso}`);
+    }
+  } else if (Number.isInteger(rec.count) && rec.count > 0) {
+    parts.push(`COUNT=${rec.count}`);
+  }
+
+  return `RRULE:${parts.join(';')}`;
+}
+
 // Convert a Home Plus event row into the Google Calendar event body.
 // member_ids array is rendered into the description so the human reader can
 // tell who an event applies to; we don't translate to Google attendees
@@ -165,11 +204,8 @@ export function eventToGoogleBody(event, memberLookup = {}) {
     body.start = { dateTime: event.start_at };
     body.end = { dateTime: event.end_at };
   }
-  if (event.recurrence?.rrule) {
-    body.recurrence = [event.recurrence.rrule.startsWith('RRULE:')
-      ? event.recurrence.rrule
-      : `RRULE:${event.recurrence.rrule}`];
-  }
+  const rrule = buildRRule(event.recurrence);
+  if (rrule) body.recurrence = [rrule];
   if (Array.isArray(event.reminder_offsets) && event.reminder_offsets.length > 0) {
     body.reminders = {
       useDefault: false,

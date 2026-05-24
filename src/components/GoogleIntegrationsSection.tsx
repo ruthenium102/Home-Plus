@@ -157,12 +157,15 @@ export function GoogleIntegrationsSection() {
         setBanner({ kind: 'error', text: `Backfill failed: ${msg}` });
         return;
       }
-      const { pushed, failed } = await res.json();
-      if (pushed === 0 && failed === 0) {
-        setBanner({ kind: 'success', text: 'No events to push — already in sync.' });
+      const { pushed, updated, failed } = await res.json();
+      if (pushed === 0 && updated === 0 && failed === 0) {
+        setBanner({ kind: 'success', text: 'No events to sync.' });
       } else {
-        const tail = failed > 0 ? ` (${failed} failed)` : '';
-        setBanner({ kind: 'success', text: `Pushed ${pushed} event${pushed === 1 ? '' : 's'} to Google${tail}.` });
+        const parts = [];
+        if (pushed > 0) parts.push(`pushed ${pushed} new`);
+        if (updated > 0) parts.push(`refreshed ${updated}`);
+        if (failed > 0) parts.push(`${failed} failed`);
+        setBanner({ kind: failed > 0 ? 'error' : 'success', text: `Sync: ${parts.join(', ')}.` });
       }
       await refresh();
     } finally {
@@ -230,14 +233,14 @@ export function GoogleIntegrationsSection() {
                 onClick={() => void handleBackfill()}
                 disabled={busy === 'backfill'}
                 className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-text-muted hover:text-text bg-surface border border-border rounded-md disabled:opacity-50"
-                title="One-tap mirror of all existing Home Plus events to Google"
+                title="Mirror every Home Plus event to Google (insert new, refresh existing)"
               >
                 {busy === 'backfill' ? (
                   <Loader2 size={12} className="animate-spin" />
                 ) : (
                   <Upload size={12} />
                 )}
-                Push existing events
+                Re-sync all events
               </button>
               <button
                 onClick={() => void handleDisconnect()}

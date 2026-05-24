@@ -12,6 +12,7 @@
 import {
   eventToGoogleBody,
   insertEvent,
+  patchEvent,
   getFreshAccessToken,
 } from '../_lib/googleCalendar.js';
 import { getSupabaseAdmin, getCallerUser } from '../_lib/supabaseAdmin.js';
@@ -50,16 +51,17 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Google Calendar not connected for this family' });
   }
 
-  // Pull every event that isn't already mirrored and isn't opted out.
+  // Pull every event that isn't opted out. Events without google_event_id
+  // get INSERTed; events with one get PATCHed (so re-tapping after a fix
+  // like the RRULE one re-uploads existing rows with the corrected body).
   const { data: events } = await admin
     .from('events')
     .select('*')
     .eq('family_id', family_id)
-    .is('google_event_id', null)
     .neq('sync_to_google', false);
 
   if (!events || events.length === 0) {
-    return res.status(200).json({ pushed: 0, skipped: 0, failed: 0 });
+    return res.status(200).json({ pushed: 0, updated: 0, failed: 0 });
   }
 
   // Member lookup for "Who: …" rendering inside the Google event description.
@@ -73,19 +75,25 @@ export default async function handler(req, res) {
   const token = await getFreshAccessToken(integration);
 
   let pushed = 0;
+  let updated = 0;
   let failed = 0;
   for (const event of events) {
     try {
       const body = eventToGoogleBody(event, memberLookup);
-      const created = await insertEvent(token, integration.google_calendar_id, body);
-      if (created?.id) {
-        await admin
-          .from('events')
-          .update({ google_event_id: created.id })
-          .eq('id', event.id);
-        pushed += 1;
+      if (event.google_event_id) {
+        await patchEvent(token, integration.google_calendar_id, event.google_event_id, body);
+        updated += 1;
       } else {
-        failed += 1;
+        const created = await insertEvent(token, integration.google_calendar_id, body);
+        if (created?.id) {
+          await admin
+            .from('events')
+            .update({ google_event_id: created.id })
+            .eq('id', event.id);
+          pushed += 1;
+        } else {
+          failed += 1;
+        }
       }
     } catch (err) {
       console.warn('[google] backfill failed for event', event.id, err);
@@ -101,5 +109,5 @@ export default async function handler(req, res) {
     })
     .eq('id', integration.id);
 
-  return res.status(200).json({ pushed, skipped: 0, failed });
+  return res.status(200).json({ pushed, updated, failed });
 }
