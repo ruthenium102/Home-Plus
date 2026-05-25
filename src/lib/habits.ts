@@ -279,8 +279,6 @@ export interface HabitDayCell {
   count: number;
   state: HabitCellState;
   inRange: boolean; // false for cells before the habit's start date
-  due: boolean; // the cadence said the habit should run on this day
-  isPast: boolean; // strictly before today (today + future stay neutral)
 }
 
 /** One cell per day from `fromISO` → `toISO`. Used by the calendar heatmap. */
@@ -294,17 +292,13 @@ export function dailyCells(
   const target = habit.daily_target ?? 1;
   const startISO = habitStartISO(habit);
   const counts = countsByDate(checkIns, habit.id, memberId);
-  const today = localISO();
   return eachISO(fromISO, toISO).map((date) => {
-    const dt = new Date(date + 'T00:00:00');
     const count = counts.get(date) ?? 0;
     return {
       date,
       count,
       state: habitCellState(count, target, habit.target_op),
       inRange: date >= startISO,
-      due: isHabitDue(habit, dt),
-      isPast: date < today,
     };
   });
 }
