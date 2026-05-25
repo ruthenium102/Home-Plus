@@ -71,6 +71,25 @@ export function ChoreEditor({ open, onClose, editing }: Props) {
     }
   }, [open, editing]);
 
+  // Heal stale IDs in both the assigned list and rotation roster. Old chores
+  // sometimes carry IDs for kids who were renamed, removed, or whose role
+  // changed; left in the data they inflate the roster length and shift the
+  // visible numbering (e.g. "4. Sophie" instead of "1. Sophie").
+  useEffect(() => {
+    if (!open) return;
+    const validKidIds = new Set(
+      members.filter((m) => m.role === 'child').map((k) => k.id),
+    );
+    setAssigned((prev) => {
+      const cleaned = prev.filter((id) => validKidIds.has(id));
+      return cleaned.length === prev.length ? prev : cleaned;
+    });
+    setRotationRoster((prev) => {
+      const cleaned = prev.filter((id) => validKidIds.has(id));
+      return cleaned.length === prev.length ? prev : cleaned;
+    });
+  }, [open, members]);
+
   // Keep the rotation roster in sync with the assigned list whenever rotation
   // is active. New kids get appended to the end; removed kids drop out of the
   // roster. The user's manual ordering is preserved across the diff.
