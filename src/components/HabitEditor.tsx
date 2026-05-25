@@ -54,6 +54,7 @@ export function HabitEditor({ open, editing, onClose }: Props) {
   const [streakRewards, setStreakRewards] = useState(false);
   const [dailyTarget, setDailyTarget] = useState(1);
   const [targetOp, setTargetOp] = useState<'lte' | 'eq' | 'gte'>('gte');
+  const [historyDays, setHistoryDays] = useState<7 | 14 | 30 | 90>(7);
 
   // Only re-init when the editor opens or the target habit changes.
   // activeMember is intentionally excluded — its reference flips on every
@@ -72,6 +73,7 @@ export function HabitEditor({ open, editing, onClose }: Props) {
       setStreakRewards(editing.streak_rewards);
       setDailyTarget(editing.daily_target ?? 1);
       setTargetOp(editing.target_op ?? 'gte');
+      setHistoryDays(7);
     } else {
       setTitle('');
       setDescription('');
@@ -413,10 +415,32 @@ export function HabitEditor({ open, editing, onClose }: Props) {
               const todayIso = localISO();
               return (
                 <div className="space-y-2">
-                  <div className="text-sm text-text-muted">Recent counts</div>
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="text-sm text-text-muted">Recent counts</div>
+                    <div className="flex bg-surface-2 rounded-md p-0.5">
+                      {([7, 14, 30, 90] as const).map((n) => (
+                        <button
+                          key={n}
+                          type="button"
+                          onClick={() => setHistoryDays(n)}
+                          className={
+                            'px-2 py-1 rounded-sm text-[11px] font-medium transition-colors ' +
+                            (historyDays === n
+                              ? 'bg-surface text-text shadow-sm'
+                              : 'text-text-muted')
+                          }
+                        >
+                          {n}d
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                   <div className="grid grid-cols-7 gap-1.5">
-                    {Array.from({ length: 7 }, (_, i) => {
-                      const day = subDays(new Date(`${todayIso}T00:00:00`), 6 - i);
+                    {Array.from({ length: historyDays }, (_, i) => {
+                      const day = subDays(
+                        new Date(`${todayIso}T00:00:00`),
+                        historyDays - 1 - i,
+                      );
                       const iso = format(day, 'yyyy-MM-dd');
                       const ci = checkIns.find(
                         (c) =>
@@ -457,7 +481,11 @@ export function HabitEditor({ open, editing, onClose }: Props) {
                                 (state === 'empty' ? 'text-text-faint' : 'text-white/85')
                               }
                             >
-                              {isToday ? 'Today' : format(day, 'EEE')}
+                              {isToday
+                                ? 'Today'
+                                : historyDays <= 7
+                                  ? format(day, 'EEE')
+                                  : format(day, 'd MMM')}
                             </span>
                           </div>
                           <div className="flex gap-0.5">
