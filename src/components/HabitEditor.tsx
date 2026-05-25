@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Trash2, Lock, Users, Sparkles, Minus, Plus } from 'lucide-react';
+import { Trash2, Lock, Users, Sparkles, Minus, Plus, ChevronLeft, ChevronRight } from 'lucide-react';
 import { format, subDays } from 'date-fns';
 import { useFamily } from '@/context/FamilyContext';
 import { useTheme } from '@/context/ThemeContext';
@@ -54,7 +54,10 @@ export function HabitEditor({ open, editing, onClose }: Props) {
   const [streakRewards, setStreakRewards] = useState(false);
   const [dailyTarget, setDailyTarget] = useState(1);
   const [targetOp, setTargetOp] = useState<'lte' | 'eq' | 'gte'>('gte');
-  const [historyDays, setHistoryDays] = useState<7 | 14 | 30 | 90>(7);
+  // `weekOffset` = how many weeks before "this week" the recent-counts grid is
+  // showing. 0 = the current 7-day window ending today, 1 = the prior 7 days,
+  // etc. The arrow buttons step this.
+  const [weekOffset, setWeekOffset] = useState(0);
 
   // Only re-init when the editor opens or the target habit changes.
   // activeMember is intentionally excluded — its reference flips on every
@@ -73,7 +76,7 @@ export function HabitEditor({ open, editing, onClose }: Props) {
       setStreakRewards(editing.streak_rewards);
       setDailyTarget(editing.daily_target ?? 1);
       setTargetOp(editing.target_op ?? 'gte');
-      setHistoryDays(7);
+      setWeekOffset(0);
     } else {
       setTitle('');
       setDescription('');
@@ -413,34 +416,45 @@ export function HabitEditor({ open, editing, onClose }: Props) {
                 ? getColorTokens(ownerMember.color, isDark)
                 : { base: 'rgb(var(--accent))', soft: 'rgb(var(--accent-soft))', text: '#fff' };
               const todayIso = localISO();
+              // The visible window is the 7 days ending at `windowEnd`. With
+              // offset 0 the window ends today; with offset 1 it ends 7 days
+              // ago, and so on.
+              const windowEnd = subDays(new Date(`${todayIso}T00:00:00`), weekOffset * 7);
+              const windowStart = subDays(windowEnd, 6);
+              const rangeLabel =
+                weekOffset === 0
+                  ? 'This week'
+                  : `${format(windowStart, 'd MMM')} – ${format(windowEnd, 'd MMM')}`;
               return (
                 <div className="space-y-2">
                   <div className="flex items-center justify-between gap-2">
                     <div className="text-sm text-text-muted">Recent counts</div>
-                    <div className="flex bg-surface-2 rounded-md p-0.5">
-                      {([7, 14, 30, 90] as const).map((n) => (
-                        <button
-                          key={n}
-                          type="button"
-                          onClick={() => setHistoryDays(n)}
-                          className={
-                            'px-2 py-1 rounded-sm text-[11px] font-medium transition-colors ' +
-                            (historyDays === n
-                              ? 'bg-surface text-text shadow-sm'
-                              : 'text-text-muted')
-                          }
-                        >
-                          {n}d
-                        </button>
-                      ))}
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => setWeekOffset((w) => w + 1)}
+                        className="w-7 h-7 rounded-md border border-border flex items-center justify-center text-text-muted hover:text-text hover:bg-surface-2"
+                        aria-label="Previous week"
+                      >
+                        <ChevronLeft size={14} />
+                      </button>
+                      <div className="text-[11px] text-text-muted tabular-nums min-w-[7rem] text-center">
+                        {rangeLabel}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setWeekOffset((w) => Math.max(0, w - 1))}
+                        disabled={weekOffset === 0}
+                        className="w-7 h-7 rounded-md border border-border flex items-center justify-center text-text-muted hover:text-text hover:bg-surface-2 disabled:opacity-30 disabled:cursor-not-allowed"
+                        aria-label="Next week"
+                      >
+                        <ChevronRight size={14} />
+                      </button>
                     </div>
                   </div>
                   <div className="grid grid-cols-7 gap-1.5">
-                    {Array.from({ length: historyDays }, (_, i) => {
-                      const day = subDays(
-                        new Date(`${todayIso}T00:00:00`),
-                        historyDays - 1 - i,
-                      );
+                    {Array.from({ length: 7 }, (_, i) => {
+                      const day = subDays(windowEnd, 6 - i);
                       const iso = format(day, 'yyyy-MM-dd');
                       const ci = checkIns.find(
                         (c) =>
@@ -481,11 +495,7 @@ export function HabitEditor({ open, editing, onClose }: Props) {
                                 (state === 'empty' ? 'text-text-faint' : 'text-white/85')
                               }
                             >
-                              {isToday
-                                ? 'Today'
-                                : historyDays <= 7
-                                  ? format(day, 'EEE')
-                                  : format(day, 'd MMM')}
+                              {isToday ? 'Today' : format(day, 'EEE')}
                             </span>
                           </div>
                           <div className="flex gap-0.5">
