@@ -512,7 +512,7 @@ function RosterDragList({
     <div className="mt-2 p-3 bg-surface-2 rounded-lg text-xs text-text-faint space-y-2">
       <div>Rotation order — drag to reorder:</div>
       <div className="flex flex-wrap gap-1.5">
-        {roster.map((id, i) => {
+        {roster.map((id) => {
           const m = kids.find((k) => k.id === id);
           if (!m) return null;
           return (
@@ -523,7 +523,7 @@ function RosterDragList({
               onPointerDown={(ev) => startDrag(id, ev)}
               className="flex items-center gap-1 bg-surface border border-border px-2 py-0.5 rounded-full text-xs text-text cursor-grab active:cursor-grabbing select-none"
             >
-              <span className="text-text-faint">{i + 1}.</span> {m.name}
+              {m.name}
             </span>
           );
         })}
