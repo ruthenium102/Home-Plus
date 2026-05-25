@@ -8,6 +8,7 @@ import { useSwipeMode } from '@/hooks/useSwipeMode';
 import { Avatar } from '@/components/Avatar';
 import { DragHandle } from '@/components/DragHandle';
 import { HabitEditor } from '@/components/HabitEditor';
+import { HabitsStats } from '@/components/HabitsStats';
 import { SwipeableRow } from '@/components/SwipeableRow';
 import { useListDragReorder } from '@/hooks/useListDragReorder';
 import { getColorTokens } from '@/lib/colors';
@@ -47,6 +48,7 @@ export function HabitsPage() {
 
   const [editorOpen, setEditorOpen] = useState(false);
   const [editing, setEditing] = useState<Habit | null>(null);
+  const [view, setView] = useState<'list' | 'stats'>('list');
 
   const handleDeleteHabit = (h: Habit) => {
     const snapshot = h;
@@ -108,15 +110,37 @@ export function HabitsPage() {
     <div className="space-y-5 max-w-4xl mx-auto">
       <div className="flex items-center justify-between">
         <h1 className="font-display text-2xl text-text">Habits</h1>
-        <button
-          onClick={handleNew}
-          className="flex items-center gap-1.5 px-3 py-2 bg-accent text-white text-sm font-medium rounded-md hover:opacity-90"
-        >
-          <Plus size={16} /> New habit
-        </button>
+        {view === 'list' && (
+          <button
+            onClick={handleNew}
+            className="flex items-center gap-1.5 px-3 py-2 bg-accent text-white text-sm font-medium rounded-md hover:opacity-90"
+          >
+            <Plus size={16} /> New habit
+          </button>
+        )}
       </div>
 
-      {byMember.length === 0 ? (
+      <div className="flex bg-surface-2 rounded-md p-0.5 self-start">
+        {[
+          { v: 'list' as const, label: 'Habits' },
+          { v: 'stats' as const, label: 'Stats' },
+        ].map((t) => (
+          <button
+            key={t.v}
+            onClick={() => setView(t.v)}
+            className={
+              'px-3 py-1.5 rounded-sm text-xs font-medium transition-colors ' +
+              (view === t.v ? 'bg-surface text-text shadow-sm' : 'text-text-muted')
+            }
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {view === 'stats' ? (
+        <HabitsStats />
+      ) : byMember.length === 0 ? (
         <div className="card p-12 text-center">
           <Sparkles size={32} className="mx-auto mb-3 text-text-faint opacity-50" />
           <div className="font-display text-lg text-text mb-1">No habits yet</div>
