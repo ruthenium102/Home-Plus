@@ -472,7 +472,7 @@ export function HabitEditor({ open, editing, onClose }: Props) {
                           <div
                             className={
                               'relative h-14 rounded-md flex flex-col items-center justify-center ' +
-                              (isToday ? 'ring-2 ring-text/20 ' : '') +
+                              (isToday ? 'ring-2 ring-accent/70 ' : '') +
                               (state === 'met'
                                 ? 'bg-emerald-500'
                                 : state === 'violated'
@@ -491,11 +491,11 @@ export function HabitEditor({ open, editing, onClose }: Props) {
                             </span>
                             <span
                               className={
-                                'text-[9px] uppercase tracking-wider mt-0.5 leading-none ' +
+                                'text-[9px] uppercase tracking-wider mt-0.5 leading-none tabular-nums ' +
                                 (state === 'empty' ? 'text-text-faint' : 'text-white/85')
                               }
                             >
-                              {isToday ? 'Today' : format(day, 'EEE')}
+                              {format(day, 'EEE d')}
                             </span>
                           </div>
                           <div className="flex gap-0.5">
