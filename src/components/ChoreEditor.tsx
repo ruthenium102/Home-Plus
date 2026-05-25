@@ -71,6 +71,26 @@ export function ChoreEditor({ open, onClose, editing }: Props) {
     }
   }, [open, editing]);
 
+  // Keep the rotation roster in sync with the assigned list whenever rotation
+  // is active. New kids get appended to the end; removed kids drop out of the
+  // roster. The user's manual ordering is preserved across the diff.
+  useEffect(() => {
+    if (mode === 'standard') return;
+    setRotationRoster((prev) => {
+      const assignedSet = new Set(assigned);
+      const kept = prev.filter((id) => assignedSet.has(id));
+      const existing = new Set(kept);
+      for (const id of assigned) {
+        if (!existing.has(id)) kept.push(id);
+      }
+      // Avoid an extra render when nothing changed.
+      if (kept.length === prev.length && kept.every((id, i) => id === prev[i])) {
+        return prev;
+      }
+      return kept;
+    });
+  }, [assigned, mode]);
+
 
   const handleSave = () => {
     if (!title.trim()) return;
@@ -268,12 +288,7 @@ export function ChoreEditor({ open, onClose, editing }: Props) {
                 ).map(({ v, label }) => (
                   <button
                     key={v}
-                    onClick={() => {
-                      setMode(v);
-                      if (v !== 'standard' && rotationRoster.length === 0) {
-                        setRotationRoster([...assigned]);
-                      }
-                    }}
+                    onClick={() => setMode(v)}
                     className={
                       'flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs border transition-colors ' +
                       (mode === v
