@@ -249,6 +249,8 @@ function StatTile({
   );
 }
 
+const WEEKDAY_ROW_LABELS = ['M', '', 'W', '', 'F', '', ''];
+
 function Heatmap({ cells, todayISO }: { cells: HabitDayCell[]; todayISO: string }) {
   // GitHub-style grid: rows = weekday (Mon→Sun), columns = weeks. Pad the head
   // so the first cell sits on its true weekday.
@@ -272,39 +274,69 @@ function Heatmap({ cells, todayISO }: { cells: HabitDayCell[]; todayISO: string 
     return <div className="text-xs text-text-faint">No data in this range</div>;
   }
 
+  const firstDate = new Date(cells[0].date + 'T00:00:00');
+  const startLabel = firstDate.toLocaleDateString(undefined, {
+    day: 'numeric',
+    month: 'short',
+  });
+
   return (
-    <div className="overflow-x-auto -mx-1 px-1">
-      <div className="flex gap-[3px]">
-        {grid.map((col, ci) => (
-          <div key={ci} className="flex flex-col gap-[3px]">
-            {col.map((c, ri) => {
-              if (!c) return <div key={ri} className="w-3 h-3" />;
-              const isToday = c.date === todayISO;
-              const base = !c.inRange
-                ? 'bg-surface border border-text-faint/10'
-                : c.state === 'met'
-                  ? 'bg-emerald-500'
-                  : c.state === 'violated'
-                    ? 'bg-red-500'
-                    : 'bg-orange-200 dark:bg-orange-900/30';
-              return (
-                <div
-                  key={ri}
-                  title={
-                    c.inRange
-                      ? `${c.date} · ${c.count}`
-                      : `${c.date} · before habit start`
-                  }
-                  className={
-                    'w-3 h-3 rounded-[2px] ' +
-                    base +
-                    (isToday ? ' ring-1 ring-text/40' : '')
-                  }
-                />
-              );
-            })}
+    <div className="space-y-1">
+      <div className="overflow-x-auto -mx-1 px-1">
+        <div className="flex gap-[3px]">
+          {/* Left column: weekday letters so M/W/F orient the reader */}
+          <div className="flex flex-col gap-[3px] pr-1">
+            {WEEKDAY_ROW_LABELS.map((label, i) => (
+              <div
+                key={i}
+                className="w-3 h-3 text-[8px] leading-[0.75rem] text-text-faint text-right tabular-nums"
+              >
+                {label}
+              </div>
+            ))}
           </div>
-        ))}
+          {grid.map((col, ci) => (
+            <div key={ci} className="flex flex-col gap-[3px]">
+              {col.map((c, ri) => {
+                if (!c) return <div key={ri} className="w-3 h-3" />;
+                const isToday = c.date === todayISO;
+                // Past + due + no count = missed. Renders red so the success
+                // rate matches the heatmap at a glance.
+                const missed = c.inRange && c.isPast && c.due && c.count === 0;
+                const base = !c.inRange
+                  ? 'bg-surface border border-text-faint/10'
+                  : c.state === 'met'
+                    ? 'bg-emerald-500'
+                    : c.state === 'violated'
+                      ? 'bg-red-500'
+                      : missed
+                        ? 'bg-red-500/70'
+                        : 'bg-orange-200 dark:bg-orange-900/30';
+                return (
+                  <div
+                    key={ri}
+                    title={
+                      !c.inRange
+                        ? `${c.date} · before habit start`
+                        : missed
+                          ? `${c.date} · missed`
+                          : `${c.date} · ${c.count}`
+                    }
+                    className={
+                      'w-3 h-3 rounded-[2px] ' +
+                      base +
+                      (isToday ? ' ring-1 ring-text/40' : '')
+                    }
+                  />
+                );
+              })}
+            </div>
+          ))}
+        </div>
+      </div>
+      <div className="flex justify-between text-[10px] text-text-faint pl-4 pr-0.5 tabular-nums">
+        <span>{startLabel}</span>
+        <span>Today →</span>
       </div>
     </div>
   );
