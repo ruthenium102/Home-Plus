@@ -47,5 +47,9 @@
 	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<true/>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Home Plus uses the microphone for voice commands like "add eggs to the shopping list" or "log my reading habit".</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>Home Plus uses on-device speech recognition to turn your voice commands into list items, events, and habit check-ins.</string>
 </dict>
 </plist>

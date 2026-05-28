@@ -1,0 +1,33 @@
+diff --git a/node_modules/@capacitor-community/speech-recognition/Package.swift b/node_modules/@capacitor-community/speech-recognition/Package.swift
+new file mode 100644
+index 0000000..882a64c
+--- /dev/null
++++ b/node_modules/@capacitor-community/speech-recognition/Package.swift
+@@ -0,0 +1,27 @@
++// swift-tools-version: 5.9
++import PackageDescription
++
++let package = Package(
++    name: "CapacitorCommunitySpeechRecognition",
++    platforms: [.iOS(.v14)],
++    products: [
++        .library(
++            name: "CapacitorCommunitySpeechRecognition",
++            targets: ["CapacitorCommunitySpeechRecognitionPlugin"])
++    ],
++    dependencies: [
++        .package(url: "https://github.com/ionic-team/capacitor-swift-pm.git", from: "8.0.0")
++    ],
++    targets: [
++        .target(
++            name: "CapacitorCommunitySpeechRecognitionPlugin",
++            dependencies: [
++                .product(name: "Capacitor", package: "capacitor-swift-pm"),
++                .product(name: "Cordova", package: "capacitor-swift-pm")
++            ],
++            path: "ios/Plugin",
++            exclude: ["Info.plist"],
++            publicHeadersPath: "."
++        )
++    ]
++)

@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { Capacitor, type PluginListenerHandle } from '@capacitor/core';
+import { SpeechRecognition } from '@capacitor-community/speech-recognition';
 
 // Web Speech API isn't in lib.dom yet — declare just enough for our use.
 interface SpeechRecognitionAlternative {
@@ -46,6 +48,8 @@ function getRecognitionCtor(): SpeechRecognitionCtor | null {
   return w.SpeechRecognition ?? w.webkitSpeechRecognition ?? null;
 }
 
+const isNative = Capacitor.isNativePlatform();
+
 export type VoiceCaptureStatus = 'idle' | 'listening' | 'error';
 
 interface UseVoiceCaptureOptions {
@@ -56,18 +60,26 @@ interface UseVoiceCaptureOptions {
 }
 
 /**
- * Wrap webkitSpeechRecognition with start/stop, a live `transcript`, and a
- * `status` state machine. The Web Speech API only fires `result` when it
- * detects speech and finalises on a silence gap, so the consumer doesn't need
- * to do their own voice activity detection.
+ * Capture a short voice utterance. On Capacitor iOS we drive Apple's
+ * on-device recogniser via @capacitor-community/speech-recognition; in the
+ * browser we fall back to webkitSpeechRecognition. Both surfaces the same
+ * idle/listening state, a live transcript, and an onFinal callback that
+ * fires when the user stops or recognition ends.
  */
 export function useVoiceCapture({ onFinal, onError }: UseVoiceCaptureOptions) {
-  const Ctor = getRecognitionCtor();
-  const supported = Ctor !== null;
-  const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
+  const WebCtor = getRecognitionCtor();
+  const supported = isNative || WebCtor !== null;
+  const webRecognitionRef = useRef<SpeechRecognitionInstance | null>(null);
+  // Native side keeps the two listener handles + the latest partial-result
+  // text so the listeningState=stopped callback can deliver it as final.
+  const nativeRef = useRef<{
+    partial: PluginListenerHandle;
+    state: PluginListenerHandle;
+    latest: string;
+  } | null>(null);
   const [status, setStatus] = useState<VoiceCaptureStatus>('idle');
   const [transcript, setTranscript] = useState('');
-  // Keep latest callback refs so the handler closures don't go stale.
+  // Keep latest callback refs so handler closures don't go stale.
   const onFinalRef = useRef(onFinal);
   const onErrorRef = useRef(onError);
   useEffect(() => {
@@ -75,17 +87,84 @@ export function useVoiceCapture({ onFinal, onError }: UseVoiceCaptureOptions) {
     onErrorRef.current = onError;
   }, [onFinal, onError]);
 
-  const stop = useCallback(() => {
-    recognitionRef.current?.stop();
+  const cleanupNative = useCallback(async () => {
+    const handles = nativeRef.current;
+    if (!handles) return;
+    nativeRef.current = null;
+    try {
+      await handles.partial.remove();
+      await handles.state.remove();
+    } catch {
+      /* ignore */
+    }
   }, []);
 
-  const start = useCallback(() => {
-    if (!Ctor) {
+  const stop = useCallback(() => {
+    if (isNative) {
+      SpeechRecognition.stop().catch(() => {
+        /* ignore — listeningState handler will tidy up */
+      });
+      return;
+    }
+    webRecognitionRef.current?.stop();
+  }, []);
+
+  const startNative = useCallback(async () => {
+    try {
+      const perm = await SpeechRecognition.checkPermissions();
+      if (perm.speechRecognition !== 'granted') {
+        const req = await SpeechRecognition.requestPermissions();
+        if (req.speechRecognition !== 'granted') {
+          setStatus('error');
+          onErrorRef.current?.('Microphone permission denied');
+          return;
+        }
+      }
+      const avail = await SpeechRecognition.available();
+      if (!avail.available) {
+        setStatus('error');
+        onErrorRef.current?.('Speech recognition unavailable on this device');
+        return;
+      }
+
+      setStatus('listening');
+      setTranscript('');
+
+      const partial = await SpeechRecognition.addListener('partialResults', (data) => {
+        const text = (data.matches?.[0] ?? '').trim();
+        if (!text) return;
+        if (nativeRef.current) nativeRef.current.latest = text;
+        setTranscript(text);
+      });
+      const state = await SpeechRecognition.addListener('listeningState', (data) => {
+        if (data.status !== 'stopped') return;
+        const handles = nativeRef.current;
+        const finalText = handles?.latest ?? '';
+        void cleanupNative();
+        setStatus('idle');
+        if (finalText) onFinalRef.current(finalText);
+      });
+      nativeRef.current = { partial, state, latest: '' };
+
+      await SpeechRecognition.start({
+        language: navigator.language || 'en-US',
+        partialResults: true,
+        popup: false,
+      });
+    } catch (err) {
+      void cleanupNative();
+      setStatus('error');
+      onErrorRef.current?.(err instanceof Error ? err.message : String(err));
+    }
+  }, [cleanupNative]);
+
+  const startWeb = useCallback(() => {
+    if (!WebCtor) {
       onErrorRef.current?.('Voice not supported on this device');
       return;
     }
-    if (recognitionRef.current) return; // already running
-    const rec = new Ctor();
+    if (webRecognitionRef.current) return; // already running
+    const rec = new WebCtor();
     rec.lang = navigator.language || 'en-US';
     rec.continuous = false;
     rec.interimResults = true;
@@ -115,33 +194,42 @@ export function useVoiceCapture({ onFinal, onError }: UseVoiceCaptureOptions) {
               ? 'No microphone found'
               : e.error || 'Voice error';
       setStatus('error');
-      recognitionRef.current = null;
+      webRecognitionRef.current = null;
       onErrorRef.current?.(msg);
     };
     rec.onend = () => {
-      recognitionRef.current = null;
+      webRecognitionRef.current = null;
       setStatus('idle');
       const text = finalText.trim();
       if (text) onFinalRef.current(text);
     };
 
-    recognitionRef.current = rec;
+    webRecognitionRef.current = rec;
     try {
       rec.start();
     } catch (err) {
-      recognitionRef.current = null;
+      webRecognitionRef.current = null;
       setStatus('error');
       onErrorRef.current?.(err instanceof Error ? err.message : String(err));
     }
-  }, [Ctor]);
+  }, [WebCtor]);
 
-  const reset = useCallback(() => {
-    setStatus('idle');
-    setTranscript('');
-  }, []);
+  const start = useCallback(() => {
+    if (isNative) void startNative();
+    else startWeb();
+  }, [startNative, startWeb]);
 
   // Tidy up if the consumer unmounts mid-listen.
-  useEffect(() => () => recognitionRef.current?.abort(), []);
+  useEffect(
+    () => () => {
+      webRecognitionRef.current?.abort();
+      if (nativeRef.current) {
+        SpeechRecognition.stop().catch(() => {});
+        void cleanupNative();
+      }
+    },
+    [cleanupNative],
+  );
 
-  return { supported, status, transcript, start, stop, reset };
+  return { supported, status, transcript, start, stop };
 }
