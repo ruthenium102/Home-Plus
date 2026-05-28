@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Flame, Sparkles, Trophy, BarChart3 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Flame, Sparkles, Trophy, BarChart3 } from 'lucide-react';
 import { useFamily } from '@/context/FamilyContext';
 import { useTheme } from '@/context/ThemeContext';
 import { Avatar } from '@/components/Avatar';
@@ -19,35 +19,67 @@ import {
 } from '@/lib/habits';
 import type { Habit } from '@/types';
 
-type Range = '30d' | '90d' | '1y' | 'all';
+type Range = '30d' | '3m' | '1y' | 'all';
 
 const RANGE_OPTIONS: { v: Range; label: string }[] = [
   { v: '30d', label: '30 days' },
-  { v: '90d', label: '90 days' },
+  { v: '3m', label: '3 months' },
   { v: '1y', label: '1 year' },
   { v: 'all', label: 'All time' },
 ];
 
-function rangeStartISO(range: Range, habit: Habit): string {
-  if (range === 'all') return habitStartISO(habit);
-  const days = range === '30d' ? 30 : range === '90d' ? 90 : 365;
-  const d = new Date();
-  d.setDate(d.getDate() - (days - 1));
-  return localISO(d);
+/**
+ * Resolve the date window for a given range + month-offset (0 = ending today,
+ * 1 = ending one month ago, etc). Returns the inclusive [fromISO, toISO]
+ * window. For 'all', month-offset is ignored and the window spans habit-start
+ * to today.
+ */
+function rangeWindow(
+  range: Range,
+  monthsBack: number,
+  habit: Habit,
+): { fromISO: string; toISO: string } {
+  if (range === 'all') {
+    return { fromISO: habitStartISO(habit), toISO: localISO() };
+  }
+  const end = new Date();
+  end.setHours(0, 0, 0, 0);
+  end.setMonth(end.getMonth() - monthsBack);
+  const start = new Date(end);
+  if (range === '30d') {
+    start.setDate(start.getDate() - 29);
+  } else if (range === '3m') {
+    start.setMonth(start.getMonth() - 3);
+    start.setDate(start.getDate() + 1);
+  } else {
+    // '1y'
+    start.setFullYear(start.getFullYear() - 1);
+    start.setDate(start.getDate() + 1);
+  }
+  return { fromISO: localISO(start), toISO: localISO(end) };
 }
 
 /** Pick the right visualization for the chosen range. */
 function bucketingFor(range: Range): 'day' | 'week' | 'month' {
-  if (range === '30d') return 'day';
-  if (range === '90d') return 'week';
+  if (range === '30d' || range === '3m') return 'day';
   return 'month';
+}
+
+/** Day-bucketed ranges support stepping back month-by-month. */
+function isPageable(range: Range): boolean {
+  return range === '30d' || range === '3m';
 }
 
 export function HabitsStats() {
   const { habits, checkIns, members, activeMember } = useFamily();
   const { resolved } = useTheme();
   const isDark = resolved === 'dark';
-  const [range, setRange] = useState<Range>('30d');
+  const [range, setRange] = useState<Range>('3m');
+  // How many whole months back from today the window ends. 0 = window ends
+  // today; 1 = ends one month ago; etc. Used by the prev/next arrows on the
+  // day-bucketed views.
+  const [monthsBack, setMonthsBack] = useState(0);
+  const pageable = isPageable(range);
 
   const habitsToShow = useMemo(
     () => (activeMember ? visibleHabits(habits, activeMember.id) : []),
@@ -74,21 +106,63 @@ export function HabitsStats() {
 
   const todayISO = localISO();
 
+  // For the prev/next labels, derive a sample window using any habit (just to
+  // format dates). When no habit is loaded, skip the label.
+  const sampleHabit = habitsToShow[0];
+  const windowLabel = sampleHabit
+    ? (() => {
+        const { fromISO, toISO } = rangeWindow(range, monthsBack, sampleHabit);
+        const fmt = (iso: string) =>
+          new Date(iso + 'T00:00:00').toLocaleDateString(undefined, {
+            day: 'numeric',
+            month: 'short',
+          });
+        return `${fmt(fromISO)} – ${fmt(toISO)}`;
+      })()
+    : '';
+
   return (
     <div className="space-y-5">
-      <div className="flex bg-surface-2 rounded-md p-0.5 self-start">
-        {RANGE_OPTIONS.map((o) => (
-          <button
-            key={o.v}
-            onClick={() => setRange(o.v)}
-            className={
-              'px-3 py-1.5 rounded-sm text-xs font-medium transition-colors ' +
-              (range === o.v ? 'bg-surface text-text shadow-sm' : 'text-text-muted')
-            }
-          >
-            {o.label}
-          </button>
-        ))}
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="flex bg-surface-2 rounded-md p-0.5">
+          {RANGE_OPTIONS.map((o) => (
+            <button
+              key={o.v}
+              onClick={() => {
+                setRange(o.v);
+                setMonthsBack(0);
+              }}
+              className={
+                'px-3 py-1.5 rounded-sm text-xs font-medium transition-colors ' +
+                (range === o.v ? 'bg-surface text-text shadow-sm' : 'text-text-muted')
+              }
+            >
+              {o.label}
+            </button>
+          ))}
+        </div>
+        {pageable && (
+          <div className="flex items-center gap-1 ml-auto">
+            <button
+              onClick={() => setMonthsBack((m) => m + 1)}
+              className="w-7 h-7 rounded-md hover:bg-surface-2 flex items-center justify-center text-text-faint hover:text-text"
+              title="Earlier"
+            >
+              <ChevronLeft size={14} />
+            </button>
+            <span className="text-[11px] text-text-faint tabular-nums min-w-[8rem] text-center">
+              {windowLabel}
+            </span>
+            <button
+              onClick={() => setMonthsBack((m) => Math.max(0, m - 1))}
+              disabled={monthsBack === 0}
+              className="w-7 h-7 rounded-md hover:bg-surface-2 disabled:hover:bg-transparent disabled:opacity-30 flex items-center justify-center text-text-faint hover:text-text"
+              title="Later"
+            >
+              <ChevronRight size={14} />
+            </button>
+          </div>
+        )}
       </div>
 
       {byMember.length === 0 ? (
@@ -119,6 +193,7 @@ export function HabitsStats() {
                     habit={h}
                     memberId={member.id}
                     range={range}
+                    monthsBack={monthsBack}
                     todayISO={todayISO}
                     checkIns={checkIns}
                     color={tokens}
@@ -137,18 +212,27 @@ interface CardProps {
   habit: Habit;
   memberId: string;
   range: Range;
+  monthsBack: number;
   todayISO: string;
   checkIns: ReturnType<typeof useFamily>['checkIns'];
   color: { base: string; soft: string; text: string };
 }
 
-function HabitStatsCard({ habit, memberId, range, todayISO, checkIns, color }: CardProps) {
-  const fromISO = rangeStartISO(range, habit);
+function HabitStatsCard({
+  habit,
+  memberId,
+  range,
+  monthsBack,
+  todayISO,
+  checkIns,
+  color,
+}: CardProps) {
+  const { fromISO, toISO } = rangeWindow(range, monthsBack, habit);
   const bucketing = bucketingFor(range);
 
   const stats = useMemo(
-    () => habitRangeStats(habit, checkIns, memberId, fromISO, todayISO),
-    [habit, checkIns, memberId, fromISO, todayISO],
+    () => habitRangeStats(habit, checkIns, memberId, fromISO, toISO),
+    [habit, checkIns, memberId, fromISO, toISO],
   );
   const currentStreak = useMemo(
     () => computeHabitStreak(checkIns, habit.id, memberId),
@@ -160,15 +244,15 @@ function HabitStatsCard({ habit, memberId, range, todayISO, checkIns, color }: C
   );
   const cells = useMemo(
     () =>
-      bucketing === 'day' ? dailyCells(habit, checkIns, memberId, fromISO, todayISO) : [],
-    [habit, checkIns, memberId, fromISO, todayISO, bucketing],
+      bucketing === 'day' ? dailyCells(habit, checkIns, memberId, fromISO, toISO) : [],
+    [habit, checkIns, memberId, fromISO, toISO, bucketing],
   );
   const buckets = useMemo(
     () =>
       bucketing === 'day'
         ? []
-        : aggregateBuckets(habit, checkIns, memberId, fromISO, todayISO, bucketing),
-    [habit, checkIns, memberId, fromISO, todayISO, bucketing],
+        : aggregateBuckets(habit, checkIns, memberId, fromISO, toISO, bucketing),
+    [habit, checkIns, memberId, fromISO, toISO, bucketing],
   );
 
   const startISO = habitStartISO(habit);
@@ -275,10 +359,12 @@ function Heatmap({ cells, todayISO }: { cells: HabitDayCell[]; todayISO: string 
   }
 
   const firstDate = new Date(cells[0].date + 'T00:00:00');
-  const startLabel = firstDate.toLocaleDateString(undefined, {
-    day: 'numeric',
-    month: 'short',
-  });
+  const lastCell = cells[cells.length - 1];
+  const lastDate = new Date(lastCell.date + 'T00:00:00');
+  const fmtShort = (d: Date) =>
+    d.toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
+  const startLabel = fmtShort(firstDate);
+  const endLabel = lastCell.date === todayISO ? 'Today →' : fmtShort(lastDate);
 
   return (
     <div className="space-y-1">
@@ -307,10 +393,10 @@ function Heatmap({ cells, todayISO }: { cells: HabitDayCell[]; todayISO: string 
                 const base = !c.inRange
                   ? 'bg-surface border border-text-faint/10'
                   : c.state === 'met'
-                    ? 'bg-emerald-500'
+                    ? 'bg-emerald-400'
                     : c.state === 'violated'
-                      ? 'bg-red-500'
-                      : 'bg-orange-200 dark:bg-orange-900/30';
+                      ? 'bg-rose-400'
+                      : 'bg-orange-300 dark:bg-orange-800/50';
                 return (
                   <div
                     key={ri}
@@ -333,7 +419,7 @@ function Heatmap({ cells, todayISO }: { cells: HabitDayCell[]; todayISO: string 
       </div>
       <div className="flex justify-between text-[10px] text-text-faint pl-4 pr-0.5 tabular-nums">
         <span>{startLabel}</span>
-        <span>Today →</span>
+        <span>{endLabel}</span>
       </div>
     </div>
   );
@@ -362,9 +448,9 @@ function BarChart({ buckets, unit }: { buckets: HabitBucket[]; unit: 'week' | 'm
               title={`${b.label} · ${b.daysMet}/${b.daysDue} met (${Math.round(rate * 100)}%)`}
             >
               <div className="flex-1 flex items-end">
-                <div className="w-full bg-surface rounded-sm relative overflow-hidden">
+                <div className="w-full h-full bg-surface rounded-sm relative overflow-hidden">
                   <div
-                    className="w-full bg-emerald-500/80 absolute bottom-0 left-0"
+                    className="w-full bg-emerald-400/80 absolute bottom-0 left-0"
                     style={{ height: `${heightPct}%` }}
                   />
                 </div>

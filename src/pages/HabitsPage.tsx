@@ -383,10 +383,10 @@ function HabitRow({
                   (isToday ? ' ring-1 ring-text/30' : '') +
                   ' ' +
                   (state === 'met'
-                    ? 'bg-emerald-500'
+                    ? 'bg-emerald-400'
                     : state === 'violated'
-                      ? 'bg-red-500'
-                      : 'bg-orange-200 dark:bg-orange-900/30')
+                      ? 'bg-rose-400'
+                      : 'bg-orange-300 dark:bg-orange-800/50')
                 }
               >
                 {showCount && (

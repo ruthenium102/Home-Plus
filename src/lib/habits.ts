@@ -148,9 +148,13 @@ export function habitCellState(
   target: number,
   op?: Habit['target_op'],
 ): HabitCellState {
-  // No entries = neutral. We don't claim a day as "missed" until something
-  // has been logged on or after it — the existing streak/totals already
-  // signal under-tracking elsewhere in the UI.
+  // For "at most N" habits, zero is the success state — the user didn't do
+  // the thing they were trying to limit. So lte ignores the no-entries
+  // neutral branch and lets targetMet decide.
+  if (op === 'lte') return targetMet(count, target, op) ? 'met' : 'violated';
+  // gte / eq: no entries = neutral. We don't claim a day as "missed" until
+  // something has been logged — the existing streak/totals already signal
+  // under-tracking elsewhere in the UI.
   if (count === 0) return 'empty';
   return targetMet(count, target, op) ? 'met' : 'violated';
 }
@@ -225,7 +229,12 @@ export function habitRangeStats(
     const count = counts.get(iso) ?? 0;
     totalCount += count;
     const due = isHabitDue(habit, dt);
-    const met = count > 0 && targetMet(count, target, habit.target_op);
+    // For "at most N" habits, zero counts as a met day — the user successfully
+    // didn't do the thing. gte/eq still need a real entry to count as met.
+    const met =
+      habit.target_op === 'lte'
+        ? targetMet(count, target, habit.target_op)
+        : count > 0 && targetMet(count, target, habit.target_op);
     if (due) {
       daysDue++;
       if (met) daysMet++;
@@ -350,7 +359,10 @@ export function aggregateBuckets(
     const count = counts.get(iso) ?? 0;
     bucket.totalCount += count;
     const due = isHabitDue(habit, dt);
-    const met = count > 0 && targetMet(count, target, habit.target_op);
+    const met =
+      habit.target_op === 'lte'
+        ? targetMet(count, target, habit.target_op)
+        : count > 0 && targetMet(count, target, habit.target_op);
     if (due) {
       bucket.daysDue++;
       if (met) bucket.daysMet++;

@@ -24,7 +24,7 @@ export function MemberStrip() {
 
   return (
     <>
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5 mb-5">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 auto-rows-fr gap-2.5 mb-5">
         {members.map((m) => {
           const Icon = locationIcon(m.current_location);
           const isAway = m.current_location?.toLowerCase().includes('til');
