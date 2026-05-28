@@ -294,11 +294,14 @@ export function dailyCells(
   const counts = countsByDate(checkIns, habit.id, memberId);
   return eachISO(fromISO, toISO).map((date) => {
     const count = counts.get(date) ?? 0;
+    // Any day with a logged count is in range, even if it predates the
+    // habit's created_at — the user backfilled it via the recent-counts
+    // row, so it should render the same as any other tracked day.
     return {
       date,
       count,
       state: habitCellState(count, target, habit.target_op),
-      inRange: date >= startISO,
+      inRange: date >= startISO || count > 0,
     };
   });
 }

@@ -369,7 +369,7 @@ function MonthSection({
                 : c.state === 'met'
                   ? 'bg-emerald-400'
                   : c.state === 'violated'
-                    ? 'bg-rose-400'
+                    ? 'bg-red-500'
                     : 'bg-[#c44d2e]/50 dark:bg-[#e07450]/40';
               return (
                 <div
