@@ -80,7 +80,7 @@ interface FamilyContextValue {
   signOut: () => void;
 
   // Events
-  addEvent: (e: Omit<CalendarEvent, 'id' | 'created_at' | 'family_id'>) => void;
+  addEvent: (e: Omit<CalendarEvent, 'id' | 'created_at' | 'family_id'>) => string;
   updateEvent: (id: string, patch: Partial<CalendarEvent>) => void;
   deleteEvent: (id: string) => void;
 
@@ -101,7 +101,7 @@ interface FamilyContextValue {
   setMemberLocation: (id: string, location: string | null, until: string | null) => void;
 
   // Chores
-  addChore: (c: Omit<Chore, 'id' | 'created_at' | 'family_id'>) => void;
+  addChore: (c: Omit<Chore, 'id' | 'created_at' | 'family_id'>) => string;
   updateChore: (id: string, patch: Partial<Chore>) => void;
   deleteChore: (id: string) => void;
   completeChore: (choreId: string, memberId: string, forDate: string) => ChoreCompletion;
@@ -127,7 +127,7 @@ interface FamilyContextValue {
   addList: (l: Omit<TodoList, 'id' | 'created_at' | 'family_id'>) => string;
   updateList: (id: string, patch: Partial<TodoList>) => void;
   deleteList: (id: string) => void;
-  addListItem: (item: Omit<TodoItem, 'id' | 'created_at' | 'family_id'>) => void;
+  addListItem: (item: Omit<TodoItem, 'id' | 'created_at' | 'family_id'>) => string;
   updateListItem: (id: string, patch: Partial<TodoItem>) => void;
   toggleListItem: (id: string) => void;
   deleteListItem: (id: string) => void;
@@ -983,7 +983,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
   // ---- Events --------------------------------------------------------------
 
   const addEvent = useCallback(
-    (e: Omit<CalendarEvent, 'id' | 'created_at' | 'family_id'>) => {
+    (e: Omit<CalendarEvent, 'id' | 'created_at' | 'family_id'>): string => {
       const newEvent: CalendarEvent = {
         ...e,
         id: uid('e'),
@@ -993,6 +993,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
       setEvents((prev) => [...prev, newEvent]);
       dbUpsert('events', newEvent);
       syncEventToGoogle(newEvent.id);
+      return newEvent.id;
     },
     [family.id],
   );
@@ -1163,7 +1164,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
   // ---- Chores --------------------------------------------------------------
 
   const addChore = useCallback(
-    (c: Omit<Chore, 'id' | 'created_at' | 'family_id'>) => {
+    (c: Omit<Chore, 'id' | 'created_at' | 'family_id'>): string => {
       const newChore: Chore = {
         ...c,
         id: uid('c'),
@@ -1172,6 +1173,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
       };
       setChores((prev) => [...prev, newChore]);
       dbUpsert('chores', newChore);
+      return newChore.id;
     },
     [family.id],
   );
@@ -1428,7 +1430,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const addListItem = useCallback(
-    (item: Omit<TodoItem, 'id' | 'created_at' | 'family_id'>) => {
+    (item: Omit<TodoItem, 'id' | 'created_at' | 'family_id'>): string => {
       const newItem: TodoItem = {
         ...item,
         id: uid('li'),
@@ -1437,6 +1439,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
       };
       setListItems((prev) => [...prev, newItem]);
       dbUpsert('todo_items', newItem);
+      return newItem.id;
     },
     [family.id],
   );

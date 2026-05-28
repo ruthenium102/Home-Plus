@@ -5,6 +5,7 @@ import { useFamily } from '@/context/FamilyContext';
 import { useWeather, weatherLabel, weatherIconName } from '@/hooks/useWeather';
 import { Avatar } from './Avatar';
 import { SyncIndicator } from './SyncIndicator';
+import { VoiceButton } from './VoiceButton';
 
 const ICON_MAP: Record<string, LucideIcon> = {
   Sun,
@@ -42,6 +43,8 @@ export function TopBar({ onSwitchUser }: Props) {
       </div>
 
       <div className="flex items-center gap-3">
+        <VoiceButton />
+
         {/* Weather widget */}
         <div className="text-right pr-1">
           {locationStatus === 'idle' ? (
