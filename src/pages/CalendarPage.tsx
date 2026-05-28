@@ -32,6 +32,7 @@ import { EventEditor } from '@/components/EventEditor';
 import { ImportEventsModal } from '@/components/ImportEventsModal';
 import { Avatar } from '@/components/Avatar';
 import { useTheme } from '@/context/ThemeContext';
+import { useIsPhone } from '@/hooks/useIsPhone';
 import { getColorTokens } from '@/lib/colors';
 import type { CalendarEvent, FamilyMember } from '@/types';
 
@@ -39,8 +40,12 @@ type ViewMode = 'day' | 'week' | 'month';
 
 export function CalendarPage() {
   const { events, members, updateEvent } = useFamily();
+  const isPhone = useIsPhone();
   const [view, setView] = useState<ViewMode>('week');
   const [cursor, setCursor] = useState<Date>(new Date());
+  // On phone, week view is a 3-day rolling window starting at `cursor`.
+  // On tablet+, week view is the Mon-anchored 7-day week.
+  const weekDayCount = isPhone ? 3 : 7;
   const [memberFilter, setMemberFilter] = useState<string | null>(null);
   const [showMeals, setShowMeals] = useState(true);
   const [showWfh, setShowWfh] = useState(true);
@@ -56,8 +61,12 @@ export function CalendarPage() {
       return { start: startOfDay(cursor), end: endOfDay(cursor) };
     }
     if (view === 'week') {
+      if (isPhone) {
+        const start = startOfDay(cursor);
+        return { start, end: endOfDay(addDays(start, weekDayCount - 1)) };
+      }
       const start = startOfWeek(cursor, { weekStartsOn: 1 });
-      return { start, end: endOfDay(addDays(start, 6)) };
+      return { start, end: endOfDay(addDays(start, weekDayCount - 1)) };
     }
     // month: include leading/trailing weeks for the grid
     const monthStart = startOfMonth(cursor);
@@ -65,7 +74,7 @@ export function CalendarPage() {
     const gridStart = startOfWeek(monthStart, { weekStartsOn: 1 });
     const gridEnd = endOfWeek(monthEnd, { weekStartsOn: 1 });
     return { start: gridStart, end: gridEnd };
-  }, [view, cursor]);
+  }, [view, cursor, isPhone, weekDayCount]);
 
   const expanded = useMemo(() => {
     let list = expandEvents(events, range.start, range.end);
@@ -83,12 +92,14 @@ export function CalendarPage() {
 
   const goPrev = () => {
     if (view === 'day') setCursor(addDays(cursor, -1));
-    else if (view === 'week') setCursor(addWeeks(cursor, -1));
+    else if (view === 'week')
+      setCursor(isPhone ? addDays(cursor, -weekDayCount) : addWeeks(cursor, -1));
     else setCursor(addMonths(cursor, -1));
   };
   const goNext = () => {
     if (view === 'day') setCursor(addDays(cursor, 1));
-    else if (view === 'week') setCursor(addWeeks(cursor, 1));
+    else if (view === 'week')
+      setCursor(isPhone ? addDays(cursor, weekDayCount) : addWeeks(cursor, 1));
     else setCursor(addMonths(cursor, 1));
   };
   const goToday = () => setCursor(new Date());
@@ -328,6 +339,7 @@ export function CalendarPage() {
       {view === 'week' && (
         <WeekView
           weekStart={range.start}
+          dayCount={weekDayCount}
           events={expanded}
           onEdit={handleEditEvent}
           onCreate={handleNew}
@@ -440,6 +452,7 @@ function DayView({
 
 function WeekView({
   weekStart,
+  dayCount,
   events,
   onEdit,
   onCreate,
@@ -447,18 +460,22 @@ function WeekView({
   dragOverDayKey,
 }: {
   weekStart: Date;
+  dayCount: number;
   events: ExpandedEvent[];
   onEdit: (e: ExpandedEvent) => void;
   onCreate: (d: Date) => void;
   onStartEventDrag: (e: ExpandedEvent, downEv: React.PointerEvent) => void;
   dragOverDayKey: string | null;
 }) {
-  const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
+  const days = Array.from({ length: dayCount }, (_, i) => addDays(weekStart, i));
   const today = new Date();
+  // Tailwind needs the class string to be statically present, so the two
+  // supported counts are spelled out rather than templated.
+  const gridCols = dayCount === 3 ? 'grid-cols-3' : 'grid-cols-7';
 
   return (
     <div className="card p-2 sm:p-3">
-      <div className="grid grid-cols-7 gap-1.5">
+      <div className={'grid ' + gridCols + ' gap-1.5'}>
         {days.map((day) => {
           const dayKey = day.toISOString();
           const dayEvents = events.filter((e) =>
@@ -471,7 +488,7 @@ function WeekView({
               key={dayKey}
               data-day-key={dayKey}
               className={
-                'rounded-md p-2 min-h-[140px] sm:min-h-[180px] lg:min-h-[220px] flex flex-col transition-colors ' +
+                'rounded-md p-2 min-h-[260px] sm:min-h-[180px] lg:min-h-[220px] flex flex-col transition-colors ' +
                 (isToday ? 'bg-accent-soft' : 'bg-surface-2') +
                 (isDragOver ? ' ring-2 ring-accent' : '')
               }

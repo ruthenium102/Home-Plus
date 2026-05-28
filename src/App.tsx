@@ -152,12 +152,12 @@ function AppShell() {
 
       <div
         className={
-          'max-w-6xl mx-auto p-4 sm:p-6 ' + (dockIsSide ? 'pb-8 ml-56' : 'pb-36')
+          'max-w-6xl mx-auto p-3 sm:p-6 ' + (dockIsSide ? 'pb-8 ml-56' : 'pb-28 sm:pb-36')
         }
         style={
           dockIsSide
             ? undefined
-            : { paddingBottom: 'max(9rem, calc(7rem + env(safe-area-inset-bottom)))' }
+            : { paddingBottom: 'max(6.5rem, calc(5.5rem + env(safe-area-inset-bottom)))' }
         }
       >
         <TopBar onSwitchUser={() => setSwitcherOpen(true)} />
