@@ -148,13 +148,9 @@ export function habitCellState(
   target: number,
   op?: Habit['target_op'],
 ): HabitCellState {
-  // For "at most N" habits, zero is the success state — the user didn't do
-  // the thing they were trying to limit. So lte ignores the no-entries
-  // neutral branch and lets targetMet decide.
-  if (op === 'lte') return targetMet(count, target, op) ? 'met' : 'violated';
-  // gte / eq: no entries = neutral. We don't claim a day as "missed" until
-  // something has been logged — the existing streak/totals already signal
-  // under-tracking elsewhere in the UI.
+  // No entries = neutral. We don't claim a day as "missed" until something
+  // has been logged on or after it — for lte habits, zero is ambiguous
+  // (could be success or could be no-log), so honest neutrality wins.
   if (count === 0) return 'empty';
   return targetMet(count, target, op) ? 'met' : 'violated';
 }
@@ -229,12 +225,7 @@ export function habitRangeStats(
     const count = counts.get(iso) ?? 0;
     totalCount += count;
     const due = isHabitDue(habit, dt);
-    // For "at most N" habits, zero counts as a met day — the user successfully
-    // didn't do the thing. gte/eq still need a real entry to count as met.
-    const met =
-      habit.target_op === 'lte'
-        ? targetMet(count, target, habit.target_op)
-        : count > 0 && targetMet(count, target, habit.target_op);
+    const met = count > 0 && targetMet(count, target, habit.target_op);
     if (due) {
       daysDue++;
       if (met) daysMet++;
@@ -312,77 +303,3 @@ export function dailyCells(
   });
 }
 
-export interface HabitBucket {
-  key: string;
-  label: string;
-  daysMet: number;
-  daysDue: number;
-  totalCount: number;
-}
-
-/**
- * Aggregate by week (Mon-anchored) or month. Bucket `key` is the bucket's
- * start ISO; `label` is a short human-readable string for axis ticks.
- */
-export function aggregateBuckets(
-  habit: Habit,
-  checkIns: HabitCheckIn[],
-  memberId: string,
-  fromISO: string,
-  toISO: string,
-  by: 'week' | 'month',
-): HabitBucket[] {
-  const target = habit.daily_target ?? 1;
-  const startISO = habitStartISO(habit);
-  const counts = countsByDate(checkIns, habit.id, memberId);
-  const out = new Map<string, { daysMet: number; daysDue: number; totalCount: number }>();
-  const order: string[] = [];
-
-  for (const iso of eachISO(fromISO, toISO)) {
-    if (iso < startISO) continue;
-    const dt = new Date(iso + 'T00:00:00');
-    let key: string;
-    if (by === 'week') {
-      const dow = dt.getDay();
-      const mondayOffset = dow === 0 ? 6 : dow - 1;
-      const monday = new Date(dt);
-      monday.setDate(monday.getDate() - mondayOffset);
-      key = localISO(monday);
-    } else {
-      key = iso.slice(0, 7);
-    }
-    if (!out.has(key)) {
-      out.set(key, { daysMet: 0, daysDue: 0, totalCount: 0 });
-      order.push(key);
-    }
-    const bucket = out.get(key)!;
-    const count = counts.get(iso) ?? 0;
-    bucket.totalCount += count;
-    const due = isHabitDue(habit, dt);
-    const met =
-      habit.target_op === 'lte'
-        ? targetMet(count, target, habit.target_op)
-        : count > 0 && targetMet(count, target, habit.target_op);
-    if (due) {
-      bucket.daysDue++;
-      if (met) bucket.daysMet++;
-    } else if (met) {
-      bucket.daysDue++;
-      bucket.daysMet++;
-    }
-  }
-
-  return order.map((key) => {
-    const b = out.get(key)!;
-    let label: string;
-    if (by === 'week') {
-      const d = new Date(key + 'T00:00:00');
-      label = d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-    } else {
-      const [y, m] = key.split('-');
-      const d = new Date(Number(y), Number(m) - 1, 1);
-      label = d.toLocaleDateString(undefined, { month: 'short' });
-    }
-    return { key, label, ...b };
-  });
-}

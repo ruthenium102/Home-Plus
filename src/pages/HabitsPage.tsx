@@ -386,7 +386,7 @@ function HabitRow({
                     ? 'bg-emerald-400'
                     : state === 'violated'
                       ? 'bg-rose-400'
-                      : 'bg-orange-300 dark:bg-orange-800/50')
+                      : 'bg-[#c44d2e]/50 dark:bg-[#e07450]/40')
                 }
               >
                 {showCount && (
