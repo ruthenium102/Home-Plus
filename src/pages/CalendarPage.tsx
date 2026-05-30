@@ -229,61 +229,65 @@ export function CalendarPage() {
 
   return (
     <div className="space-y-4">
-      {/* Toolbar */}
-      <div className="card p-3 flex items-center gap-3 flex-wrap">
-        <div className="flex items-center gap-1">
-          <button
-            onClick={goPrev}
-            className="w-9 h-9 rounded-md hover:bg-surface-2 flex items-center justify-center text-text-muted"
-          >
-            <ChevronLeft size={18} />
-          </button>
-          <button
-            onClick={goToday}
-            className="px-3 py-1.5 rounded-md text-sm text-text-muted hover:bg-surface-2"
-          >
-            Today
-          </button>
-          <button
-            onClick={goNext}
-            className="w-9 h-9 rounded-md hover:bg-surface-2 flex items-center justify-center text-text-muted"
-          >
-            <ChevronRight size={18} />
-          </button>
-        </div>
+      {/* Toolbar — date label on its own line so it never truncates, then a
+          single controls row that wraps on phone. */}
+      <div className="card p-3 space-y-3">
+        <div className="font-display text-base sm:text-lg text-text">{headerLabel}</div>
 
-        <div className="font-display text-lg text-text flex-1 min-w-0 truncate">{headerLabel}</div>
-
-        {/* View toggle */}
-        <div className="flex bg-surface-2 rounded-md p-0.5">
-          {(['day', 'week', 'month'] as ViewMode[]).map((v) => (
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-1">
             <button
-              key={v}
-              onClick={() => setView(v)}
-              className={
-                'px-3 py-1.5 rounded-sm text-sm capitalize transition-colors ' +
-                (view === v ? 'bg-surface text-text shadow-sm' : 'text-text-muted')
-              }
+              onClick={goPrev}
+              className="w-9 h-9 rounded-md hover:bg-surface-2 flex items-center justify-center text-text-muted"
             >
-              {v}
+              <ChevronLeft size={18} />
             </button>
-          ))}
+            <button
+              onClick={goToday}
+              className="px-3 py-1.5 rounded-md text-sm text-text-muted hover:bg-surface-2"
+            >
+              Today
+            </button>
+            <button
+              onClick={goNext}
+              className="w-9 h-9 rounded-md hover:bg-surface-2 flex items-center justify-center text-text-muted"
+            >
+              <ChevronRight size={18} />
+            </button>
+          </div>
+
+          {/* View toggle */}
+          <div className="flex bg-surface-2 rounded-md p-0.5">
+            {(['day', 'week', 'month'] as ViewMode[]).map((v) => (
+              <button
+                key={v}
+                onClick={() => setView(v)}
+                className={
+                  'px-3 py-1.5 rounded-sm text-sm capitalize transition-colors ' +
+                  (view === v ? 'bg-surface text-text shadow-sm' : 'text-text-muted')
+                }
+              >
+                {v}
+              </button>
+            ))}
+          </div>
+
+          <div className="flex items-center gap-2 ml-auto">
+            <button
+              onClick={() => handleNew(cursor)}
+              className="flex items-center gap-1.5 px-3 py-2 bg-accent text-white text-sm font-medium rounded-md hover:opacity-90"
+            >
+              <Plus size={16} /> Event
+            </button>
+            <button
+              onClick={() => setImportOpen(true)}
+              className="flex items-center gap-1.5 px-3 py-2 border border-border text-text-muted text-sm rounded-md hover:bg-surface-2"
+              title="Import events from holidays, paste, or iCal feed"
+            >
+              <Sparkles size={14} /> Import
+            </button>
+          </div>
         </div>
-
-        <button
-          onClick={() => setImportOpen(true)}
-          className="flex items-center gap-1.5 px-3 py-2 border border-border text-text-muted text-sm rounded-md hover:bg-surface-2"
-          title="Import events from holidays, paste, or iCal feed"
-        >
-          <Sparkles size={14} /> Import
-        </button>
-
-        <button
-          onClick={() => handleNew(cursor)}
-          className="flex items-center gap-1.5 px-3 py-2 bg-accent text-white text-sm font-medium rounded-md hover:opacity-90"
-        >
-          <Plus size={16} /> Event
-        </button>
       </div>
 
       {/* Member + meal filter chips */}

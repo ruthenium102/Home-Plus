@@ -1,16 +1,19 @@
+import { X } from 'lucide-react';
 import { buildTabList, type TabKey, type TabVisibility } from './TabBar';
 
 interface Props extends TabVisibility {
   active: TabKey;
   onChange: (k: TabKey) => void;
+  /** Optional collapse handler — when set, a close button appears in the header. */
+  onClose?: () => void;
 }
 
 /**
- * Left side navigation rail — shown at lg: breakpoint and up (iPad +
- * desktop). Replaces the bottom TabBar at that size. Both are driven from
+ * Left side navigation rail — shown when the user picks the 'side' dock
+ * placement. Replaces the bottom TabBar at that size. Both are driven from
  * the same buildTabList() so adding a new tab updates both surfaces.
  */
-export function SideRail({ active, onChange, ...visibility }: Props) {
+export function SideRail({ active, onChange, onClose, ...visibility }: Props) {
   const tabs = buildTabList(visibility);
 
   return (
@@ -21,8 +24,18 @@ export function SideRail({ active, onChange, ...visibility }: Props) {
         paddingBottom: 'max(1rem, env(safe-area-inset-bottom))',
       }}
     >
-      <div className="text-xl font-display text-text px-2 pb-3 mb-1 border-b border-border">
-        Home Plus
+      <div className="flex items-center justify-between px-2 pb-3 mb-1 border-b border-border">
+        <div className="text-xl font-display text-text">Home Plus</div>
+        {onClose && (
+          <button
+            onClick={onClose}
+            className="w-7 h-7 rounded-md hover:bg-surface-2 flex items-center justify-center text-text-faint hover:text-text"
+            title="Collapse navigation"
+            aria-label="Collapse navigation"
+          >
+            <X size={14} />
+          </button>
+        )}
       </div>
       {tabs.map((t) => {
         const Icon = t.icon;

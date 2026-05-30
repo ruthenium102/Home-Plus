@@ -297,7 +297,7 @@ function Heatmap({ cells, todayISO }: { cells: HabitDayCell[]; todayISO: string 
             ))}
           </div>
           {/* Month sections — columns grouped by month with a gap between groups */}
-          <div className="flex items-start gap-2">
+          <div className="flex items-start gap-4">
             {groupByMonth(grid).map((group) => (
               <MonthSection
                 key={group.monthKey}
@@ -365,12 +365,12 @@ function MonthSection({
               // Mirror the Habits tab palette. lte days with no entry stay
               // neutral — zero is ambiguous between success and no-log.
               const base = !c.inRange
-                ? 'bg-surface border border-text-faint/10'
+                ? 'bg-surface-3 border border-text-faint/20'
                 : c.state === 'met'
                   ? 'bg-emerald-400'
                   : c.state === 'violated'
                     ? 'bg-red-500'
-                    : 'bg-[#c44d2e]/50 dark:bg-[#e07450]/40';
+                    : 'bg-[#c44d2e]/70 dark:bg-[#e07450]/55';
               return (
                 <div
                   key={ri}

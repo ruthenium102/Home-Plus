@@ -62,7 +62,7 @@ import { HomePage } from '@/pages/HomePage';
 import { TabFallback } from '@/components/TabFallback';
 import { SetPasswordModal } from '@/components/SetPasswordModal';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
-import { useDockPlacement } from '@/lib/dockPreference';
+import { useDockPlacement, useSideRailOpen } from '@/lib/dockPreference';
 
 // Lazy-load tab pages so the lock screen + home tab load fast.
 // Each chunk is fetched on first visit to that tab.
@@ -96,6 +96,7 @@ function AppShell() {
   const [tab, setTab] = useState<TabKey>('home');
   const [switcherOpen, setSwitcherOpen] = useState(false);
   const [dockPlacement] = useDockPlacement();
+  const [railOpen, setRailOpen] = useSideRailOpen();
   const [passwordRecovery, setPasswordRecovery] = useState(
     () => sessionStorage.getItem('password_recovery') === '1',
   );
@@ -131,17 +132,20 @@ function AppShell() {
   }
 
   const dockIsSide = dockPlacement === 'side';
+  const railVisible = dockIsSide && railOpen;
 
   return (
     <div
       className="min-h-[100dvh] bg-bg"
       style={{ paddingTop: 'env(safe-area-inset-top)' }}
     >
-      {/* Side rail — shown when dock placement preference is 'side'. */}
-      {dockIsSide && (
+      {/* Side rail — shown when dock placement preference is 'side' AND the
+          rail isn't collapsed via the hamburger toggle. */}
+      {railVisible && (
         <SideRail
           active={tab}
           onChange={setTab}
+          onClose={() => setRailOpen(false)}
           showMyDay={showMyDay}
           showChores={showChores}
           showHabits={showHabits}
@@ -152,7 +156,8 @@ function AppShell() {
 
       <div
         className={
-          'max-w-6xl mx-auto p-3 sm:p-6 ' + (dockIsSide ? 'pb-8 ml-56' : 'pb-28 sm:pb-36')
+          'max-w-6xl mx-auto p-3 sm:p-6 ' +
+          (dockIsSide ? (railOpen ? 'pb-8 ml-56' : 'pb-8') : 'pb-28 sm:pb-36')
         }
         style={
           dockIsSide
@@ -160,6 +165,21 @@ function AppShell() {
             : { paddingBottom: 'max(6.5rem, calc(5.5rem + env(safe-area-inset-bottom)))' }
         }
       >
+        {dockIsSide && !railOpen && (
+          <button
+            onClick={() => setRailOpen(true)}
+            className="fixed top-3 left-3 z-40 w-10 h-10 rounded-md bg-surface border border-border flex items-center justify-center text-text-muted hover:bg-surface-2 shadow-sm"
+            style={{ top: 'max(0.75rem, calc(env(safe-area-inset-top) + 0.75rem))' }}
+            title="Open navigation"
+            aria-label="Open navigation"
+          >
+            <span className="flex flex-col gap-[3px]">
+              <span className="block w-4 h-0.5 bg-current rounded-full" />
+              <span className="block w-4 h-0.5 bg-current rounded-full" />
+              <span className="block w-4 h-0.5 bg-current rounded-full" />
+            </span>
+          </button>
+        )}
         <TopBar onSwitchUser={() => setSwitcherOpen(true)} />
 
         <main>

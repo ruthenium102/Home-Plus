@@ -21,11 +21,20 @@ export function MemberStrip() {
   const { members, chores } = useFamily();
   const [picking, setPicking] = useState<FamilyMember | null>(null);
   const roleMap = useMemo(() => rosterRoleAssignments(chores, members), [chores, members]);
+  // Parents render first, children below — stable within each group so any
+  // manual reorder Ben has applied is preserved.
+  const sortedMembers = useMemo(
+    () => [
+      ...members.filter((m) => m.role === 'parent'),
+      ...members.filter((m) => m.role !== 'parent'),
+    ],
+    [members],
+  );
 
   return (
     <>
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 auto-rows-fr gap-2.5 mb-5">
-        {members.map((m) => {
+        {sortedMembers.map((m) => {
           const Icon = locationIcon(m.current_location);
           const isAway = m.current_location?.toLowerCase().includes('til');
           return (
