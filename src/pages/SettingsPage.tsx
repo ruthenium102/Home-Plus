@@ -32,6 +32,7 @@ import { useWeather } from '@/hooks/useWeather';
 import { useAuth } from '@/context/AuthContext';
 import { Avatar } from '@/components/Avatar';
 import { SetPinModal } from '@/components/SetPinModal';
+import { DeleteAccountModal } from '@/components/DeleteAccountModal';
 import { InviteModal } from '@/components/InviteModal';
 import { AddMemberModal } from '@/components/AddMemberModal';
 import { EditMemberModal } from '@/components/EditMemberModal';
@@ -72,6 +73,7 @@ export function SettingsPage() {
   const [editTarget, setEditTarget] = useState<FamilyMember | null>(null);
   const [inviteOpen, setInviteOpen] = useState(false);
   const [addMemberOpen, setAddMemberOpen] = useState(false);
+  const [deleteAccountOpen, setDeleteAccountOpen] = useState(false);
   const isParent = activeMember?.role === 'parent';
   const [cityQuery, setCityQuery] = useState('');
   const [cityResults, setCityResults] = useState<GeoResult[]>([]);
@@ -571,6 +573,23 @@ export function SettingsPage() {
         </div>
       </section>
 
+      {/* Danger zone — permanent account deletion (cloud accounts only;
+          demo mode has no server account to delete). */}
+      {isSupabaseConfigured && (
+        <section className="card p-5 border-red-500/30">
+          <h2 className="font-display text-lg text-text mb-1">Danger zone</h2>
+          <p className="text-xs text-text-faint mb-4">
+            Permanently delete your account and all associated data. This can't be undone.
+          </p>
+          <button
+            onClick={() => setDeleteAccountOpen(true)}
+            className="flex items-center gap-2 px-4 py-2 border border-red-500/40 text-red-500 text-sm rounded-md hover:bg-red-500/10 font-medium"
+          >
+            <Trash2 size={14} /> Delete account
+          </button>
+        </section>
+      )}
+
       <SetPinModal
         open={pinTarget !== null}
         member={pinTarget}
@@ -583,6 +602,10 @@ export function SettingsPage() {
       />
       <AddMemberModal open={addMemberOpen} onClose={() => setAddMemberOpen(false)} />
       <InviteModal open={inviteOpen} onClose={() => setInviteOpen(false)} />
+      <DeleteAccountModal
+        open={deleteAccountOpen}
+        onClose={() => setDeleteAccountOpen(false)}
+      />
 
       {/* Version footer */}
       <div className="pt-2 pb-6 text-center">

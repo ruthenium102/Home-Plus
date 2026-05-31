@@ -1352,6 +1352,72 @@ revoke execute on function public.get_auth_user_by_email(text) from authenticate
 grant  execute on function public.get_auth_user_by_email(text) to service_role;
 
 -- ============================================================================
+-- L3 / R5 (v15) — in-app account deletion (Apple Guideline 5.1.1(v))
+--
+-- delete_account() runs the whole data cascade for the *calling* user in one
+-- transaction. The user id is taken from auth.uid() inside the function, never
+-- from a parameter, so a caller can only ever delete their own account. The
+-- /api/account/delete route invokes this RPC and, on success, deletes the
+-- auth.users row via supabase-js admin.deleteUser.
+--
+--   • Caller is the family OWNER (families.owner_user_id) or the SOLE parent
+--     → delete the whole `families` row; every child table FKs families(id)
+--     ON DELETE CASCADE, so all family data (incl. member_pins,
+--     google_oauth_states) is removed. ("delete my data")
+--   • Caller is one of several parents, or a child → delete only the caller's
+--     own family_members row(s); member_pins / google_oauth_states cascade and
+--     created_by/approved_by/assigned_to are SET NULL, leaving the shared
+--     family intact for the others.
+-- ============================================================================
+create or replace function public.delete_account()
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  caller       uuid := auth.uid();
+  fam          uuid;
+  parent_count integer;
+  is_owner     boolean;
+begin
+  if caller is null then
+    raise exception 'Not authenticated';
+  end if;
+
+  for fam in
+    select distinct family_id
+      from family_members
+     where auth_user_id = caller
+  loop
+    select (f.owner_user_id = caller)
+      into is_owner
+      from families f
+     where f.id = fam;
+
+    select count(*)
+      into parent_count
+      from family_members fm
+     where fm.family_id = fam
+       and fm.role = 'parent'
+       and fm.auth_user_id is distinct from caller;
+
+    if coalesce(is_owner, false) or parent_count = 0 then
+      delete from families where id = fam;
+    else
+      delete from family_members
+       where family_id = fam
+         and auth_user_id = caller;
+    end if;
+  end loop;
+end;
+$$;
+
+revoke execute on function public.delete_account() from public;
+revoke execute on function public.delete_account() from anon;
+grant  execute on function public.delete_account() to authenticated;
+
+-- ============================================================================
 -- Realtime — enable for all tables that need cross-device sync
 -- Wrapped in a loop so re-running is safe (duplicate_object is swallowed).
 -- ============================================================================
