@@ -13,11 +13,13 @@ DO $$
 DECLARE
   tbl text;
   tables text[] := ARRAY[
+    'meal_plans','recipes',
+    'google_oauth_states','google_calendar_integrations',
     'invitations','activity_pool_items','day_plan_blocks',
-    'chore_completions','chores','habit_checkins','habits',
+    'chore_completions','chores','habit_check_ins','habits',
     'redemptions','reward_goals','reward_categories',
-    'todo_items','todo_lists','calendar_events',
-    'family_members','families'
+    'todo_items','todo_lists','events',
+    'member_pins','family_members','families'
   ];
 BEGIN
   FOREACH tbl IN ARRAY tables LOOP

@@ -23,6 +23,8 @@ import {
   rpcSetRedemptionStatus,
   rpcApplyChorePayout,
   rpcSetCompletionStatus,
+  loadWindowSince,
+  loadWindowSinceDate,
 } from '@/lib/db';
 import { useToast } from '@/context/ToastContext';
 import { syncEventToGoogle, unsyncEventFromGoogle } from '@/lib/googleSync';
@@ -383,6 +385,10 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
 
   // On auth, load data from Supabase. On first login, create the initial family.
   const handled = useRef(false);
+  // Latest reloadFromCloud(), so the realtime channel effect (which only
+  // depends on family.id) can trigger a catch-up reload on reconnect without
+  // resubscribing every time the callback identity changes.
+  const reloadRef = useRef<(() => void) | null>(null);
   useEffect(() => {
     if (!LIVE || !supabase) return;
 
@@ -674,24 +680,63 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
       { table: 'meal_plans', setter: setMealPlans as never },
     ];
 
-    let channel = supabase.channel(`hp-${fid}`);
-    for (const { table, setter } of subs) {
-      channel = channel.on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table, filter: `family_id=eq.${fid}` },
-        ({ eventType, new: n, old: o }) => {
-          if (eventType === 'DELETE') {
-            removeById(table, setter, (o as { id: string }).id);
-          } else {
-            upsertById(table, setter, n as { id: string });
-          }
-        },
-      );
-    }
-    channel.subscribe();
+    // Realtime channel with auto-resubscribe (arch 🟡). WKWebView can drop the
+    // WebSocket on iOS background/network flaps; the channel then sits in
+    // CHANNEL_ERROR / TIMED_OUT / CLOSED and stops delivering events silently.
+    // We watch the subscribe() status and rebuild the channel on failure with
+    // a capped backoff, and do a one-shot reloadFromCloud() to catch up any
+    // changes missed while disconnected.
+    let channel: ReturnType<typeof supabase.channel> | null = null;
+    let retry = 0;
+    let retryTimer: number | null = null;
+    let disposed = false;
+
+    const buildChannel = () => {
+      let ch = supabase!.channel(`hp-${fid}`);
+      for (const { table, setter } of subs) {
+        ch = ch.on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table, filter: `family_id=eq.${fid}` },
+          ({ eventType, new: n, old: o }) => {
+            if (eventType === 'DELETE') {
+              removeById(table, setter, (o as { id: string }).id);
+            } else {
+              upsertById(table, setter, n as { id: string });
+            }
+          },
+        );
+      }
+      ch.subscribe((status) => {
+        if (disposed) return;
+        if (status === 'SUBSCRIBED') {
+          // Fresh (re)connection — pull anything missed while we were down.
+          if (retry > 0) reloadRef.current?.();
+          retry = 0;
+        } else if (
+          status === 'CHANNEL_ERROR' ||
+          status === 'TIMED_OUT' ||
+          status === 'CLOSED'
+        ) {
+          if (retryTimer != null) return; // already scheduled
+          const delay = Math.min(30_000, 1_000 * 2 ** retry);
+          retry += 1;
+          retryTimer = window.setTimeout(() => {
+            retryTimer = null;
+            if (disposed) return;
+            if (channel) supabase!.removeChannel(channel);
+            channel = buildChannel();
+          }, delay);
+        }
+      });
+      return ch;
+    };
+
+    channel = buildChannel();
 
     return () => {
-      supabase!.removeChannel(channel);
+      disposed = true;
+      if (retryTimer != null) window.clearTimeout(retryTimer);
+      if (channel) supabase!.removeChannel(channel);
     };
   }, [family.id]);
 
@@ -907,19 +952,42 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
         .maybeSingle();
       const fErrMsg = fError?.message;
 
-      // Refresh per-table data without depending on families.
+      // Refresh per-table data without depending on families. Date-windowed to
+      // match dbLoadFamily (A1) so the fallback path doesn't pull full history.
+      const since = loadWindowSince();
+      const sinceDate = loadWindowSinceDate();
       const probes = await Promise.all([
         supabase!.from('family_members').select('*').eq('family_id', family.id),
-        supabase!.from('events').select('*').eq('family_id', family.id),
+        supabase!
+          .from('events')
+          .select('*')
+          .eq('family_id', family.id)
+          .or(`start_at.gte.${since},recurrence.not.is.null`),
         supabase!.from('chores').select('*').eq('family_id', family.id),
-        supabase!.from('chore_completions').select('*').eq('family_id', family.id),
+        supabase!
+          .from('chore_completions')
+          .select('*')
+          .eq('family_id', family.id)
+          .gte('for_date', sinceDate),
         supabase!.from('todo_lists').select('*').eq('family_id', family.id),
         supabase!.from('todo_items').select('*').eq('family_id', family.id),
         supabase!.from('habits').select('*').eq('family_id', family.id),
-        supabase!.from('habit_check_ins').select('*').eq('family_id', family.id),
+        supabase!
+          .from('habit_check_ins')
+          .select('*')
+          .eq('family_id', family.id)
+          .gte('for_date', sinceDate),
         supabase!.from('reward_goals').select('*').eq('family_id', family.id),
-        supabase!.from('redemptions').select('*').eq('family_id', family.id),
-        supabase!.from('day_plan_blocks').select('*').eq('family_id', family.id),
+        supabase!
+          .from('redemptions')
+          .select('*')
+          .eq('family_id', family.id)
+          .gte('created_at', since),
+        supabase!
+          .from('day_plan_blocks')
+          .select('*')
+          .eq('family_id', family.id)
+          .gte('date', sinceDate),
         supabase!.from('activity_pool_items').select('*').eq('family_id', family.id),
         supabase!.from('recipes').select('*').eq('family_id', family.id),
         supabase!.from('meal_plans').select('*').eq('family_id', family.id),
@@ -963,6 +1031,13 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
     }
   }, [family.id]);
 
+  // Keep the ref the realtime channel uses for reconnect catch-up current.
+  useEffect(() => {
+    reloadRef.current = () => {
+      void reloadFromCloud();
+    };
+  }, [reloadFromCloud]);
+
   // Re-fetch when the tab/app becomes visible again. Realtime sometimes drops
   // events when the WKWebView is paused (iOS app in background), so this
   // catches up automatically on resume.
@@ -987,16 +1062,18 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
 
   // Periodic safety net. Capacitor WKWebView can silently drop the realtime
   // WebSocket while the app is foreground (we've observed list-item updates
-  // not propagating across devices), so we poll every 20s as long as the
-  // page is visible. Skipped while hidden or while a manual reload is in
-  // flight to avoid pile-ups.
+  // not propagating across devices), so we poll as a backstop while the page
+  // is visible. Raised from 20s → 90s (A1): the per-poll read is now date-
+  // windowed and the realtime channel auto-resubscribes on drop (below), so a
+  // tighter interval is unnecessary load. Skipped while hidden or while a
+  // manual reload is in flight to avoid pile-ups.
   useEffect(() => {
     if (!LIVE || !supabase) return;
     const id = window.setInterval(() => {
       if (document.hidden) return;
       if (reloading) return;
       reloadFromCloud();
-    }, 20_000);
+    }, 90_000);
     return () => window.clearInterval(id);
   }, [reloadFromCloud, reloading]);
 

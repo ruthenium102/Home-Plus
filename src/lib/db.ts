@@ -252,6 +252,34 @@ export async function rpcSetCompletionStatus(
 // Bulk load
 // ---------------------------------------------------------------------------
 
+// A1 — date-window the five hot, ever-growing tables so a bulk load (which
+// runs on every auth event, tab-resume, and on the periodic poll) doesn't
+// re-fetch the family's entire history each time. 90 days is chosen because
+// it is the largest window any UI surface reads: the Habits and Chores stats
+// pages show a rolling 3-month heatmap, and My Day / rewards are today- or
+// recent-focused. Anything older is historical and not rendered.
+//
+// Correctness guards:
+//   • events       — we keep ALL future events (no upper bound) plus the last
+//     90 days, AND every recurring event (recurrence not null) regardless of
+//     its anchor start_at, because an old recurring series still fires today.
+//   • completions / check-ins / day-plan blocks — filtered on their date
+//     column (for_date / date), which is exactly what the heatmaps read.
+//   • redemptions  — filtered on created_at. Balances are server-authoritative
+//     (S3), so the client never recomputes them from full redemption history;
+//     the window only affects the visible reward-history list.
+export const LOAD_WINDOW_DAYS = 90;
+
+/** ISO timestamp for (now - LOAD_WINDOW_DAYS), used as the lower bound. */
+export function loadWindowSince(): string {
+  return new Date(Date.now() - LOAD_WINDOW_DAYS * 24 * 60 * 60 * 1000).toISOString();
+}
+
+/** YYYY-MM-DD for (now - LOAD_WINDOW_DAYS), for date-typed columns. */
+export function loadWindowSinceDate(): string {
+  return loadWindowSince().slice(0, 10);
+}
+
 export interface FamilyData {
   family: Family;
   members: FamilyMember[];
@@ -272,6 +300,8 @@ export interface FamilyData {
 
 export async function dbLoadFamily(familyId: string): Promise<FamilyData | null> {
   if (!supabase) return null;
+  const since = loadWindowSince();
+  const sinceDate = loadWindowSinceDate();
   try {
     const [
       { data: family, error: fe },
@@ -292,16 +322,37 @@ export async function dbLoadFamily(familyId: string): Promise<FamilyData | null>
     ] = await Promise.all([
       supabase.from('families').select('id,name,timezone,created_at').eq('id', familyId).single(),
       supabase.from('family_members').select('*').eq('family_id', familyId),
-      supabase.from('events').select('*').eq('family_id', familyId),
+      // events: last 90d of starts + ALL future + every recurring series (A1).
+      supabase
+        .from('events')
+        .select('*')
+        .eq('family_id', familyId)
+        .or(`start_at.gte.${since},recurrence.not.is.null`),
       supabase.from('chores').select('*').eq('family_id', familyId),
-      supabase.from('chore_completions').select('*').eq('family_id', familyId),
+      supabase
+        .from('chore_completions')
+        .select('*')
+        .eq('family_id', familyId)
+        .gte('for_date', sinceDate),
       supabase.from('todo_lists').select('*').eq('family_id', familyId),
       supabase.from('todo_items').select('*').eq('family_id', familyId),
       supabase.from('habits').select('*').eq('family_id', familyId),
-      supabase.from('habit_check_ins').select('*').eq('family_id', familyId),
+      supabase
+        .from('habit_check_ins')
+        .select('*')
+        .eq('family_id', familyId)
+        .gte('for_date', sinceDate),
       supabase.from('reward_goals').select('*').eq('family_id', familyId),
-      supabase.from('redemptions').select('*').eq('family_id', familyId),
-      supabase.from('day_plan_blocks').select('*').eq('family_id', familyId),
+      supabase
+        .from('redemptions')
+        .select('*')
+        .eq('family_id', familyId)
+        .gte('created_at', since),
+      supabase
+        .from('day_plan_blocks')
+        .select('*')
+        .eq('family_id', familyId)
+        .gte('date', sinceDate),
       supabase.from('activity_pool_items').select('*').eq('family_id', familyId),
       supabase.from('recipes').select('*').eq('family_id', familyId),
       supabase.from('meal_plans').select('*').eq('family_id', familyId),

@@ -97,7 +97,7 @@ function renderInviteEmail(opts: {
         </td></tr>
         <tr><td style="padding:8px 32px 32px 32px;text-align:center;">
           <p style="margin:12px 0 0 0;font-size:12px;color:#6e6458;line-height:1.5;">
-            This invitation expires in 7 days.<br />
+            This invitation expires in 24 hours.<br />
             Or paste this link into your browser:<br />
             <span style="word-break:break-all;color:#9c8e7b;">${acceptUrl}</span>
           </p>
@@ -232,24 +232,20 @@ Deno.serve(async (req) => {
     //                     the email for these users (GoTrue only 422s on
     //                     confirmed accounts).
     //   - "none"        — brand new email; standard invite path.
+    // A3 — single indexed lookup by email instead of paginating up to
+    // 50×200=10k auth.users (O(N) on total user count, with a hard cap that
+    // silently mis-classifies users near scale). supabase-js's admin client
+    // has no getUserByEmail, so we call the SECURITY DEFINER RPC
+    // get_auth_user_by_email (service_role only) which hits the indexed
+    // auth.users.email column directly.
     let existingUserState: 'none' | 'confirmed' | 'unconfirmed' = 'none';
     try {
-      let page = 1;
-      while (page < 50) {
-        const { data, error } = await supabaseAdmin.auth.admin.listUsers({
-          page,
-          perPage: 200,
-        });
-        if (error) break;
-        const match = data.users.find(
-          (u) => (u.email ?? '').toLowerCase() === email.toLowerCase(),
-        );
-        if (match) {
-          existingUserState = match.email_confirmed_at ? 'confirmed' : 'unconfirmed';
-          break;
-        }
-        if (data.users.length < 200) break;
-        page += 1;
+      const { data, error } = await supabaseAdmin.rpc('get_auth_user_by_email', {
+        p_email: email,
+      });
+      const row = Array.isArray(data) ? data[0] : data;
+      if (!error && row?.id) {
+        existingUserState = row.email_confirmed_at ? 'confirmed' : 'unconfirmed';
       }
     } catch {
       // non-fatal — if lookup fails we still proceed.

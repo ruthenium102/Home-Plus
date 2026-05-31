@@ -14,7 +14,8 @@ applied to existing Home Plus databases.
   current schema. They are kept for reference and for any DBs that need to
   be upgraded one step at a time. **Do not run them on a fresh DB.**
 
-- **`../drop.sql`** drops the schema. Destructive — see file for details.
+- **`../dev-only-drop.sql`** drops the schema. Destructive — refuses to run
+  unless `current_database()` is in its edited dev allow-list. See file.
 
 - **`../reset.sql`** drops and re-creates from `schema.sql`. Destructive.
 

@@ -251,8 +251,20 @@ drop policy if exists "Member can insert family rows"  on family_members;
 drop policy if exists "Member can delete family rows"  on family_members;
 create policy "Member can read family members" on family_members
   for select using (public.is_family_member(family_id));
+-- Existing members can add members; additionally a brand-new family owner can
+-- insert their OWN first parent row (chicken-and-egg with is_family_member — v14).
 create policy "Member can insert family rows"  on family_members
-  for insert with check (public.is_family_member(family_id));
+  for insert with check (
+    public.is_family_member(family_id)
+    or (
+      auth_user_id = auth.uid()
+      and exists (
+        select 1 from families f
+         where f.id = family_members.family_id
+           and f.owner_user_id = auth.uid()
+      )
+    )
+  );
 create policy "Member can update family rows"  on family_members
   for update using (public.is_family_member(family_id))
   with check (public.is_family_member(family_id));
@@ -893,6 +905,90 @@ create table if not exists activity_pool_items (
 );
 
 create index if not exists idx_activity_pool_member on activity_pool_items(member_id);
+-- family_id indexes (v14): loads/RLS filter on family_id.
+create index if not exists idx_day_plan_blocks_family on day_plan_blocks(family_id);
+create index if not exists idx_activity_pool_family on activity_pool_items(family_id);
+
+-- ============================================================================
+-- Kitchen Plus — recipes + meal_plans (v14; were upserted by the client but
+-- previously missing from schema.sql and every migration — A2)
+-- ============================================================================
+create table if not exists recipes (
+  id           uuid primary key default uuid_generate_v4(),
+  family_id    uuid not null references families(id) on delete cascade,
+  title        text not null,
+  icon         text,
+  servings     integer not null default 1,
+  prep_minutes integer,
+  cook_minutes integer,
+  ingredients  jsonb not null default '[]'::jsonb,
+  steps        text[] not null default '{}',
+  notes        text,
+  source_url   text,
+  favorite     boolean not null default false,
+  created_by   uuid references family_members(id) on delete set null,
+  created_at   timestamptz not null default now()
+);
+create index if not exists idx_recipes_family on recipes(family_id);
+
+create table if not exists meal_plans (
+  id                uuid primary key default uuid_generate_v4(),
+  family_id         uuid not null references families(id) on delete cascade,
+  recipe_id         uuid not null references recipes(id) on delete cascade,
+  date              date not null,
+  meal_type         text not null check (meal_type in ('breakfast', 'lunch', 'dinner', 'snack')),
+  servings          integer not null default 1,
+  calendar_event_id uuid references events(id) on delete set null,
+  notes             text,
+  created_by        uuid references family_members(id) on delete set null,
+  created_at        timestamptz not null default now()
+);
+create index if not exists idx_meal_plans_family on meal_plans(family_id);
+create index if not exists idx_meal_plans_recipe on meal_plans(recipe_id);
+create index if not exists idx_meal_plans_family_date on meal_plans(family_id, date);
+
+alter table recipes    enable row level security;
+alter table meal_plans enable row level security;
+
+drop policy if exists "Members manage recipes" on recipes;
+create policy "Members manage recipes" on recipes
+  for all using (public.is_family_member(family_id))
+  with check (public.is_family_member(family_id));
+
+drop policy if exists "Members manage meal_plans" on meal_plans;
+create policy "Members manage meal_plans" on meal_plans
+  for all using (public.is_family_member(family_id))
+  with check (public.is_family_member(family_id));
+
+-- ============================================================================
+-- updated_at + auto-touch trigger on hot tables (v14; delta-poll groundwork — A1)
+-- ============================================================================
+create or replace function public.touch_updated_at()
+returns trigger language plpgsql as $$
+begin
+  new.updated_at := now();
+  return new;
+end;
+$$;
+
+do $$
+declare t text;
+begin
+  for t in select unnest(array[
+    'chore_completions', 'habit_check_ins', 'day_plan_blocks', 'redemptions', 'events'
+  ])
+  loop
+    execute format(
+      'alter table %I add column if not exists updated_at timestamptz not null default now()', t);
+    execute format('drop trigger if exists trg_touch_updated_at on %I', t);
+    execute format(
+      'create trigger trg_touch_updated_at before update on %I
+         for each row execute function public.touch_updated_at()', t);
+    execute format(
+      'create index if not exists %I on %I(family_id, updated_at)',
+      'idx_' || t || '_family_updated', t);
+  end loop;
+end$$;
 
 -- Add my_day_enabled and per-page visibility flags to family_members (safe migration)
 do $$ begin
@@ -937,8 +1033,16 @@ create table if not exists invitations (
   invited_by_auth_id uuid references auth.users(id) on delete set null,
   created_at timestamptz not null default now(),
   accepted_at timestamptz,
-  expires_at timestamptz not null default now() + interval '7 days'
+  -- Single-use marker (v14): set on first successful accept.
+  consumed_at timestamptz,
+  -- 24h lifetime (v14; was 7 days).
+  expires_at timestamptz not null default now() + interval '24 hours'
 );
+-- Bring a pre-existing invitations table up to the v14 shape.
+do $$ begin
+  alter table invitations add column if not exists consumed_at timestamptz;
+  alter table invitations alter column expires_at set default now() + interval '24 hours';
+end $$;
 
 create unique index if not exists idx_invitations_token on invitations(token);
 create index if not exists idx_invitations_email on invitations(email);
@@ -1049,14 +1153,16 @@ begin
   if not found then
     raise exception 'Invitation not found';
   end if;
-  if inv.accepted_at is not null then
+  -- Single-use (v14): a consumed/accepted token is only honoured for the
+  -- member who already joined on it (idempotent re-call), else it is dead.
+  if inv.consumed_at is not null or inv.accepted_at is not null then
     if exists (
       select 1 from family_members
        where family_id = inv.family_id and auth_user_id = caller_uid
     ) then
       return inv.family_id;
     end if;
-    raise exception 'Invitation already accepted';
+    raise exception 'Invitation already used';
   end if;
   if inv.expires_at <= now() then
     raise exception 'Invitation expired';
@@ -1073,7 +1179,7 @@ begin
    limit 1;
 
   if existing is not null then
-    update invitations set accepted_at = now() where token = p_token;
+    update invitations set accepted_at = now(), consumed_at = now() where token = p_token;
     return inv.family_id;
   end if;
 
@@ -1102,7 +1208,7 @@ begin
     );
   end if;
 
-  update invitations set accepted_at = now() where token = p_token;
+  update invitations set accepted_at = now(), consumed_at = now() where token = p_token;
   return inv.family_id;
 end;
 $$;
@@ -1161,11 +1267,15 @@ create trigger trg_gci_require_parent
 alter table google_calendar_integrations enable row level security;
 
 drop policy if exists "members read gci"   on google_calendar_integrations;
+drop policy if exists "parents read gci"   on google_calendar_integrations;
 drop policy if exists "parents insert gci" on google_calendar_integrations;
 drop policy if exists "parents update gci" on google_calendar_integrations;
 drop policy if exists "parents delete gci" on google_calendar_integrations;
-create policy "members read gci" on google_calendar_integrations
-  for select using (public.is_family_member(family_id));
+-- SELECT restricted to parents (v14): the row holds refresh_token/access_token.
+-- Non-parent members get non-secret display fields via the
+-- get_family_google_integration() SECURITY DEFINER RPC instead.
+create policy "parents read gci" on google_calendar_integrations
+  for select using (public.is_family_parent(family_id));
 create policy "parents insert gci" on google_calendar_integrations
   for insert with check (
     exists (select 1 from family_members fm
@@ -1225,6 +1335,22 @@ $$;
 revoke execute on function public.get_family_google_integration(uuid) from public;
 grant execute on function public.get_family_google_integration(uuid) to authenticated;
 
+-- A3 (v14) — indexed auth-user lookup by email for the send-invite Edge
+-- Function (supabase-js has no getUserByEmail; this replaces an O(N)
+-- listUsers scan). service_role only.
+create or replace function public.get_auth_user_by_email(p_email text)
+returns table (id uuid, email text, email_confirmed_at timestamptz)
+language sql stable security definer set search_path = public, auth as $$
+  select u.id, u.email, u.email_confirmed_at
+    from auth.users u
+   where lower(u.email) = lower(p_email)
+   limit 1;
+$$;
+revoke execute on function public.get_auth_user_by_email(text) from public;
+revoke execute on function public.get_auth_user_by_email(text) from anon;
+revoke execute on function public.get_auth_user_by_email(text) from authenticated;
+grant  execute on function public.get_auth_user_by_email(text) to service_role;
+
 -- ============================================================================
 -- Realtime — enable for all tables that need cross-device sync
 -- Wrapped in a loop so re-running is safe (duplicate_object is swallowed).
@@ -1246,6 +1372,8 @@ begin
     'redemptions',
     'day_plan_blocks',
     'activity_pool_items',
+    'recipes',
+    'meal_plans',
     'invitations',
     'google_calendar_integrations'
   ])

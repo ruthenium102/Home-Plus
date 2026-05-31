@@ -265,7 +265,7 @@ Home Plus/
 │       └── supabase.ts       Database row/insert/update types
 └── supabase/
     ├── schema.sql            Source of truth for a fresh DB
-    ├── reset.sql / drop.sql  Destructive helpers
+    ├── reset.sql / dev-only-drop.sql  Destructive helpers (guarded)
     └── migrations/           Historical migrate_v1..v5 + README
 ```
 
