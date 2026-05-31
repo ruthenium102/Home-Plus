@@ -367,6 +367,18 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
     storage.get<KitchenSettings>(KITCHEN_SETTINGS_KEY, DEFAULT_KITCHEN_SETTINGS),
   );
   const [pets, setPets] = useState<VirtualPet[]>(() => storage.get<VirtualPet[]>(PETS_KEY, []));
+  // Latest members, readable from stable callbacks without re-subscribing.
+  const membersRef = useRef<FamilyMember[]>([]);
+  membersRef.current = members;
+  // Persist a pet to the cloud ONLY if its member belongs to the current
+  // family. Pets carried over from demo mode (or any orphaned local pet) have a
+  // member_id that isn't in family_members, which would violate the FK and
+  // surface as a "Couldn't save virtual_pets" error. Demo mode is a no-op in
+  // dbUpsert regardless.
+  const persistPet = useCallback((pet: VirtualPet) => {
+    if (!membersRef.current.some((m) => m.id === pet.member_id)) return;
+    dbUpsert('virtual_pets', pet);
+  }, []);
   const [needsPasswordSetup, setNeedsPasswordSetup] = useState(
     () => sessionStorage.getItem('needs_password_setup') === '1',
   );
@@ -395,11 +407,12 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
       const cloudMemberIds = new Set(cloudPets.map((p) => p.member_id));
       const localOnly = local.filter((p) => !cloudMemberIds.has(p.member_id));
       // One-time seed: persist device-only pets to Supabase so a future
-      // reinstall keeps them.
-      for (const p of localOnly) dbUpsert('virtual_pets', p);
+      // reinstall keeps them — but only those belonging to a real family member
+      // (persistPet drops orphaned/demo pets that would violate the FK).
+      for (const p of localOnly) persistPet(p);
       return [...cloudPets, ...localOnly];
     });
-  }, []);
+  }, [persistPet]);
 
   // On auth, load data from Supabase. On first login, create the initial family.
   const handled = useRef(false);
@@ -865,7 +878,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
         if (newXp === pet.xp) return pet;
         const unlocked_actions = deriveUnlockedActions(newXp);
         const updated = { ...pet, xp: newXp, unlocked_actions };
-        dbUpsert('virtual_pets', updated);
+        persistPet(updated);
         return updated;
       }),
     );
@@ -2206,7 +2219,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
         custom_eyes: custom?.eyes ?? null,
       };
       setPets((prev) => [...prev.filter((p) => p.member_id !== memberId), newPet]);
-      dbUpsert('virtual_pets', newPet);
+      persistPet(newPet);
     },
     [members, completions, checkIns],
   );
@@ -2217,7 +2230,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
         prev.map((p) => {
           if (p.member_id !== memberId) return p;
           const updated = { ...p, custom_image_data: image, custom_eyes: eyes };
-          dbUpsert('virtual_pets', updated);
+          persistPet(updated);
           return updated;
         }),
       );
@@ -2230,7 +2243,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
       prev.map((p) => {
         if (p.member_id !== memberId) return p;
         const updated = { ...p, hunger: 100, last_fed_at: new Date().toISOString() };
-        dbUpsert('virtual_pets', updated);
+        persistPet(updated);
         return updated;
       }),
     );
@@ -2241,7 +2254,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
       prev.map((p) => {
         if (p.member_id !== memberId) return p;
         const updated = { ...p, thirst: 100, last_watered_at: new Date().toISOString() };
-        dbUpsert('virtual_pets', updated);
+        persistPet(updated);
         return updated;
       }),
     );
@@ -2257,7 +2270,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
           happiness: Math.min(100, current.happiness + 20),
           last_interacted_at: new Date().toISOString(),
         };
-        dbUpsert('virtual_pets', updated);
+        persistPet(updated);
         return updated;
       }),
     );
@@ -2273,7 +2286,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
           happiness: Math.min(100, current.happiness + 35),
           last_interacted_at: new Date().toISOString(),
         };
-        dbUpsert('virtual_pets', updated);
+        persistPet(updated);
         return updated;
       }),
     );
@@ -2286,7 +2299,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
         const current = Array.isArray(p.accessories) ? p.accessories : [];
         if (current.includes(accessoryId)) return p;
         const updated = { ...p, accessories: [...current, accessoryId] };
-        dbUpsert('virtual_pets', updated);
+        persistPet(updated);
         return updated;
       }),
     );
@@ -2298,7 +2311,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
         if (p.member_id !== memberId) return p;
         const current = Array.isArray(p.accessories) ? p.accessories : [];
         const updated = { ...p, accessories: current.filter((a) => a !== accessoryId) };
-        dbUpsert('virtual_pets', updated);
+        persistPet(updated);
         return updated;
       }),
     );
@@ -2315,7 +2328,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
           xp: newXp,
           unlocked_actions: deriveUnlockedActions(newXp),
         };
-        dbUpsert('virtual_pets', updated);
+        persistPet(updated);
         return updated;
       }),
     );
