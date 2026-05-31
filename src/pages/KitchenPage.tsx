@@ -5,6 +5,7 @@ import { MealPlannerView } from '@/components/kitchen/MealPlannerView';
 import { ShoppingView } from '@/components/kitchen/ShoppingView';
 import { StatsView } from '@/components/kitchen/StatsView';
 import { KitchenSettingsView } from '@/components/kitchen/KitchenSettingsView';
+import { OfflineNotice } from '@/components/OfflineNotice';
 
 type KitchenTab = 'recipes' | 'planner' | 'shopping' | 'stats' | 'settings';
 
@@ -21,6 +22,8 @@ export function KitchenPage() {
 
   return (
     <div>
+      <OfflineNotice />
+
       {/* Sub-navigation */}
       <div className="flex gap-1 mb-6 overflow-x-auto pb-1 scroll-x-clean">
         {TABS.map(({ id, label, icon }) => (

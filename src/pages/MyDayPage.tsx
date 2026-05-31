@@ -10,6 +10,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Search,
+  CalendarClock,
   Circle,
   BookOpen,
   Music,
@@ -36,6 +37,7 @@ import {
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { useFamily } from '@/context/FamilyContext';
+import { OfflineNotice } from '@/components/OfflineNotice';
 import { usePointerDragToDrop } from '@/hooks/usePointerDragToDrop';
 import { localISO } from '@/lib/dates';
 import {
@@ -439,6 +441,20 @@ function Timeline({
         </div>
       )}
 
+      {/* Empty state — nothing scheduled for this day yet. Sits above the grid
+          lines as a gentle prompt; the grid stays interactive for drops. */}
+      {blocks.length === 0 && (
+        <div className="absolute inset-0 z-10 flex flex-col items-center justify-center text-center px-6 pointer-events-none">
+          <CalendarClock size={32} className="text-text-faint/50 mb-3" />
+          <div className="font-display text-lg text-text mb-1">
+            {isToday ? 'Nothing planned yet' : 'No plan for this day'}
+          </div>
+          <div className="text-sm text-text-faint max-w-xs">
+            Drag an activity onto the timeline, or add one to start mapping out the day.
+          </div>
+        </div>
+      )}
+
       {/* Blocks */}
       {blocks.map((b) => (
         <BlockOnTimeline
@@ -484,7 +500,7 @@ function PoolItemChip({ item, onEdit, onDelete, onDragStart, isDragging }: PoolI
       </div>
       <button
         onClick={onEdit}
-        className="shrink-0 w-6 h-6 rounded flex items-center justify-center text-text-faint hover:text-accent hover:bg-accent/10 opacity-0 group-hover:opacity-100 transition-all"
+        className="shrink-0 w-6 h-6 min-w-[44px] min-h-[44px] rounded flex items-center justify-center text-text-faint hover:text-accent hover:bg-accent/10 opacity-0 group-hover:opacity-100 transition-all"
         title="Edit activity"
         aria-label="Edit activity"
       >
@@ -492,7 +508,7 @@ function PoolItemChip({ item, onEdit, onDelete, onDragStart, isDragging }: PoolI
       </button>
       <button
         onClick={onDelete}
-        className="shrink-0 w-6 h-6 rounded flex items-center justify-center text-text-faint hover:text-red-500 hover:bg-red-500/10 opacity-0 group-hover:opacity-100 transition-all"
+        className="shrink-0 w-6 h-6 min-w-[44px] min-h-[44px] rounded flex items-center justify-center text-text-faint hover:text-red-500 hover:bg-red-500/10 opacity-0 group-hover:opacity-100 transition-all"
         title="Delete activity"
         aria-label="Delete activity"
       >
@@ -724,6 +740,9 @@ export function MyDayPage() {
 
   return (
     <>
+      <div className="max-w-5xl">
+        <OfflineNotice />
+      </div>
       <div className="flex gap-4 max-w-5xl">
         {/* Activity pool sidebar — desktop only */}
         <aside className="hidden lg:flex flex-col w-52 shrink-0 gap-2">
@@ -794,14 +813,14 @@ export function MyDayPage() {
                   prev.setDate(prev.getDate() - 1);
                   setDate(format(prev, 'yyyy-MM-dd'));
                 }}
-                className="w-9 h-9 rounded-md hover:bg-surface-2 flex items-center justify-center text-text-muted"
+                className="w-9 h-9 min-w-[44px] min-h-[44px] rounded-md hover:bg-surface-2 flex items-center justify-center text-text-muted"
                 aria-label="Previous day"
               >
                 <ChevronLeft size={18} />
               </button>
               <button
                 onClick={() => setDate(localISO())}
-                className="px-3 py-1.5 rounded-md text-sm text-text-muted hover:bg-surface-2"
+                className="px-3 min-h-[44px] rounded-md text-sm text-text-muted hover:bg-surface-2"
               >
                 Today
               </button>
@@ -811,7 +830,7 @@ export function MyDayPage() {
                   next.setDate(next.getDate() + 1);
                   setDate(format(next, 'yyyy-MM-dd'));
                 }}
-                className="w-9 h-9 rounded-md hover:bg-surface-2 flex items-center justify-center text-text-muted"
+                className="w-9 h-9 min-w-[44px] min-h-[44px] rounded-md hover:bg-surface-2 flex items-center justify-center text-text-muted"
                 aria-label="Next day"
               >
                 <ChevronRight size={18} />

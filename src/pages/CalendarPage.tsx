@@ -238,19 +238,21 @@ export function CalendarPage() {
           <div className="flex items-center gap-1">
             <button
               onClick={goPrev}
-              className="w-9 h-9 rounded-md hover:bg-surface-2 flex items-center justify-center text-text-muted"
+              className="w-9 h-9 min-w-[44px] min-h-[44px] rounded-md hover:bg-surface-2 flex items-center justify-center text-text-muted"
+              aria-label="Previous"
             >
               <ChevronLeft size={18} />
             </button>
             <button
               onClick={goToday}
-              className="px-3 py-1.5 rounded-md text-sm text-text-muted hover:bg-surface-2"
+              className="px-3 min-h-[44px] rounded-md text-sm text-text-muted hover:bg-surface-2"
             >
               Today
             </button>
             <button
               onClick={goNext}
-              className="w-9 h-9 rounded-md hover:bg-surface-2 flex items-center justify-center text-text-muted"
+              className="w-9 h-9 min-w-[44px] min-h-[44px] rounded-md hover:bg-surface-2 flex items-center justify-center text-text-muted"
+              aria-label="Next"
             >
               <ChevronRight size={18} />
             </button>

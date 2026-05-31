@@ -1,20 +1,43 @@
+import { getISOWeek, getISOWeekYear } from 'date-fns';
 import type { Chore, FamilyMember } from '@/types';
 
 /** Returns ISO week string YYYY-Www (Monday-based ISO 8601). */
 export function isoWeekStr(date: Date = new Date()): string {
-  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
-  const day = d.getUTCDay() || 7; // Mon=1 … Sun=7
-  d.setUTCDate(d.getUTCDate() + 4 - day);
-  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-  const weekNum = Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
-  return `${d.getUTCFullYear()}-W${String(weekNum).padStart(2, '0')}`;
+  // Use the ISO-week-bearing YEAR, not the calendar year. Late-December days
+  // can belong to week 1 of the *next* ISO year (and early-January days to the
+  // last week of the *previous* one), so getISOWeekYear keeps the prefix and
+  // the week number from disagreeing across the New Year boundary.
+  const year = getISOWeekYear(date);
+  const week = getISOWeek(date);
+  return `${year}-W${String(week).padStart(2, '0')}`;
 }
+
+/**
+ * Convert an ISO-week string (YYYY-Www) to a strictly-monotonic ordinal so we
+ * can subtract two weeks and get the true number of weeks between them.
+ *
+ * The previous implementation used `year * 54 + wk`, which silently broke at
+ * year boundaries: ISO years have either 52 or 53 weeks, so a fixed multiplier
+ * of 54 leaves a 1–2 week gap every New Year and makes consecutive weeks like
+ * `2024-W52` → `2025-W01` look ~2 weeks apart instead of 1. That desynced the
+ * rotation pointer every January.
+ *
+ * Instead we anchor on a fixed Monday epoch and count whole ISO weeks (7-day
+ * spans) elapsed. This is exact for any pair of ISO weeks regardless of how
+ * many weeks each intervening year had.
+ */
+const ISO_EPOCH_MONDAY = Date.UTC(2000, 0, 3); // Mon 3 Jan 2000 = start of 2000-W01
 
 function parseIsoWeek(week: string): number {
   const [yearStr, weekStr] = week.split('-W');
   const year = parseInt(yearStr, 10);
   const wk = parseInt(weekStr, 10);
-  return year * 54 + wk; // approximate ordinal; good enough for relative offsets
+  // Monday of ISO week 1 for `year`: the Monday of the week containing Jan 4th.
+  const jan4 = new Date(Date.UTC(year, 0, 4));
+  const jan4Day = jan4.getUTCDay() || 7; // Mon=1 … Sun=7
+  const week1Monday = jan4.getTime() - (jan4Day - 1) * 86400000;
+  const weekMonday = week1Monday + (wk - 1) * 7 * 86400000;
+  return Math.round((weekMonday - ISO_EPOCH_MONDAY) / (7 * 86400000));
 }
 
 function weeksBetween(anchor: string, current: string): number {

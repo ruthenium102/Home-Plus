@@ -157,13 +157,21 @@ export function MealPlannerView() {
       <div className="flex items-center justify-between mb-4 gap-2">
         <h2 className="font-display text-xl text-text">Meal Plan</h2>
         <div className="flex items-center gap-2">
-          <button onClick={() => shiftWeek(-1)} className="btn-ghost p-1.5">
+          <button
+            onClick={() => shiftWeek(-1)}
+            className="btn-ghost p-1.5 min-w-[44px] min-h-[44px] flex items-center justify-center"
+            aria-label="Previous week"
+          >
             <ChevronLeft size={18} />
           </button>
           <span className="text-sm text-text-muted min-w-36 text-center">
             {format(new Date(weekStart), 'MMM d')} – {format(new Date(weekEnd), 'MMM d, yyyy')}
           </span>
-          <button onClick={() => shiftWeek(1)} className="btn-ghost p-1.5">
+          <button
+            onClick={() => shiftWeek(1)}
+            className="btn-ghost p-1.5 min-w-[44px] min-h-[44px] flex items-center justify-center"
+            aria-label="Next week"
+          >
             <ChevronRight size={18} />
           </button>
         </div>
@@ -226,6 +234,12 @@ export function MealPlannerView() {
 
         {/* Calendar */}
         <div className="flex-1 order-1 lg:order-2">
+          {recipes.length === 0 && (
+            <div className="card p-4 mb-3 text-center text-sm text-text-faint">
+              <p className="text-text font-medium mb-0.5">No recipes to plan with yet</p>
+              <p>Add a recipe on the Recipes tab, then drag it onto a day here.</p>
+            </div>
+          )}
           <div className="grid grid-cols-7 gap-1">
             {days.map(({ date, label, day }) => {
               const dayPlans = plansForDay(date);

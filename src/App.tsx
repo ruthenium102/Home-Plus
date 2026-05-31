@@ -54,6 +54,7 @@ import { FamilyProvider, useFamily } from '@/context/FamilyContext';
 import { AuthProvider, useAuth } from '@/context/AuthContext';
 import { ToastProvider } from '@/context/ToastContext';
 import { WeatherProvider } from '@/hooks/useWeather';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { TopBar } from '@/components/TopBar';
 import { TabBar, type TabKey } from '@/components/TabBar';
 import { SideRail } from '@/components/SideRail';
@@ -159,7 +160,10 @@ function AppShell() {
           'mx-auto p-3 sm:p-6 ' +
           // On a side rail (iPad landscape), let content use the full width
           // beside the rail instead of clamping to a centred phone column.
-          (dockIsSide ? (railOpen ? 'pb-8 ml-56' : 'pb-8') : 'max-w-6xl pb-28 sm:pb-36')
+          // When the rail is collapsed the floating hamburger sits at top-left,
+          // so reserve space on the left of the TopBar so it can't overlap the
+          // family name / date.
+          (dockIsSide ? (railOpen ? 'pb-8 ml-56' : 'pb-8 pl-14 sm:pl-16') : 'max-w-6xl pb-28 sm:pb-36')
         }
         style={
           dockIsSide
@@ -271,16 +275,18 @@ function AuthGate() {
 
 export default function App() {
   return (
-    <ThemeProvider>
-      <ToastProvider>
-        <AuthProvider>
-          <FamilyProvider>
-            <WeatherProvider>
-              <AuthGate />
-            </WeatherProvider>
-          </FamilyProvider>
-        </AuthProvider>
-      </ToastProvider>
-    </ThemeProvider>
+    <ErrorBoundary>
+      <ThemeProvider>
+        <ToastProvider>
+          <AuthProvider>
+            <FamilyProvider>
+              <WeatherProvider>
+                <AuthGate />
+              </WeatherProvider>
+            </FamilyProvider>
+          </AuthProvider>
+        </ToastProvider>
+      </ThemeProvider>
+    </ErrorBoundary>
   );
 }

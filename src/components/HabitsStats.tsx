@@ -76,8 +76,9 @@ export function HabitsStats() {
       <div className="flex items-center gap-1 self-start">
         <button
           onClick={() => setMonthsBack((m) => m + 1)}
-          className="w-7 h-7 rounded-md hover:bg-surface-2 flex items-center justify-center text-text-faint hover:text-text"
+          className="w-7 h-7 min-w-[44px] min-h-[44px] rounded-md hover:bg-surface-2 flex items-center justify-center text-text-faint hover:text-text"
           title="Earlier"
+          aria-label="Earlier range"
         >
           <ChevronLeft size={14} />
         </button>
@@ -87,8 +88,9 @@ export function HabitsStats() {
         <button
           onClick={() => setMonthsBack((m) => Math.max(0, m - 1))}
           disabled={monthsBack === 0}
-          className="w-7 h-7 rounded-md hover:bg-surface-2 disabled:hover:bg-transparent disabled:opacity-30 flex items-center justify-center text-text-faint hover:text-text"
+          className="w-7 h-7 min-w-[44px] min-h-[44px] rounded-md hover:bg-surface-2 disabled:hover:bg-transparent disabled:opacity-30 flex items-center justify-center text-text-faint hover:text-text"
           title="Later"
+          aria-label="Later range"
         >
           <ChevronRight size={14} />
         </button>
@@ -309,6 +311,31 @@ function Heatmap({ cells, todayISO }: { cells: HabitDayCell[]; todayISO: string 
           </div>
         </div>
       </div>
+      <HeatmapLegend />
+    </div>
+  );
+}
+
+/**
+ * Explains the heatmap states with a label for each — so the meaning never
+ * depends on colour alone. The "missed" swatch carries the same diagonal hatch
+ * the cells use, giving colour-blind users a shape cue to match against.
+ */
+function HeatmapLegend() {
+  return (
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-text-faint">
+      <span className="flex items-center gap-1">
+        <span className="w-3 h-3 rounded-[2px] bg-emerald-400" />
+        Met
+      </span>
+      <span className="flex items-center gap-1">
+        <span className="w-3 h-3 rounded-[2px] bg-red-500 bg-[repeating-linear-gradient(45deg,transparent,transparent_2px,rgba(255,255,255,0.55)_2px,rgba(255,255,255,0.55)_3px)]" />
+        Missed
+      </span>
+      <span className="flex items-center gap-1">
+        <span className="w-3 h-3 rounded-[2px] bg-accent/70 dark:bg-accent/55" />
+        Logged / not yet due
+      </span>
     </div>
   );
 }
@@ -371,17 +398,33 @@ function MonthSection({
                   : c.state === 'violated'
                     ? 'bg-red-500'
                     : 'bg-accent/70 dark:bg-accent/55';
+              // Colour-independent cue for colour-blind users: violated cells
+              // get a diagonal hatch so red vs green is never the only signal.
+              // Cells are too small (12px) for a glyph, so texture carries it.
+              // Neutral/un-logged days stay flat — no "missed" texture, per the
+              // forgiving-unlogged rule.
+              const hatch =
+                c.inRange && c.state === 'violated'
+                  ? 'bg-[repeating-linear-gradient(45deg,transparent,transparent_2px,rgba(255,255,255,0.55)_2px,rgba(255,255,255,0.55)_3px)]'
+                  : '';
               return (
                 <div
                   key={ri}
                   title={
                     c.inRange
-                      ? `${c.date} · ${c.count}`
+                      ? `${c.date} · ${c.count}` +
+                        (c.state === 'met'
+                          ? ' (met)'
+                          : c.state === 'violated'
+                            ? ' (missed)'
+                            : '')
                       : `${c.date} · before habit start`
                   }
                   className={
                     'w-3 h-3 rounded-[2px] ' +
                     base +
+                    ' ' +
+                    hatch +
                     (isToday ? ' ring-1 ring-text/40' : '')
                   }
                 />

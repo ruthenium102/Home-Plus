@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { localISO } from '@/lib/dates';
-import { Plus, Pencil, Lock, Users, Flame, Sparkles } from 'lucide-react';
+import { Plus, Pencil, Lock, Users, Flame, Sparkles, Check, X } from 'lucide-react';
 import { useFamily } from '@/context/FamilyContext';
 import { useTheme } from '@/context/ThemeContext';
 import { useToast } from '@/context/ToastContext';
@@ -389,10 +389,24 @@ function HabitRow({
                       : 'bg-accent/70 dark:bg-accent/55')
                 }
               >
-                {showCount && (
+                {/* Redundant, colour-independent state cue (for colour-blind
+                    users): met shows a count or a check, violated shows the
+                    count plus a small ✕ glyph so green vs red is never the
+                    only signal. Neutral/un-logged days stay blank — they
+                    deliberately carry no "missed" mark per the forgiving rule. */}
+                {showCount ? (
                   <span className="text-[9px] font-bold leading-none text-white/90 tabular-nums">
                     {d.count}
                   </span>
+                ) : state === 'met' ? (
+                  <Check size={11} strokeWidth={3} className="text-white/90" />
+                ) : null}
+                {state === 'violated' && (
+                  <X
+                    size={8}
+                    strokeWidth={3}
+                    className="absolute -top-0.5 -right-0.5 text-white bg-red-600 rounded-full p-px"
+                  />
                 )}
               </div>
               <span
@@ -411,8 +425,9 @@ function HabitRow({
       {canEdit && (
         <button
           onClick={onEdit}
-          className="w-7 h-7 rounded-md hover:bg-surface-2 flex items-center justify-center text-text-faint hover:text-text shrink-0"
+          className="w-7 h-7 min-w-[44px] min-h-[44px] rounded-md hover:bg-surface-2 flex items-center justify-center text-text-faint hover:text-text shrink-0"
           title="Edit"
+          aria-label="Edit habit"
         >
           <Pencil size={12} />
         </button>
