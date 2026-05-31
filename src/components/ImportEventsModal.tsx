@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { useFamily } from '@/context/FamilyContext';
 import { useToast } from '@/context/ToastContext';
+import { supabase } from '@/lib/supabase';
 import { Avatar } from './Avatar';
 import { getAusPublicHolidays, getWASchoolTerms, type ImportableEvent } from '@/lib/holidays';
 import type { CalendarEvent } from '@/types';
@@ -23,7 +24,7 @@ interface Props {
 type Source = 'holidays' | 'paste' | 'ical';
 
 export function ImportEventsModal({ open, onClose }: Props) {
-  const { events, members, addEvent } = useFamily();
+  const { family, events, members, addEvent } = useFamily();
   const { show } = useToast();
 
   const [source, setSource] = useState<Source>('holidays');
@@ -110,7 +111,7 @@ export function ImportEventsModal({ open, onClose }: Props) {
     setPasteLoading(true);
     setPasteError(null);
     try {
-      const events = await extractEventsFromText(pasteText);
+      const events = await extractEventsFromText(pasteText, family.id);
       setPasteResults(events);
       if (events.length === 0) {
         setPasteError("Couldn't find any clear events in that text. Try a different paste.");
@@ -483,12 +484,25 @@ function SourceTile({
  * function (Claude-powered) first; falls back to a simple regex extractor
  * if the API is unavailable (demo mode / no key configured).
  */
-async function extractEventsFromText(text: string): Promise<ImportableEvent[]> {
+async function extractEventsFromText(
+  text: string,
+  familyId: string,
+): Promise<ImportableEvent[]> {
   try {
+    const { data: sessionData } = (await supabase?.auth.getSession()) ?? {
+      data: { session: null },
+    };
+    const token = sessionData.session?.access_token;
+    // No session → skip the authed AI route and fall back to the regex extractor.
+    if (!token) return regexExtractEvents(text);
+
     const res = await fetch('/api/extract-events', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text }),
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ text, family_id: familyId }),
     });
     if (res.ok) {
       const data = await res.json();

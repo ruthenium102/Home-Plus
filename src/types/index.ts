@@ -20,7 +20,14 @@ export interface FamilyMember {
   role: Role;
   color: MemberColor;
   avatar_url: string | null; // optional uploaded photo
-  pin_hash: string | null; // null => no PIN required (e.g. small kids)
+  // Whether this member has a PIN set. In cloud mode this comes from the
+  // server (family_members.has_pin); the bcrypt hash lives only in the
+  // SECURITY-DEFINER-only member_pins table and is never sent to the client.
+  has_pin: boolean;
+  // Demo-mode ONLY: a local non-cryptographic hash so PIN gating works with no
+  // Supabase backend. Never present (or trusted) in cloud mode — there the
+  // hash is server-side and verification goes through verify_member_pin.
+  pin_hash?: string | null;
   birthday: string | null; // ISO date
   current_location: string | null; // e.g. "School", "Shanghai til Fri"
   // Optional: when a temporary location should auto-revert. ISO timestamp.

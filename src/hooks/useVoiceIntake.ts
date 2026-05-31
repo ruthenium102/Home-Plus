@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 import { useFamily } from '@/context/FamilyContext';
 import { useToast } from '@/context/ToastContext';
+import { supabase } from '@/lib/supabase';
 import { localISO } from '@/lib/dates';
 import type { ChoreFrequency, EventCategory, FamilyMember } from '@/types';
 
@@ -67,30 +68,30 @@ export function useVoiceIntake() {
    */
   const dispatch = useCallback(
     async (transcript: string) => {
-      const context = {
-        now: new Date().toISOString(),
-        timezone: family.timezone,
-        active_member: activeMember
-          ? { id: activeMember.id, name: activeMember.name, role: activeMember.role }
-          : null,
-        members: members.map((m) => ({ id: m.id, name: m.name, role: m.role })),
-        lists: lists
-          .filter((l) => !l.archived)
-          .map((l) => ({ id: l.id, name: l.name, owner_id: l.owner_id })),
-        habits: habits
-          .filter((h) => !h.archived)
-          .map((h) => ({ id: h.id, title: h.title, member_id: h.member_id })),
-        chores: chores
-          .filter((c) => !c.archived)
-          .map((c) => ({ id: c.id, title: c.title })),
+      // The serverless route now requires a Supabase session and builds the
+      // family context itself — we only send identifiers, not the data.
+      const { data: sessionData } = (await supabase?.auth.getSession()) ?? {
+        data: { session: null },
       };
+      const token = sessionData.session?.access_token;
+      if (!token) {
+        show({ message: 'Sign in to use voice', duration: 4000 });
+        return;
+      }
 
       let action: VoiceAction;
       try {
         const res = await fetch('/api/voice-intake', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ transcript, context }),
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            transcript,
+            family_id: family.id,
+            active_member_id: activeMember?.id ?? null,
+          }),
         });
         if (!res.ok) {
           show({ message: `Voice failed: ${res.status}`, duration: 4000 });
@@ -247,7 +248,7 @@ export function useVoiceIntake() {
       }
     },
     [
-      family.timezone,
+      family.id,
       activeMember,
       members,
       lists,

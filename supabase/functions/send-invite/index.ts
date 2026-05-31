@@ -19,15 +19,32 @@
 
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 
-const CORS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+const ALLOW_HEADERS = 'authorization, x-client-info, apikey, content-type';
 
-const json = (status: number, body: unknown) =>
+// Tightened from a blanket `*`. We reflect the request Origin only when it's on
+// the allow-list (the prod site, plus the Capacitor/dev origins so the iOS app
+// and local dev keep working), otherwise we fall back to SITE_URL.
+function corsHeaders(req: Request): Record<string, string> {
+  const siteUrl = (Deno.env.get('SITE_URL') || '').replace(/\/+$/, '');
+  const allowed = [
+    siteUrl,
+    'capacitor://localhost',
+    'ionic://localhost',
+    'http://localhost:5173',
+  ].filter(Boolean);
+  const origin = req.headers.get('Origin') || '';
+  const allowOrigin = allowed.includes(origin) ? origin : siteUrl || allowed[0] || '';
+  return {
+    'Access-Control-Allow-Origin': allowOrigin,
+    'Access-Control-Allow-Headers': ALLOW_HEADERS,
+    Vary: 'Origin',
+  };
+}
+
+const json = (status: number, body: unknown, cors: Record<string, string>) =>
   new Response(JSON.stringify(body), {
     status,
-    headers: { ...CORS, 'Content-Type': 'application/json' },
+    headers: { ...cors, 'Content-Type': 'application/json' },
   });
 
 const escapeHtml = (s: string) =>
@@ -132,7 +149,8 @@ async function sendViaResend(opts: {
 }
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
+  const cors = corsHeaders(req);
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
 
   try {
     const {
@@ -146,7 +164,7 @@ Deno.serve(async (req) => {
     } = await req.json();
 
     if (!email || !family_id) {
-      return json(400, { error: 'email and family_id are required' });
+      return json(400, { error: 'email and family_id are required' }, cors);
     }
 
     const supabaseAdmin = createClient(
@@ -155,28 +173,33 @@ Deno.serve(async (req) => {
       { auth: { autoRefreshToken: false, persistSession: false } },
     );
 
-    // Verify caller is authenticated and is a parent in this family
+    // Verify caller is authenticated and is a parent in this family. This check
+    // is UNCONDITIONAL: a missing/invalid Authorization header is a hard 401.
+    // (Previously the whole block was skipped when the header was absent, which
+    // let anonymous callers trigger branded invite emails — S7.)
     const authHeader = req.headers.get('Authorization');
-    if (authHeader) {
-      const callerClient = createClient(
-        Deno.env.get('SUPABASE_URL') ?? '',
-        Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-        { global: { headers: { Authorization: authHeader } } },
-      );
-      const {
-        data: { user },
-      } = await callerClient.auth.getUser();
-      if (user) {
-        const { data: member } = await supabaseAdmin
-          .from('family_members')
-          .select('role')
-          .eq('auth_user_id', user.id)
-          .eq('family_id', family_id)
-          .single();
-        if (!member || member.role !== 'parent') {
-          return json(403, { error: 'Only parents can send invitations' });
-        }
-      }
+    if (!authHeader) {
+      return json(401, { error: 'Not authenticated' }, cors);
+    }
+    const callerClient = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+      { global: { headers: { Authorization: authHeader } } },
+    );
+    const {
+      data: { user },
+    } = await callerClient.auth.getUser();
+    if (!user) {
+      return json(401, { error: 'Not authenticated' }, cors);
+    }
+    const { data: member } = await supabaseAdmin
+      .from('family_members')
+      .select('role')
+      .eq('auth_user_id', user.id)
+      .eq('family_id', family_id)
+      .single();
+    if (!member || member.role !== 'parent') {
+      return json(403, { error: 'Only parents can send invitations' }, cors);
     }
 
     // Create invitation row (with role)
@@ -190,7 +213,7 @@ Deno.serve(async (req) => {
       token,
     });
     if (insertRes.error) {
-      return json(400, { error: insertRes.error.message });
+      return json(400, { error: insertRes.error.message }, cors);
     }
 
     // Build the branded accept URL. SITE_URL secret overrides whatever the
@@ -251,14 +274,18 @@ Deno.serve(async (req) => {
           fromEmail: resendFromEmail,
           fromName: resendFromName,
         });
-        return json(200, { ok: true, token, accept_url: acceptUrl, existing: existingUser });
+        return json(200, { ok: true, token, accept_url: acceptUrl, existing: existingUser }, cors);
       } catch (err) {
         // Don't strand the invitation row — it can still be used via copy link.
-        return json(500, {
-          error: err instanceof Error ? err.message : 'Resend failed',
-          token,
-          accept_url: acceptUrl,
-        });
+        return json(
+          500,
+          {
+            error: err instanceof Error ? err.message : 'Resend failed',
+            token,
+            accept_url: acceptUrl,
+          },
+          cors,
+        );
       }
     }
 
@@ -268,12 +295,16 @@ Deno.serve(async (req) => {
       // Supabase returns a 422 and the user gets no email. Keep the invite
       // row (the email-fallback path on the client picks it up on next sign-in)
       // and tell the UI it should display a "ask them to sign in" message.
-      return json(200, {
-        ok: true,
-        token,
-        accept_url: acceptUrl,
-        existing: true,
-      });
+      return json(
+        200,
+        {
+          ok: true,
+          token,
+          accept_url: acceptUrl,
+          existing: true,
+        },
+        cors,
+      );
     }
 
     const { error: inviteErr } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
@@ -291,15 +322,19 @@ Deno.serve(async (req) => {
       // NOTE: do NOT delete the invitation row on a benign duplicate. The
       // invite link still works via the manual copy-link path / email
       // fallback in FamilyContext.
-      return json(400, {
-        error: inviteErr.message,
-        token,
-        accept_url: acceptUrl,
-      });
+      return json(
+        400,
+        {
+          error: inviteErr.message,
+          token,
+          accept_url: acceptUrl,
+        },
+        cors,
+      );
     }
 
-    return json(200, { ok: true, token, accept_url: acceptUrl, existing: false });
+    return json(200, { ok: true, token, accept_url: acceptUrl, existing: false }, cors);
   } catch (err) {
-    return json(500, { error: err instanceof Error ? err.message : 'Internal error' });
+    return json(500, { error: err instanceof Error ? err.message : 'Internal error' }, corsHeaders(req));
   }
 });

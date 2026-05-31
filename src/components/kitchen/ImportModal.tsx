@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { X, Loader2 } from 'lucide-react';
+import { supabase } from '@/lib/supabase';
 import type { Recipe } from '@/types';
 
 interface Props {
@@ -16,9 +17,20 @@ export function ImportModal({ onImport, onClose }: Props) {
     setError(null);
     setLoading(true);
     try {
+      const { data: sessionData } = (await supabase?.auth.getSession()) ?? {
+        data: { session: null },
+      };
+      const token = sessionData.session?.access_token;
+      if (!token) {
+        throw new Error('Sign in to import recipes.');
+      }
+
       const res = await fetch('/api/import-recipe', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
         body: JSON.stringify({ url }),
       });
 

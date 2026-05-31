@@ -42,45 +42,123 @@ create table if not exists family_members (
   role member_role not null default 'parent',
   color member_color not null default 'terracotta',
   avatar_url text,
-  -- bcrypt hash of PIN (managed via a postgres function below); null = no PIN
-  pin_hash text,
+  -- Whether the member has a PIN set. The bcrypt hash itself lives in the
+  -- SECURITY-DEFINER-only member_pins table (see below), never here, so no
+  -- client and no Realtime stream can ever read it. (S1 — migrate_v13)
+  has_pin boolean not null default false,
   birthday date,
   current_location text,
   -- Flexible reward balance map: { stars: 142, screen_minutes: 45, ... }
+  -- Server-authoritative: only the reward RPCs (redeem_reward etc.) may write
+  -- this; direct client writes are blocked by trg_guard_reward_balances (S3).
   reward_balances jsonb not null default '{}'::jsonb,
   created_at timestamptz not null default now()
 );
 
 create index if not exists idx_family_members_family on family_members(family_id);
 
--- Helper function to set/verify PINs server-side using pgcrypto.
--- We never trust client-hashed PINs.
+create extension if not exists pgcrypto;
+
+-- ----------------------------------------------------------------------------
+-- member_pins (S1) — the bcrypt PIN hash store.
+--
+-- No RLS policies + ALL privileges revoked from client roles => unreachable
+-- except through the SECURITY DEFINER RPCs below (which run as the function
+-- owner and bypass the grant check). This is what keeps pin_hash out of every
+-- client SELECT and out of Realtime replication.
+-- ----------------------------------------------------------------------------
+create table if not exists member_pins (
+  member_id  uuid primary key references family_members(id) on delete cascade,
+  pin_hash   text not null,
+  updated_at timestamptz not null default now()
+);
+alter table member_pins enable row level security;
+revoke all on table member_pins from public;
+revoke all on table member_pins from anon;
+revoke all on table member_pins from authenticated;
+
+-- Helper functions to set/verify PINs server-side using pgcrypto.
+-- We never trust client-hashed PINs. Both functions are caller-authorised
+-- (migrate_v13): set_member_pin requires the caller to be a parent in the
+-- member's family or the member themselves; verify_member_pin only works for
+-- callers in the same family (so it can't be used as a cross-family
+-- brute-force oracle). The hash is read/written from member_pins; has_pin on
+-- family_members mirrors whether a PIN exists.
 create or replace function set_member_pin(member uuid, pin text)
 returns void
 language plpgsql
 security definer
+set search_path = public
 as $$
+declare
+  fam            uuid;
+  caller         uuid := auth.uid();
+  caller_allowed boolean;
 begin
+  select family_id into fam from family_members where id = member;
+  if fam is null then
+    raise exception 'Member not found';
+  end if;
+
+  -- Service-role / SQL-editor context has no auth.uid(); allow it through.
+  if caller is not null then
+    select exists (
+      select 1 from family_members
+       where family_id = fam and auth_user_id = caller and role = 'parent'
+    ) or exists (
+      select 1 from family_members
+       where id = member and auth_user_id = caller
+    ) into caller_allowed;
+
+    if not caller_allowed then
+      raise exception 'Only a parent or the member themselves can change this PIN';
+    end if;
+  end if;
+
   if pin is null or length(pin) < 4 then
-    update family_members set pin_hash = null where id = member;
+    delete from member_pins where member_id = member;
+    update family_members set has_pin = false where id = member;
   else
-    update family_members set pin_hash = crypt(pin, gen_salt('bf')) where id = member;
+    insert into member_pins (member_id, pin_hash, updated_at)
+    values (member, crypt(pin, gen_salt('bf')), now())
+    on conflict (member_id)
+      do update set pin_hash = excluded.pin_hash, updated_at = now();
+    update family_members set has_pin = true where id = member;
   end if;
 end;
 $$;
+revoke execute on function set_member_pin(uuid, text) from public;
+revoke execute on function set_member_pin(uuid, text) from anon;
+grant  execute on function set_member_pin(uuid, text) to authenticated;
 
 create or replace function verify_member_pin(member uuid, pin text)
 returns boolean
 language plpgsql
 security definer
+set search_path = public
 as $$
-declare h text;
+declare
+  h      text;
+  fam    uuid;
+  caller uuid := auth.uid();
 begin
-  select pin_hash into h from family_members where id = member;
+  select family_id into fam from family_members where id = member;
+  if fam is null then
+    return false;
+  end if;
+  if caller is not null and not exists (
+    select 1 from family_members where family_id = fam and auth_user_id = caller
+  ) then
+    return false;
+  end if;
+  select pin_hash into h from member_pins where member_id = member;
   if h is null then return true; end if;
   return h = crypt(pin, h);
 end;
 $$;
+revoke execute on function verify_member_pin(uuid, text) from public;
+revoke execute on function verify_member_pin(uuid, text) from anon;
+grant  execute on function verify_member_pin(uuid, text) to authenticated;
 
 -- ============================================================================
 -- Calendar events
@@ -180,6 +258,70 @@ create policy "Member can update family rows"  on family_members
   with check (public.is_family_member(family_id));
 create policy "Member can delete family rows"  on family_members
   for delete using (public.is_family_member(family_id));
+
+-- Privilege guard (migrate_v13): the UPDATE policy above lets any family member
+-- update any member row, which on its own would let an authenticated *invited*
+-- child run `update family_members set role='parent'` on themselves. This
+-- trigger rejects changes to the privileged columns (role / family_id /
+-- auth_user_id) unless the caller is a parent of that family — while still
+-- allowing accept_invitation() to claim an unlinked placeholder row
+-- (auth_user_id NULL -> value) with its parent-issued role.
+create or replace function public.is_family_parent(p_family_id uuid)
+returns boolean
+language sql stable security definer set search_path = public as $$
+  select exists (
+    select 1 from family_members
+     where family_id = p_family_id
+       and auth_user_id = auth.uid()
+       and role = 'parent'
+  );
+$$;
+revoke execute on function public.is_family_parent(uuid) from public;
+revoke execute on function public.is_family_parent(uuid) from anon;
+grant  execute on function public.is_family_parent(uuid) to authenticated;
+
+create or replace function public.guard_family_member_privileges()
+returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  -- Service-role / SQL-editor (no JWT): trusted, allow through.
+  if auth.uid() is null then
+    return new;
+  end if;
+
+  -- A parent of this family may change anything.
+  if public.is_family_parent(old.family_id) then
+    return new;
+  end if;
+
+  -- ---- Non-parent caller from here down --------------------------------
+  if new.family_id is distinct from old.family_id then
+    raise exception 'Only a parent can change a member''s family';
+  end if;
+
+  -- Role may only change while claiming an unlinked placeholder row
+  -- (auth_user_id NULL -> value), which is what accept_invitation() does.
+  if new.role is distinct from old.role then
+    if not (old.auth_user_id is null and new.auth_user_id is not null) then
+      raise exception 'Only a parent can change a member''s role';
+    end if;
+  end if;
+
+  -- auth_user_id may only go NULL -> value (initial claim).
+  if new.auth_user_id is distinct from old.auth_user_id then
+    if old.auth_user_id is not null then
+      raise exception 'auth_user_id cannot be reassigned';
+    end if;
+  end if;
+
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_guard_family_member_privileges on family_members;
+create trigger trg_guard_family_member_privileges
+  before update on family_members
+  for each row execute function public.guard_family_member_privileges();
 
 drop policy if exists "Owner manages events"   on events;
 drop policy if exists "Members manage events"  on events;
@@ -379,6 +521,199 @@ begin
     $p$, t);
   end loop;
 end$$;
+
+-- ----------------------------------------------------------------------------
+-- S3 (migrate_v13) — server-authoritative reward balances
+--
+-- reward_balances may only change via the reward RPCs below; direct client
+-- writes are rejected by trg_guard_reward_balances. Approval transitions on
+-- chore_completions / redemptions are parent-only (RPCs + table triggers).
+-- ----------------------------------------------------------------------------
+create or replace function public.guard_reward_balances()
+returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  if new.reward_balances is distinct from old.reward_balances then
+    if auth.uid() is null then
+      return new;  -- service-role / SQL editor
+    end if;
+    if coalesce(current_setting('app.reward_mutation', true), '') <> '1' then
+      raise exception 'reward_balances can only be changed via a reward RPC';
+    end if;
+  end if;
+  return new;
+end;
+$$;
+drop trigger if exists trg_guard_reward_balances on family_members;
+create trigger trg_guard_reward_balances
+  before update on family_members
+  for each row execute function public.guard_reward_balances();
+
+create or replace function public._apply_balance_delta(p_member uuid, p_delta jsonb)
+returns void
+language plpgsql security definer set search_path = public as $$
+declare
+  k text; v numeric; cur jsonb;
+begin
+  perform set_config('app.reward_mutation', '1', true);
+  select reward_balances into cur from family_members where id = p_member for update;
+  if cur is null then cur := '{}'::jsonb; end if;
+  for k, v in select key, value::numeric from jsonb_each_text(p_delta) loop
+    cur := jsonb_set(cur, array[k],
+      to_jsonb(greatest(0, coalesce((cur->>k)::numeric, 0) + v)));
+  end loop;
+  update family_members set reward_balances = cur where id = p_member;
+  perform set_config('app.reward_mutation', '', true);
+end;
+$$;
+revoke execute on function public._apply_balance_delta(uuid, jsonb) from public;
+revoke execute on function public._apply_balance_delta(uuid, jsonb) from anon;
+revoke execute on function public._apply_balance_delta(uuid, jsonb) from authenticated;
+
+create or replace function public._require_family_for_member(p_member uuid, p_parent_only boolean)
+returns uuid
+language plpgsql security definer set search_path = public as $$
+declare fam uuid; caller uuid := auth.uid();
+begin
+  select family_id into fam from family_members where id = p_member;
+  if fam is null then raise exception 'Member not found'; end if;
+  if caller is null then return fam; end if;
+  if p_parent_only then
+    if not public.is_family_parent(fam) then raise exception 'Only a parent can do that'; end if;
+  else
+    if not public.is_family_member(fam) then raise exception 'Not a member of this family'; end if;
+  end if;
+  return fam;
+end;
+$$;
+revoke execute on function public._require_family_for_member(uuid, boolean) from public;
+revoke execute on function public._require_family_for_member(uuid, boolean) from anon;
+revoke execute on function public._require_family_for_member(uuid, boolean) from authenticated;
+
+create or replace function public.redeem_reward(
+  p_member uuid, p_category text, p_amount integer, p_reason text,
+  p_status text default 'pending_approval'
+)
+returns redemptions
+language plpgsql security definer set search_path = public as $$
+declare fam uuid; row redemptions;
+begin
+  if p_amount is null or p_amount <= 0 then raise exception 'amount must be positive'; end if;
+  fam := public._require_family_for_member(p_member, false);
+  if p_status = 'approved' and auth.uid() is not null and not public.is_family_parent(fam) then
+    raise exception 'Only a parent can approve a redemption';
+  end if;
+  if p_status not in ('pending_approval', 'approved') then raise exception 'invalid status'; end if;
+  insert into redemptions (family_id, member_id, category, amount, reason, status, approved_at)
+  values (fam, p_member, p_category, p_amount, p_reason, p_status::redemption_status,
+          case when p_status = 'approved' then now() else null end)
+  returning * into row;
+  if p_status = 'approved' then
+    perform public._apply_balance_delta(p_member, jsonb_build_object(p_category, -p_amount));
+  end if;
+  return row;
+end;
+$$;
+revoke execute on function public.redeem_reward(uuid, text, integer, text, text) from public;
+revoke execute on function public.redeem_reward(uuid, text, integer, text, text) from anon;
+grant  execute on function public.redeem_reward(uuid, text, integer, text, text) to authenticated;
+
+create or replace function public.set_redemption_status(p_id uuid, p_status text)
+returns redemptions
+language plpgsql security definer set search_path = public as $$
+declare r redemptions; fam uuid;
+begin
+  select * into r from redemptions where id = p_id;
+  if r.id is null then raise exception 'Redemption not found'; end if;
+  fam := r.family_id;
+  if auth.uid() is not null and not public.is_family_parent(fam) then
+    raise exception 'Only a parent can change a redemption status';
+  end if;
+  if r.status <> 'pending_approval' then return r; end if;
+  if p_status not in ('approved', 'rejected') then raise exception 'invalid status'; end if;
+  update redemptions
+     set status = p_status::redemption_status,
+         approved_by = (select id from family_members
+                         where family_id = fam and auth_user_id = auth.uid() limit 1),
+         approved_at = now()
+   where id = p_id returning * into r;
+  if p_status = 'approved' then
+    perform public._apply_balance_delta(r.member_id, jsonb_build_object(r.category, -r.amount));
+  end if;
+  return r;
+end;
+$$;
+revoke execute on function public.set_redemption_status(uuid, text) from public;
+revoke execute on function public.set_redemption_status(uuid, text) from anon;
+grant  execute on function public.set_redemption_status(uuid, text) to authenticated;
+
+create or replace function public.apply_chore_payout(p_member uuid, p_payout jsonb, p_direction integer)
+returns void
+language plpgsql security definer set search_path = public as $$
+declare scaled jsonb := '{}'::jsonb; k text; v numeric;
+begin
+  perform public._require_family_for_member(p_member, false);
+  if p_direction not in (1, -1) then raise exception 'direction must be 1 or -1'; end if;
+  for k, v in select key, value::numeric from jsonb_each_text(coalesce(p_payout, '{}'::jsonb)) loop
+    scaled := jsonb_set(scaled, array[k], to_jsonb(v * p_direction));
+  end loop;
+  perform public._apply_balance_delta(p_member, scaled);
+end;
+$$;
+revoke execute on function public.apply_chore_payout(uuid, jsonb, integer) from public;
+revoke execute on function public.apply_chore_payout(uuid, jsonb, integer) from anon;
+grant  execute on function public.apply_chore_payout(uuid, jsonb, integer) to authenticated;
+
+create or replace function public.set_completion_status(p_id uuid, p_status text)
+returns chore_completions
+language plpgsql security definer set search_path = public as $$
+declare c chore_completions; fam uuid;
+begin
+  select * into c from chore_completions where id = p_id;
+  if c.id is null then raise exception 'Completion not found'; end if;
+  fam := c.family_id;
+  if auth.uid() is not null and not public.is_family_parent(fam) then
+    raise exception 'Only a parent can approve or reject a chore';
+  end if;
+  if c.status <> 'pending_approval' then return c; end if;
+  if p_status not in ('approved', 'rejected') then raise exception 'invalid status'; end if;
+  update chore_completions
+     set status = p_status::chore_completion_status,
+         approved_by = (select id from family_members
+                         where family_id = fam and auth_user_id = auth.uid() limit 1),
+         approved_at = now()
+   where id = p_id returning * into c;
+  if p_status = 'approved' then
+    perform public.apply_chore_payout(c.member_id, c.payout, 1);
+  end if;
+  return c;
+end;
+$$;
+revoke execute on function public.set_completion_status(uuid, text) from public;
+revoke execute on function public.set_completion_status(uuid, text) from anon;
+grant  execute on function public.set_completion_status(uuid, text) to authenticated;
+
+create or replace function public.guard_approval_transition()
+returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  if auth.uid() is null then return new; end if;
+  if public.is_family_parent(old.family_id) then return new; end if;
+  if new.status is distinct from old.status
+     or new.approved_by is distinct from old.approved_by then
+    raise exception 'Only a parent can approve or reject';
+  end if;
+  return new;
+end;
+$$;
+drop trigger if exists trg_guard_completion_approval on chore_completions;
+create trigger trg_guard_completion_approval
+  before update on chore_completions
+  for each row execute function public.guard_approval_transition();
+drop trigger if exists trg_guard_redemption_approval on redemptions;
+create trigger trg_guard_redemption_approval
+  before update on redemptions
+  for each row execute function public.guard_approval_transition();
 
 -- ============================================================================
 -- Future tables — sketched here so we can plan the merge

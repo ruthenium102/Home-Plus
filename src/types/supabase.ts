@@ -61,7 +61,40 @@ export interface Database {
       kitchen_settings: TableShape<KitchenSettings>;
     };
     Views: Record<string, never>;
-    Functions: Record<string, never>;
+    Functions: {
+      // S1 — PIN RPCs (hash lives in the SECURITY-DEFINER-only member_pins table)
+      set_member_pin: {
+        Args: { member: string; pin: string | null };
+        Returns: undefined;
+      };
+      verify_member_pin: {
+        Args: { member: string; pin: string };
+        Returns: boolean;
+      };
+      // S3 — server-authoritative reward RPCs
+      redeem_reward: {
+        Args: {
+          p_member: string;
+          p_category: string;
+          p_amount: number;
+          p_reason: string;
+          p_status: string;
+        };
+        Returns: Redemption;
+      };
+      set_redemption_status: {
+        Args: { p_id: string; p_status: string };
+        Returns: Redemption;
+      };
+      apply_chore_payout: {
+        Args: { p_member: string; p_payout: Record<string, number>; p_direction: number };
+        Returns: undefined;
+      };
+      set_completion_status: {
+        Args: { p_id: string; p_status: string };
+        Returns: ChoreCompletion;
+      };
+    };
     Enums: Record<string, never>;
     CompositeTypes: Record<string, never>;
   };

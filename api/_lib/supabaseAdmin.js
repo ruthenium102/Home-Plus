@@ -36,3 +36,18 @@ export async function getCallerUser(req) {
   if (error || !data?.user) return null;
   return data.user;
 }
+
+// Look up the caller's family_members row for a given family. Returns the row
+// ({ id, role }) when the user is a member of that family, otherwise null.
+// Callers should 403 on null. Uses the service-role client so it works
+// regardless of the caller's own RLS visibility.
+export async function getFamilyMember(admin, userId, familyId) {
+  if (!userId || !familyId) return null;
+  const { data } = await admin
+    .from('family_members')
+    .select('id, role, name')
+    .eq('auth_user_id', userId)
+    .eq('family_id', familyId)
+    .maybeSingle();
+  return data || null;
+}

@@ -97,9 +97,25 @@ export function dbUpsert<T extends TableName>(table: T, data: Tables[T]['Insert'
   const id = typeof (data as { id?: unknown }).id === 'string' ? (data as { id: string }).id : null;
   if (id) markPending(table, id);
   if (!supabase) return;
+
+  // family_members carries some server-authoritative / non-existent columns on
+  // the TS type that must NOT be written by a generic client upsert:
+  //   • pin_hash   — demo-mode-only local field; the column was dropped server
+  //                  side (S1). PINs are set via the set_member_pin RPC.
+  //   • has_pin    — maintained server-side by the PIN RPCs.
+  //   • reward_balances — server-authoritative (S3); writes blocked by
+  //                  trg_guard_reward_balances and only change via reward RPCs.
+  let payload: unknown = data;
+  if (table === 'family_members') {
+    const { pin_hash: _ph, has_pin: _hp, reward_balances: _rb, ...rest } =
+      data as Record<string, unknown>;
+    void _ph; void _hp; void _rb;
+    payload = rest;
+  }
+
   supabase
     .from(table)
-    .upsert(data)
+    .upsert(payload as Tables[T]['Insert'])
     .then(({ error }) => {
       if (error) {
         console.warn(`[db] upsert ${table}:`, error.message);
@@ -123,6 +139,113 @@ export function dbDelete(table: TableName, id: string): void {
       }
       tailPending(table, id);
     });
+}
+
+// ---------------------------------------------------------------------------
+// PIN RPCs (S1) — the bcrypt hash lives only in the SECURITY-DEFINER-only
+// member_pins table, so set/verify must go through these RPCs in cloud mode.
+// Demo mode (no supabase) is handled by the callers via hashPinSync.
+// ---------------------------------------------------------------------------
+
+/** True when a real Supabase backend is wired up (cloud mode). */
+export function isCloud(): boolean {
+  return !!supabase;
+}
+
+/** Cloud-mode: set or clear a member's PIN via the server RPC. */
+export async function rpcSetMemberPin(memberId: string, pin: string | null): Promise<void> {
+  if (!supabase) return;
+  const { error } = await supabase.rpc('set_member_pin', { member: memberId, pin });
+  if (error) {
+    onWriteError?.({ table: 'member_pins', op: 'upsert', message: error.message });
+    throw new Error(error.message);
+  }
+}
+
+/** Cloud-mode: verify a PIN server-side. Returns true on match / no-PIN. */
+export async function rpcVerifyMemberPin(memberId: string, pin: string): Promise<boolean> {
+  if (!supabase) return true;
+  const { data, error } = await supabase.rpc('verify_member_pin', { member: memberId, pin });
+  if (error) {
+    console.warn('[db] verify_member_pin:', error.message);
+    return false;
+  }
+  return data === true;
+}
+
+// ---------------------------------------------------------------------------
+// Reward RPCs (S3) — reward_balances is server-authoritative; spends and
+// approval transitions must go through these SECURITY DEFINER RPCs in cloud
+// mode. Demo mode mutates local state directly in the callers.
+// ---------------------------------------------------------------------------
+
+/** Cloud-mode: create a redemption (and debit balance if pre-approved). */
+export async function rpcRedeemReward(
+  memberId: string,
+  category: string,
+  amount: number,
+  reason: string,
+  status: 'pending_approval' | 'approved',
+): Promise<Redemption | null> {
+  if (!supabase) return null;
+  const { data, error } = await supabase.rpc('redeem_reward', {
+    p_member: memberId,
+    p_category: category,
+    p_amount: amount,
+    p_reason: reason,
+    p_status: status,
+  });
+  if (error) {
+    onWriteError?.({ table: 'redemptions', op: 'upsert', message: error.message });
+    throw new Error(error.message);
+  }
+  return (data as Redemption) ?? null;
+}
+
+/** Cloud-mode: parent approve/reject of a pending redemption (debits on approve). */
+export async function rpcSetRedemptionStatus(
+  id: string,
+  status: 'approved' | 'rejected',
+): Promise<Redemption | null> {
+  if (!supabase) return null;
+  const { data, error } = await supabase.rpc('set_redemption_status', { p_id: id, p_status: status });
+  if (error) {
+    onWriteError?.({ table: 'redemptions', op: 'upsert', message: error.message });
+    throw new Error(error.message);
+  }
+  return (data as Redemption) ?? null;
+}
+
+/** Cloud-mode: credit (1) or reverse (-1) a chore payout to a member's balance. */
+export async function rpcApplyChorePayout(
+  memberId: string,
+  payout: Record<string, number>,
+  direction: 1 | -1,
+): Promise<void> {
+  if (!supabase) return;
+  const { error } = await supabase.rpc('apply_chore_payout', {
+    p_member: memberId,
+    p_payout: payout,
+    p_direction: direction,
+  });
+  if (error) {
+    onWriteError?.({ table: 'family_members', op: 'upsert', message: error.message });
+    throw new Error(error.message);
+  }
+}
+
+/** Cloud-mode: parent approve/reject of a pending chore completion (credits on approve). */
+export async function rpcSetCompletionStatus(
+  id: string,
+  status: 'approved' | 'rejected',
+): Promise<ChoreCompletion | null> {
+  if (!supabase) return null;
+  const { data, error } = await supabase.rpc('set_completion_status', { p_id: id, p_status: status });
+  if (error) {
+    onWriteError?.({ table: 'chore_completions', op: 'upsert', message: error.message });
+    throw new Error(error.message);
+  }
+  return (data as ChoreCompletion) ?? null;
 }
 
 // ---------------------------------------------------------------------------
@@ -231,8 +354,13 @@ export async function dbCreateFamily(
     return;
   }
 
+  // Strip demo-only / server-managed columns (see dbUpsert): pin_hash was
+  // dropped server side, has_pin is RPC-maintained.
+  const { pin_hash: _ph, has_pin: _hp, ...memberRow } =
+    member as FamilyMember & { pin_hash?: string | null };
+  void _ph; void _hp;
   const { error: me } = await supabase.from('family_members').insert({
-    ...member,
+    ...memberRow,
     auth_user_id: ownerUserId,
   });
   if (me) console.warn('[db] createMember:', me.message);

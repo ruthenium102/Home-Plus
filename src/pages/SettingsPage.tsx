@@ -657,9 +657,9 @@ function MemberRow({
       <button
         onClick={onSetPin}
         className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs border border-border hover:bg-surface-2 text-text-muted whitespace-nowrap"
-        title={member.pin_hash ? 'Change or remove PIN' : 'Set a PIN'}
+        title={member.has_pin ? 'Change or remove PIN' : 'Set a PIN'}
       >
-        {member.pin_hash ? (
+        {member.has_pin ? (
           <>
             <Lock size={12} /> PIN set
           </>

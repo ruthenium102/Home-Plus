@@ -4,14 +4,21 @@
 
 import { extractJsonLdRecipe, isCompleteRecipe } from './_lib/recipeExtractor.js';
 import { extractWithClaude } from './_lib/claudeExtractor.js';
+import { getCallerUser } from './_lib/supabaseAdmin.js';
+import { assertSafeUrl, safeFetch, SsrfError } from './_lib/ssrfGuard.js';
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ ok: false, error: 'Method not allowed' });
+
+  // Require a valid Supabase session — this endpoint fetches arbitrary URLs
+  // server-side, so it must never be reachable anonymously.
+  const user = await getCallerUser(req);
+  if (!user) return res.status(401).json({ ok: false, error: 'Not authenticated' });
 
   try {
     const { url } = req.body || {};
@@ -19,11 +26,15 @@ export default async function handler(req, res) {
       return res.status(400).json({ ok: false, error: "Missing 'url' in request body" });
     }
 
+    // SSRF guard: reject loopback / RFC1918 / link-local / metadata hosts up
+    // front (safeFetch re-validates again on every redirect hop).
     let parsedUrl;
     try {
-      parsedUrl = new URL(url);
-      if (!['http:', 'https:'].includes(parsedUrl.protocol)) throw new Error();
-    } catch {
+      parsedUrl = await assertSafeUrl(url);
+    } catch (err) {
+      if (err instanceof SsrfError) {
+        return res.status(400).json({ ok: false, error: err.message });
+      }
       return res.status(400).json({ ok: false, error: 'Invalid URL' });
     }
 
@@ -74,7 +85,7 @@ function normalizeForApp(recipe) {
 
 async function fetchPage(url) {
   try {
-    const res = await fetch(url, {
+    const res = await safeFetch(url, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
         'Accept': 'text/html,application/xhtml+xml',
@@ -85,6 +96,7 @@ async function fetchPage(url) {
     if (!res.ok) return null;
     return await res.text();
   } catch {
+    // SsrfError (internal redirect target), network error, or timeout.
     return null;
   }
 }

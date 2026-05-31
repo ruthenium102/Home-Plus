@@ -16,9 +16,9 @@ export function UserSwitcher({ onClose, fullscreen = false }: Props) {
   const [selected, setSelected] = useState<FamilyMember | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const handlePin = (pin: string) => {
+  const handlePin = async (pin: string) => {
     if (!selected) return;
-    const res = signInAs(selected.id, pin);
+    const res = await signInAs(selected.id, pin);
     if (!res.ok) {
       setError(res.error || 'Try again');
       return;
@@ -27,12 +27,12 @@ export function UserSwitcher({ onClose, fullscreen = false }: Props) {
     onClose?.();
   };
 
-  const handleSelectMember = (m: FamilyMember) => {
+  const handleSelectMember = async (m: FamilyMember) => {
     setSelected(m);
     setError(null);
-    if (!m.pin_hash) {
+    if (!m.has_pin) {
       // No PIN — sign in immediately
-      const res = signInAs(m.id, null);
+      const res = await signInAs(m.id, null);
       if (res.ok) onClose?.();
     }
   };

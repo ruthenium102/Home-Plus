@@ -1,17 +1,15 @@
 /**
  * POST /api/voice-intake
+ * Auth: Authorization: Bearer <supabase session token> (required)
  * Body: {
  *   transcript: string,
- *   context: {
- *     now: string,              // ISO datetime
- *     timezone: string,
- *     active_member: { id, name, role },
- *     members: Array<{ id, name, role }>,
- *     lists: Array<{ id, name, owner_id }>,
- *     habits: Array<{ id, title, member_id }>,
- *     chores?: Array<{ id, title }>
- *   }
+ *   family_id: uuid,
+ *   active_member_id?: uuid   // the PIN-selected profile on the tablet
  * }
+ *
+ * The family context (members / lists / habits / chores / timezone) is fetched
+ * server-side from the caller's family — we never trust a client-supplied
+ * context payload, so a member can't smuggle in another family's ids.
  *
  * Returns: { action: { kind, ...payload } }
  *
@@ -26,21 +24,45 @@
  * Requires ANTHROPIC_API_KEY. Without it, falls back to a tiny heuristic that
  * only handles "add X to <list>" so the demo still feels alive.
  */
+import { getCallerUser, getSupabaseAdmin, getFamilyMember } from './_lib/supabaseAdmin.js';
+import { checkRateLimit } from './_lib/rateLimit.js';
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { transcript, context } = req.body || {};
+  // Require a valid Supabase session and family membership before spending any
+  // Anthropic credit.
+  const user = await getCallerUser(req);
+  if (!user) return res.status(401).json({ error: 'Not authenticated' });
+
+  const { transcript, family_id, active_member_id } = req.body || {};
   if (typeof transcript !== 'string' || transcript.trim().length === 0) {
     return res.status(400).json({ error: 'Missing transcript' });
   }
   if (transcript.length > 1000) {
     return res.status(400).json({ error: 'Transcript too long' });
   }
-  if (!context || typeof context !== 'object') {
-    return res.status(400).json({ error: 'Missing context' });
+  if (!family_id || typeof family_id !== 'string') {
+    return res.status(400).json({ error: 'family_id is required' });
   }
+
+  const admin = getSupabaseAdmin();
+  const member = await getFamilyMember(admin, user.id, family_id);
+  if (!member) return res.status(403).json({ error: 'Not a member of this family' });
+
+  // Per-user rate limit (best-effort, per-instance — see rateLimit.js).
+  const rl = checkRateLimit(`voice:${user.id}`, { limit: 20, windowMs: 60_000 });
+  if (!rl.allowed) {
+    res.setHeader('Retry-After', String(rl.retryAfterSec));
+    return res.status(429).json({ error: 'Too many requests. Try again shortly.' });
+  }
+
+  // Build the family context server-side from the DB. Never trust a
+  // client-supplied context — that's how a member could reference another
+  // family's list/habit ids.
+  const context = await loadFamilyContext(admin, family_id, active_member_id);
 
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
@@ -99,6 +121,43 @@ export default async function handler(req, res) {
     console.error('voice-intake error:', err);
     return res.status(500).json({ error: 'Server error' });
   }
+}
+
+// Fetch the family's members / lists / habits / chores / timezone server-side
+// so the model prompt is built from trusted data, not the client payload.
+async function loadFamilyContext(admin, familyId, activeMemberId) {
+  const [familyRes, membersRes, listsRes, habitsRes, choresRes] = await Promise.all([
+    admin.from('families').select('timezone').eq('id', familyId).maybeSingle(),
+    admin.from('family_members').select('id, name, role').eq('family_id', familyId),
+    admin
+      .from('todo_lists')
+      .select('id, name, owner_id')
+      .eq('family_id', familyId)
+      .eq('archived', false),
+    admin
+      .from('habits')
+      .select('id, title, member_id')
+      .eq('family_id', familyId)
+      .eq('archived', false),
+    admin
+      .from('chores')
+      .select('id, title')
+      .eq('family_id', familyId)
+      .eq('archived', false),
+  ]);
+
+  const members = membersRes.data || [];
+  const active = activeMemberId ? members.find((m) => m.id === activeMemberId) : null;
+
+  return {
+    now: new Date().toISOString(),
+    timezone: familyRes.data?.timezone || 'UTC',
+    active_member: active ? { id: active.id, name: active.name, role: active.role } : null,
+    members: members.map((m) => ({ id: m.id, name: m.name, role: m.role })),
+    lists: listsRes.data || [],
+    habits: habitsRes.data || [],
+    chores: choresRes.data || [],
+  };
 }
 
 function buildSystemPrompt(ctx) {

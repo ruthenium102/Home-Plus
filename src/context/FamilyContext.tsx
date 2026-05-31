@@ -9,7 +9,21 @@ import {
   ReactNode,
 } from 'react';
 import { localISO } from '@/lib/dates';
-import { dbUpsert, dbDelete, dbLoadFamily, dbCreateFamily, isPendingWrite, setDbErrorHandler } from '@/lib/db';
+import {
+  dbUpsert,
+  dbDelete,
+  dbLoadFamily,
+  dbCreateFamily,
+  isPendingWrite,
+  setDbErrorHandler,
+  isCloud,
+  rpcSetMemberPin,
+  rpcVerifyMemberPin,
+  rpcRedeemReward,
+  rpcSetRedemptionStatus,
+  rpcApplyChorePayout,
+  rpcSetCompletionStatus,
+} from '@/lib/db';
 import { useToast } from '@/context/ToastContext';
 import { syncEventToGoogle, unsyncEventFromGoogle } from '@/lib/googleSync';
 import { hapticLight } from '@/lib/native';
@@ -76,7 +90,7 @@ interface FamilyContextValue {
   isDemoMode: boolean;
 
   // Auth
-  signInAs: (memberId: string, pin: string | null) => { ok: boolean; error?: string };
+  signInAs: (memberId: string, pin: string | null) => Promise<{ ok: boolean; error?: string }>;
   signOut: () => void;
 
   // Events
@@ -97,7 +111,7 @@ interface FamilyContextValue {
   reorderLists: (orderedIds: string[]) => void;
   /** Update positions on items within a single list (uses TodoItem.position). */
   reorderListItems: (listId: string, orderedItemIds: string[]) => void;
-  setMemberPin: (id: string, pin: string | null) => void;
+  setMemberPin: (id: string, pin: string | null) => Promise<void>;
   setMemberLocation: (id: string, location: string | null, until: string | null) => void;
 
   // Chores
@@ -563,6 +577,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
         role: 'parent',
         color: 'terracotta',
         avatar_url: null,
+        has_pin: false,
         pin_hash: null,
         birthday: null,
         current_location: null,
@@ -802,12 +817,17 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
   // ---- Auth ----------------------------------------------------------------
 
   const signInAs = useCallback(
-    (memberId: string, pin: string | null): { ok: boolean; error?: string } => {
+    async (memberId: string, pin: string | null): Promise<{ ok: boolean; error?: string }> => {
       const m = members.find((x) => x.id === memberId);
       if (!m) return { ok: false, error: 'Member not found' };
-      if (m.pin_hash) {
+      if (m.has_pin) {
         if (!pin) return { ok: false, error: 'PIN required' };
-        if (!verifyPinSync(pin, m.pin_hash)) return { ok: false, error: 'Wrong PIN' };
+        // Cloud mode verifies server-side (the hash never leaves the DB);
+        // demo mode falls back to the local non-crypto hash.
+        const ok = isCloud()
+          ? await rpcVerifyMemberPin(memberId, pin)
+          : verifyPinSync(pin, m.pin_hash ?? null);
+        if (!ok) return { ok: false, error: 'Wrong PIN' };
       }
       setSession({ member_id: memberId, authenticated_at: Date.now() });
       return { ok: true };
@@ -1136,14 +1156,25 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
     );
   }, []);
 
-  const setMemberPin = useCallback((id: string, pin: string | null) => {
+  const setMemberPin = useCallback(async (id: string, pin: string | null) => {
+    const hasPin = pin !== null;
+    if (isCloud()) {
+      // Cloud mode: the hash is written server-side via the RPC (it lands in
+      // the SECURITY-DEFINER-only member_pins table and never touches the
+      // client). We only mirror the readable has_pin indicator locally.
+      await rpcSetMemberPin(id, pin);
+      setMembers((prev) =>
+        prev.map((m) => (m.id === id ? { ...m, has_pin: hasPin } : m)),
+      );
+      return;
+    }
+    // Demo mode: keep the local non-crypto hash so PIN gating works offline.
     setMembers((prev) =>
-      prev.map((m) => {
-        if (m.id !== id) return m;
-        const updated = { ...m, pin_hash: pin ? hashPinSync(pin) : null };
-        dbUpsert('family_members', updated);
-        return updated;
-      }),
+      prev.map((m) =>
+        m.id === id
+          ? { ...m, pin_hash: pin ? hashPinSync(pin) : null, has_pin: hasPin }
+          : m,
+      ),
     );
   }, []);
 
@@ -1243,7 +1274,11 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
       dbUpsert('chore_completions', completion);
 
       if (status === 'approved') {
+        // Optimistic local credit for snappy UX; the next poll reconciles.
         setMembers((prev) => applyPayout(prev, memberId, chore.payout, 1));
+        // Cloud mode: balances are server-authoritative (S3), so the actual
+        // credit must go through the RPC. Demo mode keeps the local update.
+        if (isCloud()) void rpcApplyChorePayout(memberId, chore.payout, 1);
       }
 
       return completion;
@@ -1257,6 +1292,8 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
       if (!target) return prev;
       if (target.status === 'approved') {
         setMembers((m) => applyPayout(m, target.member_id, target.payout, -1));
+        // Cloud: reverse the credit server-side (S3). Demo: local only.
+        if (isCloud()) void rpcApplyChorePayout(target.member_id, target.payout, -1);
       }
       dbDelete('chore_completions', completionId);
       return prev.filter((c) => c.id !== completionId);
@@ -1264,10 +1301,17 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const approveCompletion = useCallback((completionId: string, approverId: string) => {
+    const cloud = isCloud();
     setCompletions((prev) => {
       const target = prev.find((c) => c.id === completionId);
       if (!target || target.status !== 'pending_approval') return prev;
+      // Optimistic local credit; cloud mode reconciles from the RPC + poll.
       setMembers((m) => applyPayout(m, target.member_id, target.payout, 1));
+      if (cloud) {
+        // Server-authoritative (S3): the RPC flips status AND credits the
+        // balance atomically, and enforces parent-only at the DB.
+        void rpcSetCompletionStatus(completionId, 'approved');
+      }
       return prev.map((c) => {
         if (c.id !== completionId) return c;
         const updated = {
@@ -1276,29 +1320,29 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
           approved_by: approverId,
           approved_at: new Date().toISOString(),
         };
-        dbUpsert('chore_completions', updated);
+        if (!cloud) dbUpsert('chore_completions', updated);
         return updated;
       });
     });
   }, []);
 
-  const rejectCompletion = useCallback(
-    (completionId: string, approverId: string) =>
-      setCompletions((prev) =>
-        prev.map((c) => {
-          if (c.id !== completionId) return c;
-          const updated = {
-            ...c,
-            status: 'rejected' as const,
-            approved_by: approverId,
-            approved_at: new Date().toISOString(),
-          };
-          dbUpsert('chore_completions', updated);
-          return updated;
-        }),
-      ),
-    [],
-  );
+  const rejectCompletion = useCallback((completionId: string, approverId: string) => {
+    const cloud = isCloud();
+    if (cloud) void rpcSetCompletionStatus(completionId, 'rejected');
+    setCompletions((prev) =>
+      prev.map((c) => {
+        if (c.id !== completionId) return c;
+        const updated = {
+          ...c,
+          status: 'rejected' as const,
+          approved_by: approverId,
+          approved_at: new Date().toISOString(),
+        };
+        if (!cloud) dbUpsert('chore_completions', updated);
+        return updated;
+      }),
+    );
+  }, []);
 
   // ---- Redemptions ---------------------------------------------------------
 
@@ -1322,10 +1366,26 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
       };
 
       setRedemptions((prev) => [...prev, redemption]);
-      dbUpsert('redemptions', redemption);
 
-      if (autoApprove) {
-        setMembers((prev) => applyPayout(prev, memberId, { [category]: amount } as any, -1));
+      if (isCloud()) {
+        // Server-authoritative (S3): redeem_reward inserts the redemption and
+        // (when pre-approved) debits the balance atomically at the DB.
+        void rpcRedeemReward(
+          memberId,
+          category,
+          amount,
+          reason,
+          autoApprove ? 'approved' : 'pending_approval',
+        );
+        if (autoApprove) {
+          setMembers((prev) => applyPayout(prev, memberId, { [category]: amount } as any, -1));
+        }
+      } else {
+        // Demo mode: persist + debit locally.
+        dbUpsert('redemptions', redemption);
+        if (autoApprove) {
+          setMembers((prev) => applyPayout(prev, memberId, { [category]: amount } as any, -1));
+        }
       }
 
       return redemption;
@@ -1334,10 +1394,17 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
   );
 
   const approveRedemption = useCallback((id: string, approverId: string) => {
+    const cloud = isCloud();
     setRedemptions((prev) => {
       const r = prev.find((x) => x.id === id);
       if (!r || r.status !== 'pending_approval') return prev;
+      // Optimistic local debit; cloud mode reconciles from the RPC + poll.
       setMembers((m) => applyPayout(m, r.member_id, { [r.category]: r.amount } as any, -1));
+      if (cloud) {
+        // Server-authoritative (S3): RPC flips status AND debits atomically,
+        // and enforces parent-only at the DB.
+        void rpcSetRedemptionStatus(id, 'approved');
+      }
       return prev.map((x) => {
         if (x.id !== id) return x;
         const updated = {
@@ -1346,29 +1413,29 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
           approved_by: approverId,
           approved_at: new Date().toISOString(),
         };
-        dbUpsert('redemptions', updated);
+        if (!cloud) dbUpsert('redemptions', updated);
         return updated;
       });
     });
   }, []);
 
-  const rejectRedemption = useCallback(
-    (id: string, approverId: string) =>
-      setRedemptions((prev) =>
-        prev.map((x) => {
-          if (x.id !== id) return x;
-          const updated = {
-            ...x,
-            status: 'rejected' as const,
-            approved_by: approverId,
-            approved_at: new Date().toISOString(),
-          };
-          dbUpsert('redemptions', updated);
-          return updated;
-        }),
-      ),
-    [],
-  );
+  const rejectRedemption = useCallback((id: string, approverId: string) => {
+    const cloud = isCloud();
+    if (cloud) void rpcSetRedemptionStatus(id, 'rejected');
+    setRedemptions((prev) =>
+      prev.map((x) => {
+        if (x.id !== id) return x;
+        const updated = {
+          ...x,
+          status: 'rejected' as const,
+          approved_by: approverId,
+          approved_at: new Date().toISOString(),
+        };
+        if (!cloud) dbUpsert('redemptions', updated);
+        return updated;
+      }),
+    );
+  }, []);
 
   // ---- Goals ---------------------------------------------------------------
 
@@ -1585,6 +1652,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
         const streak = computeStreak(nextCheckIns, habitId, memberId);
         const reward = STREAK_MILESTONES[streak];
         if (reward) {
+          // Optimistic local credit; cloud mode reconciles from the RPC + poll.
           setMembers((prev) =>
             prev.map((m) =>
               m.id === memberId
@@ -1598,6 +1666,8 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
                 : m,
             ),
           );
+          // Cloud mode: balances are server-authoritative (S3).
+          if (isCloud()) void rpcApplyChorePayout(memberId, { stars: reward }, 1);
         }
       }
     },

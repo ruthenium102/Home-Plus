@@ -17,6 +17,7 @@ const BLANK: Omit<FamilyMember, 'id' | 'created_at' | 'family_id'> = {
   role: 'child',
   color: 'dusty-blue',
   avatar_url: null,
+  has_pin: false,
   pin_hash: null,
   birthday: null,
   current_location: null,

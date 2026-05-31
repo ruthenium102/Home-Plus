@@ -9,9 +9,33 @@
  * If the env var isn't set, returns 501 — the frontend falls back to its
  * regex-based extractor.
  */
+import { getCallerUser, getSupabaseAdmin, getFamilyMember } from './_lib/supabaseAdmin.js';
+import { checkRateLimit } from './_lib/rateLimit.js';
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  // Require a valid Supabase session and family membership before spending any
+  // Anthropic credit.
+  const user = await getCallerUser(req);
+  if (!user) return res.status(401).json({ error: 'Not authenticated' });
+
+  const { text, family_id } = req.body || {};
+  if (!family_id || typeof family_id !== 'string') {
+    return res.status(400).json({ error: 'family_id is required' });
+  }
+
+  const admin = getSupabaseAdmin();
+  const member = await getFamilyMember(admin, user.id, family_id);
+  if (!member) return res.status(403).json({ error: 'Not a member of this family' });
+
+  // Per-user rate limit (best-effort, per-instance — see rateLimit.js).
+  const rl = checkRateLimit(`extract:${user.id}`, { limit: 10, windowMs: 60_000 });
+  if (!rl.allowed) {
+    res.setHeader('Retry-After', String(rl.retryAfterSec));
+    return res.status(429).json({ error: 'Too many requests. Try again shortly.' });
   }
 
   const apiKey = process.env.ANTHROPIC_API_KEY;
@@ -22,7 +46,6 @@ export default async function handler(req, res) {
     });
   }
 
-  const { text } = req.body || {};
   if (typeof text !== 'string' || text.trim().length === 0) {
     return res.status(400).json({ error: 'Missing or empty `text` field' });
   }

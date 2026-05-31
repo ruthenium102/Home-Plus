@@ -4,6 +4,7 @@ import { useFamily } from '@/context/FamilyContext';
 import { Avatar } from './Avatar';
 import { PinPad } from './PinPad';
 import { verifyPinSync } from '@/lib/storage';
+import { isCloud, rpcVerifyMemberPin } from '@/lib/db';
 import type { FamilyMember } from '@/types';
 
 interface Props {
@@ -26,7 +27,7 @@ export function SetPinModal({ open, member, onClose }: Props) {
 
   if (!open || !member) return null;
 
-  const hasPin = member.pin_hash !== null;
+  const hasPin = member.has_pin;
   // Parent override: a parent editing another member's PIN can bypass the
   // current-PIN check entirely (covers the "kid forgot their PIN" case).
   const canOverride = activeMember?.role === 'parent' && activeMember.id !== member.id;
@@ -55,17 +56,22 @@ export function SetPinModal({ open, member, onClose }: Props) {
     setPadResetKey((k) => k + 1);
   };
 
-  const handlePinComplete = (pin: string) => {
+  const handlePinComplete = async (pin: string) => {
     setError(null);
 
     if (currentStep === 'verify_current') {
-      if (!verifyPinSync(pin, member.pin_hash)) {
+      // Cloud mode verifies server-side (hash never leaves the DB); demo mode
+      // falls back to the local non-crypto hash.
+      const ok = isCloud()
+        ? await rpcVerifyMemberPin(member.id, pin)
+        : verifyPinSync(pin, member.pin_hash ?? null);
+      if (!ok) {
         setError('Wrong PIN');
         return;
       }
       // Verified — now choose what to do
       if (mode === 'remove') {
-        setMemberPin(member.id, null);
+        await setMemberPin(member.id, null);
         handleClose();
       } else {
         advance('enter_new');
@@ -86,7 +92,7 @@ export function SetPinModal({ open, member, onClose }: Props) {
         advance('enter_new');
         return;
       }
-      setMemberPin(member.id, pin);
+      await setMemberPin(member.id, pin);
       handleClose();
       return;
     }
@@ -139,7 +145,7 @@ export function SetPinModal({ open, member, onClose }: Props) {
               onClick={() => {
                 if (canOverride) {
                   // Parent skips verification and removes directly.
-                  setMemberPin(member.id, null);
+                  void setMemberPin(member.id, null);
                   handleClose();
                   return;
                 }
