@@ -30,7 +30,7 @@
 -- the SECURITY DEFINER RPCs below — and expose a readable has_pin boolean on
 -- family_members so the UI can still show whether a member has a PIN set.
 
-create extension if not exists pgcrypto;
+create extension if not exists pgcrypto with schema extensions;
 
 -- The hash store. No RLS policies and ALL privileges revoked from client
 -- roles => unreachable except through SECURITY DEFINER functions (which run
@@ -83,7 +83,7 @@ create or replace function public.set_member_pin(member uuid, pin text)
 returns void
 language plpgsql
 security definer
-set search_path = public
+set search_path = public, extensions
 as $$
 declare
   fam            uuid;
@@ -134,7 +134,7 @@ create or replace function public.verify_member_pin(member uuid, pin text)
 returns boolean
 language plpgsql
 security definer
-set search_path = public
+set search_path = public, extensions
 as $$
 declare
   h      text;
