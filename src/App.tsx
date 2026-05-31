@@ -156,8 +156,10 @@ function AppShell() {
 
       <div
         className={
-          'max-w-6xl mx-auto p-3 sm:p-6 ' +
-          (dockIsSide ? (railOpen ? 'pb-8 ml-56' : 'pb-8') : 'pb-28 sm:pb-36')
+          'mx-auto p-3 sm:p-6 ' +
+          // On a side rail (iPad landscape), let content use the full width
+          // beside the rail instead of clamping to a centred phone column.
+          (dockIsSide ? (railOpen ? 'pb-8 ml-56' : 'pb-8') : 'max-w-6xl pb-28 sm:pb-36')
         }
         style={
           dockIsSide

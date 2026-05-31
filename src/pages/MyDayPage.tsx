@@ -36,6 +36,7 @@ import {
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { useFamily } from '@/context/FamilyContext';
+import { usePointerDragToDrop } from '@/hooks/usePointerDragToDrop';
 import { localISO } from '@/lib/dates';
 import {
   PX_PER_MIN,
@@ -352,7 +353,8 @@ function BlockOnTimeline({ block, onCommit, onToggleDone, onRemove }: BlockOnTim
 interface TimelineProps {
   blocks: DayPlanBlock[];
   isToday: boolean;
-  onDropPoolItem: (poolItemId: string, startMin: number) => void;
+  dragOver: boolean;
+  gridRef: React.RefObject<HTMLDivElement>;
   onUpdateBlock: (id: string, patch: { start_min?: number; duration_min?: number }) => void;
   onToggleDone: (id: string) => void;
   onRemove: (id: string) => void;
@@ -361,13 +363,12 @@ interface TimelineProps {
 function Timeline({
   blocks,
   isToday,
-  onDropPoolItem,
+  dragOver,
+  gridRef,
   onUpdateBlock,
   onToggleDone,
   onRemove,
 }: TimelineProps) {
-  const gridRef = useRef<HTMLDivElement>(null);
-  const [dragOver, setDragOver] = useState(false);
   const [now, setNow] = useState(new Date());
 
   useEffect(() => {
@@ -386,35 +387,10 @@ function Timeline({
   const nowTop = (nowMin - TIMELINE_START_MIN) * PX_PER_MIN;
   const showNow = isToday && nowMin >= TIMELINE_START_MIN && nowMin <= TIMELINE_END_MIN;
 
-  const minForClientY = (clientY: number): number => {
-    const rect = gridRef.current?.getBoundingClientRect();
-    if (!rect) return TIMELINE_START_MIN;
-    const min = TIMELINE_START_MIN + (clientY - rect.top) / PX_PER_MIN;
-    return snapMin(Math.max(TIMELINE_START_MIN, Math.min(TIMELINE_END_MIN - SNAP_MIN, min)));
-  };
-
   return (
     <div
       ref={gridRef}
-      onDragOver={(e) => {
-        e.preventDefault();
-        setDragOver(true);
-      }}
-      onDragLeave={() => setDragOver(false)}
-      onDrop={(e) => {
-        e.preventDefault();
-        setDragOver(false);
-        const raw = e.dataTransfer.getData('text/plain');
-        if (!raw) return;
-        try {
-          const data = JSON.parse(raw) as { type: 'pool'; id: string };
-          if (data.type === 'pool') {
-            onDropPoolItem(data.id, minForClientY(e.clientY));
-          }
-        } catch {
-          /* ignore */
-        }
-      }}
+      data-myday-drop="grid"
       className={'card relative overflow-hidden ' + (dragOver ? 'ring-2 ring-accent/40' : '')}
       style={{ height: totalHeight + 20 /* small bottom pad */ }}
     >
@@ -483,18 +459,20 @@ interface PoolItemProps {
   item: ActivityPoolItem;
   onEdit: () => void;
   onDelete: () => void;
+  onDragStart: (poolItemId: string, e: React.PointerEvent) => void;
+  isDragging: boolean;
 }
 
-function PoolItemChip({ item, onEdit, onDelete }: PoolItemProps) {
+function PoolItemChip({ item, onEdit, onDelete, onDragStart, isDragging }: PoolItemProps) {
   const Icon = resolveIcon(item.icon);
   return (
     <div
-      draggable
-      onDragStart={(e) => {
-        e.dataTransfer.setData('text/plain', JSON.stringify({ type: 'pool', id: item.id }));
-        e.dataTransfer.effectAllowed = 'copy';
-      }}
-      className="relative flex items-center gap-2 px-2.5 py-2 rounded-lg bg-surface-2 border border-border hover:border-accent/40 cursor-grab active:cursor-grabbing group"
+      onPointerDown={(e) => onDragStart(item.id, e)}
+      className={
+        'relative flex items-center gap-2 px-2.5 py-2 rounded-lg bg-surface-2 border border-border hover:border-accent/40 cursor-grab active:cursor-grabbing group select-none ' +
+        (isDragging ? 'opacity-50' : '')
+      }
+      style={isDragging ? { touchAction: 'none' } : undefined}
       title="Drag onto the timeline"
     >
       <Icon size={14} className="text-accent shrink-0" />
@@ -668,6 +646,57 @@ export function MyDayPage() {
   >(null);
   const [date, setDate] = useState<string>(localISO());
   const [poolQuery, setPoolQuery] = useState('');
+  const gridRef = useRef<HTMLDivElement>(null);
+
+  // Pointer-drag of a pool chip onto the timeline grid. HTML5 DnD does not
+  // work on iOS touch, so we use the shared pointer-drag-to-drop helper (the
+  // same mechanism the Calendar uses). Refs hold the data the drop handler
+  // needs so the hook's `onDrop` closure stays stable.
+  const activeMemberRef = useRef(activeMember);
+  activeMemberRef.current = activeMember;
+  const dateRef = useRef(date);
+  dateRef.current = date;
+  const poolRef = useRef(activityPool);
+  poolRef.current = activityPool;
+
+  const poolDrag = usePointerDragToDrop<string>({
+    dropAttr: 'myday-drop',
+    onDrop: (poolItemId, _dropId, _x, clientY) => {
+      const member = activeMemberRef.current;
+      if (!member) return;
+      const item = poolRef.current.find((p) => p.id === poolItemId);
+      if (!item) return;
+      const rect = gridRef.current?.getBoundingClientRect();
+      const rawMin = rect
+        ? TIMELINE_START_MIN + (clientY - rect.top) / PX_PER_MIN
+        : TIMELINE_START_MIN;
+      const startMin = snapMin(
+        Math.max(TIMELINE_START_MIN, Math.min(TIMELINE_END_MIN - SNAP_MIN, rawMin)),
+      );
+      const startSafe = clampStartMin(startMin, item.default_duration_min);
+      addDayPlanBlock({
+        member_id: member.id,
+        date: dateRef.current,
+        section: sectionForMin(startSafe),
+        source: 'other',
+        source_id: poolItemId,
+        title: item.title,
+        icon: item.icon,
+        duration_min: item.default_duration_min,
+        position: 0,
+        done: false,
+        done_at: null,
+        start_min: startSafe,
+      });
+    },
+  });
+
+  const startPoolDrag = (poolItemId: string, e: React.PointerEvent) => {
+    // Let the inner edit/delete buttons handle their own taps.
+    const t = e.target as HTMLElement | null;
+    if (t && t.closest('button, a, input, textarea, select, [contenteditable]')) return;
+    poolDrag.start(poolItemId, e);
+  };
 
   if (!activeMember) return null;
 
@@ -686,26 +715,6 @@ export function MyDayPage() {
 
   const totalDone = memberBlocks.filter((b) => b.done).length;
   const total = memberBlocks.length;
-
-  const handleDropPoolItem = (poolItemId: string, startMin: number) => {
-    const item = allPool.find((p) => p.id === poolItemId);
-    if (!item) return;
-    const startSafe = clampStartMin(startMin, item.default_duration_min);
-    addDayPlanBlock({
-      member_id: activeMember.id,
-      date,
-      section: sectionForMin(startSafe),
-      source: 'other',
-      source_id: poolItemId,
-      title: item.title,
-      icon: item.icon,
-      duration_min: item.default_duration_min,
-      position: 0,
-      done: false,
-      done_at: null,
-      start_min: startSafe,
-    });
-  };
 
   const handleUpdateBlock = (id: string, patch: { start_min?: number; duration_min?: number }) => {
     const next: Partial<DayPlanBlock> = { ...patch };
@@ -765,6 +774,8 @@ export function MyDayPage() {
               item={item}
               onEdit={() => setModalState({ mode: 'edit', item })}
               onDelete={() => archivePoolItem(item.id)}
+              onDragStart={startPoolDrag}
+              isDragging={poolDrag.isDragging}
             />
           ))}
           <p className="mt-2 text-[10px] text-text-faint leading-snug">
@@ -834,7 +845,8 @@ export function MyDayPage() {
           <Timeline
             blocks={memberBlocks}
             isToday={isToday}
-            onDropPoolItem={handleDropPoolItem}
+            dragOver={poolDrag.overDropId !== null}
+            gridRef={gridRef}
             onUpdateBlock={handleUpdateBlock}
             onToggleDone={toggleBlockDone}
             onRemove={removeDayPlanBlock}
@@ -869,6 +881,8 @@ export function MyDayPage() {
                   item={item}
                   onEdit={() => setModalState({ mode: 'edit', item })}
                   onDelete={() => archivePoolItem(item.id)}
+                  onDragStart={startPoolDrag}
+                  isDragging={poolDrag.isDragging}
                 />
               ))}
             </div>

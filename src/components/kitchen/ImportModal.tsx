@@ -86,7 +86,7 @@ export function ImportModal({ onImport, onClose }: Props) {
         />
 
         {error && (
-          <div className="text-sm text-red-600 mb-3 p-2 bg-red-50 border border-red-200 rounded-lg">
+          <div className="text-sm text-red-600 dark:text-red-400 mb-3 p-2 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-900/50 rounded-lg">
             {error}
           </div>
         )}

@@ -481,3 +481,18 @@ button,
   border: 1px solid rgb(var(--border));
   user-select: none;
 }
+
+/* Accessibility: honour the OS "reduce motion" setting. Neutralises the
+   app's animations and transitions (pet idle/bounce, sparkles, view
+   transitions, etc.) for users who are motion-sensitive. Kept last so it
+   wins over earlier animation declarations. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}

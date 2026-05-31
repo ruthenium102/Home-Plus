@@ -1,5 +1,8 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useFamily } from '@/context/FamilyContext';
+import { useTheme } from '@/context/ThemeContext';
+import { getColorTokens, MEMBER_COLORS } from '@/lib/colors';
+import { usePointerDragToDrop } from '@/hooks/usePointerDragToDrop';
 import {
   PetCanvas,
   xpToStage,
@@ -64,9 +67,22 @@ function getMood(hunger: number, thirst: number, happiness: number): PetMood {
   return 'idle';
 }
 
-function StatBar({ label, emoji, value }: { label: string; emoji: string; value: number }) {
+function StatBar({
+  label,
+  emoji,
+  value,
+  isDark,
+}: {
+  label: string;
+  emoji: string;
+  value: number;
+  isDark: boolean;
+}) {
   const pct = Math.round(value);
-  const color = value > 60 ? '#4ade80' : value > 30 ? '#fb923c' : '#f87171';
+  // Warm-brand status palette: sage (good) → sand (warn) → terracotta (low),
+  // theme-aware via the shared color tokens.
+  const colorKey = value > 60 ? 'sage' : value > 30 ? 'sand' : 'terracotta';
+  const color = getColorTokens(colorKey, isDark).base;
   return (
     <div className="flex items-center gap-3">
       <span className="text-xl w-7 text-center shrink-0">{emoji}</span>
@@ -223,6 +239,7 @@ function pick<T>(arr: T[]): T {
 
 function PetView({ pet, memberId }: PetViewProps) {
   const {
+    members,
     feedPet,
     waterPet,
     patPet,
@@ -232,6 +249,25 @@ function PetView({ pet, memberId }: PetViewProps) {
     gainXp,
     setPetCustomDrawing,
   } = useFamily();
+  const { resolved } = useTheme();
+  const isDark = resolved === 'dark';
+  const member = members.find((m) => m.id === memberId);
+  const tokens = getColorTokens(member?.color ?? 'terracotta', isDark);
+
+  // Action buttons drawn from the warm brand palette (theme-aware) instead of
+  // bright web-app primaries, so the Pet page matches the rest of the app.
+  const actionColors = useMemo(
+    () => ({
+      feed: getColorTokens('terracotta', isDark).base,
+      water: getColorTokens('dusty-blue', isDark).base,
+      pat: getColorTokens('rose', isDark).base,
+      play: getColorTokens('plum', isDark).base,
+      superPat: getColorTokens('sand', isDark).base,
+      miniGame: getColorTokens('sage', isDark).base,
+      wardrobe: getColorTokens('olive', isDark).base,
+    }),
+    [isDark],
+  );
   const [redrawOpen, setRedrawOpen] = useState(false);
   const [activeMood, setActiveMood] = useState<PetMood | null>(null);
   const [tick, setTick] = useState(0);
@@ -328,11 +364,10 @@ function PetView({ pet, memberId }: PetViewProps) {
   );
 
   // ---- Treat tray (drag-to-feed) ----
-
-  const onTreatDragStart = (e: React.DragEvent<HTMLDivElement>) => {
-    e.dataTransfer.effectAllowed = 'move';
-    e.dataTransfer.setData('text/plain', 'pet-treat');
-  };
+  //
+  // HTML5 drag-and-drop does not work on iOS touch, so the treat chips use the
+  // shared pointer-drag-to-drop helper: drag a chip onto the pet drop zone
+  // (marked `data-pet-drop`) and release to feed.
 
   const handleTreatDrop = useCallback(() => {
     if (hunger >= 95) return;
@@ -342,6 +377,12 @@ function PetView({ pet, memberId }: PetViewProps) {
     speak(pick(FEEDING_LINES));
     noteInteraction();
   }, [feedPet, memberId, triggerMood, hunger, speak, noteInteraction]);
+
+  const treatDrag = usePointerDragToDrop<string>({
+    dropAttr: 'pet-drop',
+    onDrop: () => handleTreatDrop(),
+    onOverChange: (dropId) => setDropHot(dropId !== null),
+  });
 
   // ---- Standard buttons ----
 
@@ -428,8 +469,11 @@ function PetView({ pet, memberId }: PetViewProps) {
             </button>
           )}
           <div
-            className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-bold text-white shadow-sm"
-            style={{ background: 'linear-gradient(135deg, #f59e0b, #ef4444)' }}
+            className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-bold shadow-sm"
+            style={{
+              background: `linear-gradient(135deg, ${MEMBER_COLORS.sand.base}, ${tokens.base})`,
+              color: tokens.text,
+            }}
           >
             ⭐ Level {level}
           </div>
@@ -438,7 +482,7 @@ function PetView({ pet, memberId }: PetViewProps) {
 
       {/* Pet canvas — interactive */}
       <div className="card p-6 flex flex-col items-center gap-2 relative">
-        <div className={'relative ' + (dropHot ? 'pet-drop-hot' : '')}>
+        <div data-pet-drop="pet" className={'relative ' + (dropHot ? 'pet-drop-hot' : '')}>
           <PetCanvas
             ref={canvasRef}
             animal={pet.animal}
@@ -448,8 +492,6 @@ function PetView({ pet, memberId }: PetViewProps) {
             accessories={accessoriesWorn}
             interactive
             onPetClick={handlePetClick}
-            onTreatDrop={handleTreatDrop}
-            onTreatDragOver={setDropHot}
             attentionTrigger={attentionTrigger}
             paused={pagePaused}
             customImage={pet.custom_image_data ?? null}
@@ -484,10 +526,12 @@ function PetView({ pet, memberId }: PetViewProps) {
             {[animalMeta.treat, '🍎', '🍪', '🥩'].map((emoji, i) => (
               <div
                 key={i}
-                draggable
-                onDragStart={onTreatDragStart}
-                onDragEnd={() => setDropHot(false)}
-                className="treat-drag select-none text-2xl px-2 py-1 rounded-lg bg-surface hover:bg-accent-soft transition-colors"
+                onPointerDown={(e) => treatDrag.start(emoji, e)}
+                className={
+                  'treat-drag select-none text-2xl px-2 py-1 rounded-lg bg-surface hover:bg-accent-soft transition-colors ' +
+                  (treatDrag.isDragging ? 'opacity-50' : '')
+                }
+                style={treatDrag.isDragging ? { touchAction: 'none' } : undefined}
                 title="Drag onto your pet"
                 aria-label={`Drag ${emoji} onto your pet to feed them`}
               >
@@ -501,9 +545,9 @@ function PetView({ pet, memberId }: PetViewProps) {
       {/* Stats */}
       <div className="card p-5 space-y-4">
         <h3 className="text-sm font-semibold text-text-muted uppercase tracking-wider">Stats</h3>
-        <StatBar emoji="😋" label="Hunger" value={hunger} />
-        <StatBar emoji="💧" label="Thirst" value={thirst} />
-        <StatBar emoji="😊" label="Happiness" value={happiness} />
+        <StatBar emoji="😋" label="Hunger" value={hunger} isDark={isDark} />
+        <StatBar emoji="💧" label="Thirst" value={thirst} isDark={isDark} />
+        <StatBar emoji="😊" label="Happiness" value={happiness} isDark={isDark} />
       </div>
 
       {/* Actions */}
@@ -515,32 +559,34 @@ function PetView({ pet, memberId }: PetViewProps) {
           <ActionButton
             emoji="🍎"
             label="Feed"
-            color="#ef4444"
+            color={actionColors.feed}
             disabled={hunger >= 95}
             onClick={handleFeed}
           />
           <ActionButton
             emoji="💧"
             label="Water"
-            color="#3b82f6"
+            color={actionColors.water}
             disabled={thirst >= 95}
             onClick={handleWater}
           />
-          <ActionButton emoji="❤️" label="Pat" color="#ec4899" onClick={handlePat} />
-          {hasPlay && <ActionButton emoji="🎮" label="Play" color="#8b5cf6" onClick={handlePlay} />}
+          <ActionButton emoji="❤️" label="Pat" color={actionColors.pat} onClick={handlePat} />
+          {hasPlay && (
+            <ActionButton emoji="🎮" label="Play" color={actionColors.play} onClick={handlePlay} />
+          )}
           {hasSuperPat && (
-            <ActionButton emoji="🌟" label="Super Pat" color="#f59e0b" onClick={handlePat} />
+            <ActionButton emoji="🌟" label="Super Pat" color={actionColors.superPat} onClick={handlePat} />
           )}
           <ActionButton
             emoji="🎯"
             label="Mini-game"
-            color="#0ea5e9"
+            color={actionColors.miniGame}
             onClick={() => setShowMiniGame((v) => !v)}
           />
           <ActionButton
             emoji="👒"
             label="Wardrobe"
-            color="#a855f7"
+            color={actionColors.wardrobe}
             onClick={() => setShowAccessories((v) => !v)}
           />
         </div>
@@ -631,7 +677,7 @@ function PetView({ pet, memberId }: PetViewProps) {
               className="h-full rounded-full transition-all duration-700"
               style={{
                 width: `${(xpInLevel / nextLevelXp) * 100}%`,
-                background: 'linear-gradient(90deg, #f59e0b, #ef4444)',
+                background: `linear-gradient(90deg, ${MEMBER_COLORS.sand.base}, ${tokens.base})`,
               }}
             />
           </div>

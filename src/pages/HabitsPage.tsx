@@ -107,7 +107,7 @@ export function HabitsPage() {
   };
 
   return (
-    <div className="space-y-5 max-w-4xl mx-auto">
+    <div className="space-y-5 max-w-4xl xl:max-w-6xl mx-auto">
       <div className="flex items-center justify-between">
         <h1 className="font-display text-2xl text-text">Habits</h1>
         {view === 'list' && (
@@ -386,7 +386,7 @@ function HabitRow({
                     ? 'bg-emerald-400'
                     : state === 'violated'
                       ? 'bg-red-500'
-                      : 'bg-[#c44d2e]/70 dark:bg-[#e07450]/55')
+                      : 'bg-accent/70 dark:bg-accent/55')
                 }
               >
                 {showCount && (

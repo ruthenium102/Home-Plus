@@ -35,9 +35,6 @@ interface Props {
   interactive?: boolean;
   /** Called when the SVG itself is clicked. */
   onPetClick?: (e: React.MouseEvent<HTMLDivElement>) => void;
-  /** Called whenever a drag enters / leaves / drops on the pet drop zone. */
-  onTreatDrop?: () => void;
-  onTreatDragOver?: (over: boolean) => void;
   /** Triggers an "attention" idle behavior 1-shot key. */
   attentionTrigger?: number;
   /** Soft floor shadow shown beneath. Defaults to true. */
@@ -75,8 +72,6 @@ export const PetCanvas = forwardRef<PetCanvasHandle, Props>(function PetCanvas(
     accessories = [],
     interactive = false,
     onPetClick,
-    onTreatDrop,
-    onTreatDragOver,
     attentionTrigger = 0,
     showShadow = true,
     paused = false,
@@ -205,22 +200,6 @@ export const PetCanvas = forwardRef<PetCanvasHandle, Props>(function PetCanvas(
         ? 'pet-look-around'
         : '';
 
-  // ---- Drop-zone handlers ----
-
-  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-    onTreatDragOver?.(true);
-  };
-  const handleDragLeave = () => {
-    onTreatDragOver?.(false);
-  };
-  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    onTreatDragOver?.(false);
-    onTreatDrop?.();
-  };
-
   // ---- Render ----
 
   const cx = 100,
@@ -294,9 +273,6 @@ export const PetCanvas = forwardRef<PetCanvasHandle, Props>(function PetCanvas(
           transition: 'transform 320ms cubic-bezier(0.34, 1.56, 0.64, 1)',
         }}
         onClick={onPetClick}
-        onDragOver={interactive ? handleDragOver : undefined}
-        onDragLeave={interactive ? handleDragLeave : undefined}
-        onDrop={interactive ? handleDrop : undefined}
       >
         <svg viewBox="0 0 200 200" width={size} height={size} style={{ overflow: 'visible' }}>
           {/* Gradients & filters — shared by all animals */}
