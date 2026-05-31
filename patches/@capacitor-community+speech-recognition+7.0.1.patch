@@ -1,6 +1,6 @@
 diff --git a/node_modules/@capacitor-community/speech-recognition/Package.swift b/node_modules/@capacitor-community/speech-recognition/Package.swift
 new file mode 100644
-index 0000000..882a64c
+index 0000000..e1832d8
 --- /dev/null
 +++ b/node_modules/@capacitor-community/speech-recognition/Package.swift
 @@ -0,0 +1,27 @@
@@ -27,7 +27,73 @@ index 0000000..882a64c
 +            ],
 +            path: "ios/Plugin",
 +            exclude: ["Info.plist"],
-+            publicHeadersPath: "."
++            sources: ["Plugin.swift"]
 +        )
 +    ]
 +)
+diff --git a/node_modules/@capacitor-community/speech-recognition/ios/Plugin/Plugin.h b/node_modules/@capacitor-community/speech-recognition/ios/Plugin/Plugin.h
+deleted file mode 100644
+index f2bd9e0..0000000
+--- a/node_modules/@capacitor-community/speech-recognition/ios/Plugin/Plugin.h
++++ /dev/null
+@@ -1,10 +0,0 @@
+-#import <UIKit/UIKit.h>
+-
+-//! Project version number for Plugin.
+-FOUNDATION_EXPORT double PluginVersionNumber;
+-
+-//! Project version string for Plugin.
+-FOUNDATION_EXPORT const unsigned char PluginVersionString[];
+-
+-// In this header, you should import all the public headers of your framework using statements like #import <Plugin/PublicHeader.h>
+-
+diff --git a/node_modules/@capacitor-community/speech-recognition/ios/Plugin/Plugin.m b/node_modules/@capacitor-community/speech-recognition/ios/Plugin/Plugin.m
+deleted file mode 100644
+index 30cea40..0000000
+--- a/node_modules/@capacitor-community/speech-recognition/ios/Plugin/Plugin.m
++++ /dev/null
+@@ -1,17 +0,0 @@
+-#import <Foundation/Foundation.h>
+-#import <Capacitor/Capacitor.h>
+-
+-// Define the plugin using the CAP_PLUGIN Macro, and
+-// each method the plugin supports using the CAP_PLUGIN_METHOD macro.
+-CAP_PLUGIN(SpeechRecognition, "SpeechRecognition",
+-        CAP_PLUGIN_METHOD(available, CAPPluginReturnPromise);
+-        CAP_PLUGIN_METHOD(start, CAPPluginReturnPromise);
+-        CAP_PLUGIN_METHOD(stop, CAPPluginReturnPromise);
+-        CAP_PLUGIN_METHOD(getSupportedLanguages, CAPPluginReturnPromise);
+-        CAP_PLUGIN_METHOD(hasPermission, CAPPluginReturnPromise);
+-        CAP_PLUGIN_METHOD(isListening, CAPPluginReturnPromise);
+-        CAP_PLUGIN_METHOD(requestPermission, CAPPluginReturnPromise);
+-        CAP_PLUGIN_METHOD(checkPermissions, CAPPluginReturnPromise);
+-        CAP_PLUGIN_METHOD(requestPermissions, CAPPluginReturnPromise);
+-        CAP_PLUGIN_METHOD(removeAllListeners, CAPPluginReturnPromise);
+-)
+diff --git a/node_modules/@capacitor-community/speech-recognition/ios/Plugin/Plugin.swift b/node_modules/@capacitor-community/speech-recognition/ios/Plugin/Plugin.swift
+index 5d1b35b..f682e41 100644
+--- a/node_modules/@capacitor-community/speech-recognition/ios/Plugin/Plugin.swift
++++ b/node_modules/@capacitor-community/speech-recognition/ios/Plugin/Plugin.swift
+@@ -3,7 +3,21 @@ import Capacitor
+ import Speech
+ 
+ @objc(SpeechRecognition)
+-public class SpeechRecognition: CAPPlugin {
++public class SpeechRecognition: CAPPlugin, CAPBridgedPlugin {
++    public let identifier = "SpeechRecognition"
++    public let jsName = "SpeechRecognition"
++    public let pluginMethods: [CAPPluginMethod] = [
++        CAPPluginMethod(name: "available", returnType: CAPPluginReturnPromise),
++        CAPPluginMethod(name: "start", returnType: CAPPluginReturnPromise),
++        CAPPluginMethod(name: "stop", returnType: CAPPluginReturnPromise),
++        CAPPluginMethod(name: "getSupportedLanguages", returnType: CAPPluginReturnPromise),
++        CAPPluginMethod(name: "hasPermission", returnType: CAPPluginReturnPromise),
++        CAPPluginMethod(name: "isListening", returnType: CAPPluginReturnPromise),
++        CAPPluginMethod(name: "requestPermission", returnType: CAPPluginReturnPromise),
++        CAPPluginMethod(name: "checkPermissions", returnType: CAPPluginReturnPromise),
++        CAPPluginMethod(name: "requestPermissions", returnType: CAPPluginReturnPromise),
++        CAPPluginMethod(name: "removeAllListeners", returnType: CAPPluginReturnPromise)
++    ]
+ 
+     let defaultMatches = 5
+     let messageMissingPermission = "Missing permission"
