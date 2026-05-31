@@ -40,9 +40,9 @@ export default async function handler(req, res) {
 
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
-    return res.status(501).json({
+    return res.status(503).json({
       error:
-        'Server-side AI extraction is not configured. Set ANTHROPIC_API_KEY in Vercel environment variables.'
+        'AI event extraction is not configured (the server is missing ANTHROPIC_API_KEY).'
     });
   }
 

@@ -95,7 +95,15 @@ export function useVoiceIntake() {
           }),
         });
         if (!res.ok) {
-          show({ message: `Voice failed: ${res.status}`, duration: 4000 });
+          // Surface the server's specific message (e.g. AI not configured)
+          // rather than a bare status code.
+          let serverMsg: string | null = null;
+          try {
+            serverMsg = (await res.json())?.error ?? null;
+          } catch {
+            // non-JSON body — fall back to the status code
+          }
+          show({ message: serverMsg ?? `Voice failed: ${res.status}`, duration: 5000 });
           return;
         }
         const json = await res.json();

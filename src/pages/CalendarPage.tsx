@@ -471,20 +471,32 @@ function WeekView({
   onStartEventDrag: (e: ExpandedEvent, downEv: React.PointerEvent) => void;
   dragOverDayKey: string | null;
 }) {
-  const days = Array.from({ length: dayCount }, (_, i) => addDays(weekStart, i));
   const today = new Date();
   // Tailwind needs the class string to be statically present, so the two
   // supported counts are spelled out rather than templated.
   const gridCols = dayCount === 3 ? 'grid-cols-3' : 'grid-cols-7';
+
+  // Group events into a per-day Map once, memoised on the week range + events,
+  // instead of running events.filter() per day on every render (e.g. on every
+  // pointermove during an event drag, which only changes dragOverDayKey).
+  const { days, eventsByDay } = useMemo(() => {
+    const ds = Array.from({ length: dayCount }, (_, i) => addDays(weekStart, i));
+    const byDay = new Map<string, ExpandedEvent[]>();
+    for (const day of ds) {
+      byDay.set(
+        day.toISOString(),
+        events.filter((e) => eventSpansDay(e.occurrence_start, e.occurrence_end, day)),
+      );
+    }
+    return { days: ds, eventsByDay: byDay };
+  }, [weekStart, dayCount, events]);
 
   return (
     <div className="card p-2 sm:p-3">
       <div className={'grid ' + gridCols + ' gap-1.5'}>
         {days.map((day) => {
           const dayKey = day.toISOString();
-          const dayEvents = events.filter((e) =>
-            eventSpansDay(e.occurrence_start, e.occurrence_end, day),
-          );
+          const dayEvents = eventsByDay.get(dayKey) ?? [];
           const isToday = isSameDay(day, today);
           const isDragOver = dragOverDayKey === dayKey;
           return (
@@ -576,13 +588,27 @@ function MonthView({
   const isDark = resolved === 'dark';
   const today = new Date();
 
-  // Build the grid
-  const days: Date[] = [];
-  let cursor = new Date(gridStart);
-  while (cursor <= gridEnd) {
-    days.push(new Date(cursor));
-    cursor.setDate(cursor.getDate() + 1);
-  }
+  // Build the grid + group events into a per-day Map once, memoised on the
+  // events + visible range. Previously each cell ran events.filter() inside the
+  // render map, so the whole grid re-scanned every event on every render
+  // (notably on every pointermove during an event drag, which only changes
+  // dragOverDayKey). Keyed on day ISO string.
+  const { days, eventsByDay } = useMemo(() => {
+    const ds: Date[] = [];
+    let cursor = new Date(gridStart);
+    while (cursor <= gridEnd) {
+      ds.push(new Date(cursor));
+      cursor.setDate(cursor.getDate() + 1);
+    }
+    const byDay = new Map<string, ExpandedEvent[]>();
+    for (const day of ds) {
+      byDay.set(
+        day.toISOString(),
+        events.filter((e) => eventSpansDay(e.occurrence_start, e.occurrence_end, day)),
+      );
+    }
+    return { days: ds, eventsByDay: byDay };
+  }, [gridStart, gridEnd, events]);
 
   const weekdayLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
@@ -604,9 +630,7 @@ function MonthView({
       <div className="grid grid-cols-7 gap-1.5">
         {days.map((day) => {
           const dayKey = day.toISOString();
-          const dayEvents = events.filter((e) =>
-            eventSpansDay(e.occurrence_start, e.occurrence_end, day),
-          );
+          const dayEvents = eventsByDay.get(dayKey) ?? [];
           const isToday = isSameDay(day, today);
           const inMonth = isSameMonth(day, monthCursor);
           const isDragOver = dragOverDayKey === dayKey;

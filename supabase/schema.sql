@@ -88,7 +88,7 @@ create or replace function set_member_pin(member uuid, pin text)
 returns void
 language plpgsql
 security definer
-set search_path = public
+set search_path = public, extensions
 as $$
 declare
   fam            uuid;
@@ -135,7 +135,7 @@ create or replace function verify_member_pin(member uuid, pin text)
 returns boolean
 language plpgsql
 security definer
-set search_path = public
+set search_path = public, extensions
 as $$
 declare
   h      text;
@@ -961,6 +961,42 @@ create policy "Members manage meal_plans" on meal_plans
   with check (public.is_family_member(family_id));
 
 -- ============================================================================
+-- Virtual pets (v16) — one pet per member, server-synced so a device reset
+-- no longer loses the child's pet. Row shape mirrors the VirtualPet TS type:
+-- stable fields are real columns; the fluid bits (accessories, custom drawing)
+-- are jsonb/text so future additions don't need a migration.
+-- ============================================================================
+create table if not exists virtual_pets (
+  id                 uuid primary key default uuid_generate_v4(),
+  family_id          uuid not null references families(id) on delete cascade,
+  member_id          uuid not null references family_members(id) on delete cascade,
+  animal             text not null,
+  name               text not null,
+  hunger             integer not null default 80,
+  thirst             integer not null default 80,
+  happiness          integer not null default 80,
+  xp                 integer not null default 0,
+  unlocked_actions   text[] not null default '{}',
+  last_fed_at        timestamptz,
+  last_watered_at    timestamptz,
+  last_interacted_at timestamptz,
+  accessories        jsonb not null default '[]'::jsonb,
+  custom_image_data  text,
+  custom_eyes        jsonb,
+  created_at         timestamptz not null default now(),
+  unique (family_id, member_id)
+);
+create index if not exists idx_virtual_pets_family on virtual_pets(family_id);
+create index if not exists idx_virtual_pets_member on virtual_pets(member_id);
+
+alter table virtual_pets enable row level security;
+
+drop policy if exists "Members manage virtual_pets" on virtual_pets;
+create policy "Members manage virtual_pets" on virtual_pets
+  for all using (public.is_family_member(family_id))
+  with check (public.is_family_member(family_id));
+
+-- ============================================================================
 -- updated_at + auto-touch trigger on hot tables (v14; delta-poll groundwork — A1)
 -- ============================================================================
 create or replace function public.touch_updated_at()
@@ -1440,6 +1476,7 @@ begin
     'activity_pool_items',
     'recipes',
     'meal_plans',
+    'virtual_pets',
     'invitations',
     'google_calendar_integrations'
   ])

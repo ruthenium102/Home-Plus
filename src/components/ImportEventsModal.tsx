@@ -489,15 +489,16 @@ async function extractEventsFromText(
   text: string,
   familyId: string,
 ): Promise<ImportableEvent[]> {
-  try {
-    const { data: sessionData } = (await supabase?.auth.getSession()) ?? {
-      data: { session: null },
-    };
-    const token = sessionData.session?.access_token;
-    // No session → skip the authed AI route and fall back to the regex extractor.
-    if (!token) return regexExtractEvents(text);
+  const { data: sessionData } = (await supabase?.auth.getSession()) ?? {
+    data: { session: null },
+  };
+  const token = sessionData.session?.access_token;
+  // No session → skip the authed AI route and fall back to the regex extractor.
+  if (!token) return regexExtractEvents(text);
 
-    const res = await fetch(apiUrl('/api/extract-events'), {
+  let res: Response;
+  try {
+    res = await fetch(apiUrl('/api/extract-events'), {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -505,18 +506,33 @@ async function extractEventsFromText(
       },
       body: JSON.stringify({ text, family_id: familyId }),
     });
-    if (res.ok) {
-      const data = await res.json();
-      if (Array.isArray(data.events) && data.events.length > 0) {
-        return data.events as ImportableEvent[];
-      }
-      // Empty list from AI = also fall through to regex as a sanity check
-    }
-    // 501 (no key) or other error: fall through silently
   } catch {
-    // Network error in demo mode — fall through
+    // Network error (e.g. offline / demo mode) — fall through to regex.
+    return regexExtractEvents(text);
   }
-  return regexExtractEvents(text);
+
+  if (res.ok) {
+    const data = await res.json();
+    if (Array.isArray(data.events) && data.events.length > 0) {
+      return data.events as ImportableEvent[];
+    }
+    // Empty list from AI = fall through to regex as a sanity check.
+    return regexExtractEvents(text);
+  }
+
+  // AI route unavailable (e.g. 503 — no ANTHROPIC_API_KEY). Try the local
+  // regex extractor; only if it also finds nothing do we surface the server's
+  // specific message so the user knows AI extraction is off rather than
+  // thinking their paste had no dates.
+  let serverMsg: string | null = null;
+  try {
+    serverMsg = (await res.json())?.error ?? null;
+  } catch {
+    // non-JSON body — ignore
+  }
+  const fallback = regexExtractEvents(text);
+  if (fallback.length === 0 && serverMsg) throw new Error(serverMsg);
+  return fallback;
 }
 
 function regexExtractEvents(text: string): ImportableEvent[] {

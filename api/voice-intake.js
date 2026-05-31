@@ -66,8 +66,17 @@ export default async function handler(req, res) {
 
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
+    // No AI configured. The tiny heuristic still handles "add X to <list>" so
+    // the demo feels alive; for anything it can't parse, return a clear,
+    // specific error (503) instead of a vague "unknown" so the user knows AI
+    // voice isn't set up rather than thinking we just misheard them.
     const fallback = heuristicFallback(transcript, context);
-    return res.status(200).json({ action: fallback });
+    if (fallback.kind !== 'unknown') {
+      return res.status(200).json({ action: fallback });
+    }
+    return res.status(503).json({
+      error: 'Voice commands are not configured. The server is missing ANTHROPIC_API_KEY.',
+    });
   }
 
   const systemPrompt = buildSystemPrompt(context);

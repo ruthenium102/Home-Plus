@@ -28,6 +28,7 @@ import type {
   ActivityPoolItem,
   Recipe,
   MealPlan,
+  VirtualPet,
 } from '@/types';
 
 type Tables = Database['public']['Tables'];
@@ -296,6 +297,7 @@ export interface FamilyData {
   activityPool: ActivityPoolItem[];
   recipes: Recipe[];
   mealPlans: MealPlan[];
+  pets: VirtualPet[];
 }
 
 export async function dbLoadFamily(familyId: string): Promise<FamilyData | null> {
@@ -319,6 +321,7 @@ export async function dbLoadFamily(familyId: string): Promise<FamilyData | null>
       { data: activityPool },
       { data: recipes },
       { data: mealPlans },
+      { data: pets },
     ] = await Promise.all([
       supabase.from('families').select('id,name,timezone,created_at').eq('id', familyId).single(),
       supabase.from('family_members').select('*').eq('family_id', familyId),
@@ -356,6 +359,7 @@ export async function dbLoadFamily(familyId: string): Promise<FamilyData | null>
       supabase.from('activity_pool_items').select('*').eq('family_id', familyId),
       supabase.from('recipes').select('*').eq('family_id', familyId),
       supabase.from('meal_plans').select('*').eq('family_id', familyId),
+      supabase.from('virtual_pets').select('*').eq('family_id', familyId),
     ]);
 
     if (fe || !family) return null;
@@ -376,6 +380,7 @@ export async function dbLoadFamily(familyId: string): Promise<FamilyData | null>
       activityPool: activityPool ?? [],
       recipes: recipes ?? [],
       mealPlans: mealPlans ?? [],
+      pets: pets ?? [],
     };
   } catch (e) {
     console.warn('[db] loadFamily error:', e);

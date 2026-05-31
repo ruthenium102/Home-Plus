@@ -220,6 +220,9 @@ interface FamilyContextValue {
   reloading: boolean;
   /** ms-epoch of the last successful cloud reload (0 if none this session). */
   lastReloadAt: number;
+  /** Device connectivity, seeded from navigator.onLine + online/offline events.
+   *  When false, writes aren't reaching Supabase — surfaced on the SyncIndicator. */
+  online: boolean;
 }
 
 const FamilyContext = createContext<FamilyContextValue | null>(null);
@@ -383,6 +386,21 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
     return () => setDbErrorHandler(null);
   }, [showToast]);
 
+  // Hydrate pet state from the cloud on load, merging in any pet that exists
+  // only on this device (created before pets were server-synced) and pushing
+  // those local-only pets up so they're durable from now on. Cloud rows win
+  // for members that exist in both places.
+  const hydratePets = useCallback((cloudPets: VirtualPet[]) => {
+    setPets((local) => {
+      const cloudMemberIds = new Set(cloudPets.map((p) => p.member_id));
+      const localOnly = local.filter((p) => !cloudMemberIds.has(p.member_id));
+      // One-time seed: persist device-only pets to Supabase so a future
+      // reinstall keeps them.
+      for (const p of localOnly) dbUpsert('virtual_pets', p);
+      return [...cloudPets, ...localOnly];
+    });
+  }, []);
+
   // On auth, load data from Supabase. On first login, create the initial family.
   const handled = useRef(false);
   // Latest reloadFromCloud(), so the realtime channel effect (which only
@@ -428,6 +446,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
           setActivityPool(data.activityPool);
           setRecipes(data.recipes);
           setMealPlans(data.mealPlans);
+          hydratePets(data.pets);
 
           // Auto sign-in as the member linked to this auth user
           const mine = data.members.find((m) => m.auth_user_id === userId);
@@ -516,6 +535,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
             setActivityPool(data.activityPool);
             setRecipes(data.recipes);
             setMealPlans(data.mealPlans);
+            hydratePets(data.pets);
             const mine = data.members.find((m) => m.auth_user_id === userId);
             if (mine) {
               const sess: ActiveSession = { member_id: mine.id, authenticated_at: Date.now() };
@@ -678,6 +698,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
       { table: 'activity_pool_items', setter: setActivityPool as never },
       { table: 'recipes', setter: setRecipes as never },
       { table: 'meal_plans', setter: setMealPlans as never },
+      { table: 'virtual_pets', setter: setPets as never },
     ];
 
     // Realtime channel with auto-resubscribe (arch 🟡). WKWebView can drop the
@@ -843,7 +864,9 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
         const newXp = Math.max(pet.xp, baselineXp);
         if (newXp === pet.xp) return pet;
         const unlocked_actions = deriveUnlockedActions(newXp);
-        return { ...pet, xp: newXp, unlocked_actions };
+        const updated = { ...pet, xp: newXp, unlocked_actions };
+        dbUpsert('virtual_pets', updated);
+        return updated;
       }),
     );
      
@@ -886,6 +909,23 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
 
   const [reloading, setReloading] = useState(false);
   const [lastReloadAt, setLastReloadAt] = useState(0);
+
+  // Device connectivity. Seeded from navigator.onLine and kept current via the
+  // browser online/offline events, so the SyncIndicator can show when writes
+  // aren't reaching the server.
+  const [online, setOnline] = useState(() =>
+    typeof navigator === 'undefined' ? true : navigator.onLine,
+  );
+  useEffect(() => {
+    const goOnline = () => setOnline(true);
+    const goOffline = () => setOnline(false);
+    window.addEventListener('online', goOnline);
+    window.addEventListener('offline', goOffline);
+    return () => {
+      window.removeEventListener('online', goOnline);
+      window.removeEventListener('offline', goOffline);
+    };
+  }, []);
 
   // Returns a functional state updater that merges polled cloud data with
   // local state, preserving rows that have pending local writes (so an in-
@@ -937,6 +977,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
         setActivityPool(mergePolled('activity_pool_items', data.activityPool));
         setRecipes(mergePolled('recipes', data.recipes));
         setMealPlans(mergePolled('meal_plans', data.mealPlans));
+        setPets(mergePolled('virtual_pets', data.pets));
         setLastReloadAt(Date.now());
         return { ok: true };
       }
@@ -991,8 +1032,9 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
         supabase!.from('activity_pool_items').select('*').eq('family_id', family.id),
         supabase!.from('recipes').select('*').eq('family_id', family.id),
         supabase!.from('meal_plans').select('*').eq('family_id', family.id),
+        supabase!.from('virtual_pets').select('*').eq('family_id', family.id),
       ]);
-      const [mems, evs, ch, cc, tl, ti, hb, hci, rg, rd, dpb, api, rec, mp] = probes;
+      const [mems, evs, ch, cc, tl, ti, hb, hci, rg, rd, dpb, api, rec, mp, pts] = probes;
       setMembers(mergePolled('family_members', (mems.data ?? [])));
       setEvents(mergePolled('events', (evs.data ?? [])));
       setChores(mergePolled('chores', (ch.data ?? [])));
@@ -1013,6 +1055,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
       );
       setRecipes(mergePolled('recipes', (rec.data ?? [])));
       setMealPlans(mergePolled('meal_plans', (mp.data ?? [])));
+      setPets(mergePolled('virtual_pets', (pts.data ?? [])));
       setLastReloadAt(Date.now());
 
       const detail = fErrMsg
@@ -2163,6 +2206,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
         custom_eyes: custom?.eyes ?? null,
       };
       setPets((prev) => [...prev.filter((p) => p.member_id !== memberId), newPet]);
+      dbUpsert('virtual_pets', newPet);
     },
     [members, completions, checkIns],
   );
@@ -2170,9 +2214,12 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
   const setPetCustomDrawing = useCallback(
     (memberId: string, image: string, eyes: CustomPetEyes) => {
       setPets((prev) =>
-        prev.map((p) =>
-          p.member_id === memberId ? { ...p, custom_image_data: image, custom_eyes: eyes } : p,
-        ),
+        prev.map((p) => {
+          if (p.member_id !== memberId) return p;
+          const updated = { ...p, custom_image_data: image, custom_eyes: eyes };
+          dbUpsert('virtual_pets', updated);
+          return updated;
+        }),
       );
     },
     [],
@@ -2182,7 +2229,9 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
     setPets((prev) =>
       prev.map((p) => {
         if (p.member_id !== memberId) return p;
-        return { ...p, hunger: 100, last_fed_at: new Date().toISOString() };
+        const updated = { ...p, hunger: 100, last_fed_at: new Date().toISOString() };
+        dbUpsert('virtual_pets', updated);
+        return updated;
       }),
     );
   }, []);
@@ -2191,7 +2240,9 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
     setPets((prev) =>
       prev.map((p) => {
         if (p.member_id !== memberId) return p;
-        return { ...p, thirst: 100, last_watered_at: new Date().toISOString() };
+        const updated = { ...p, thirst: 100, last_watered_at: new Date().toISOString() };
+        dbUpsert('virtual_pets', updated);
+        return updated;
       }),
     );
   }, []);
@@ -2201,11 +2252,13 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
       prev.map((p) => {
         if (p.member_id !== memberId) return p;
         const current = computePetStats(p);
-        return {
+        const updated = {
           ...p,
           happiness: Math.min(100, current.happiness + 20),
           last_interacted_at: new Date().toISOString(),
         };
+        dbUpsert('virtual_pets', updated);
+        return updated;
       }),
     );
   }, []);
@@ -2215,11 +2268,13 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
       prev.map((p) => {
         if (p.member_id !== memberId) return p;
         const current = computePetStats(p);
-        return {
+        const updated = {
           ...p,
           happiness: Math.min(100, current.happiness + 35),
           last_interacted_at: new Date().toISOString(),
         };
+        dbUpsert('virtual_pets', updated);
+        return updated;
       }),
     );
   }, []);
@@ -2230,7 +2285,9 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
         if (p.member_id !== memberId) return p;
         const current = Array.isArray(p.accessories) ? p.accessories : [];
         if (current.includes(accessoryId)) return p;
-        return { ...p, accessories: [...current, accessoryId] };
+        const updated = { ...p, accessories: [...current, accessoryId] };
+        dbUpsert('virtual_pets', updated);
+        return updated;
       }),
     );
   }, []);
@@ -2240,7 +2297,9 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
       prev.map((p) => {
         if (p.member_id !== memberId) return p;
         const current = Array.isArray(p.accessories) ? p.accessories : [];
-        return { ...p, accessories: current.filter((a) => a !== accessoryId) };
+        const updated = { ...p, accessories: current.filter((a) => a !== accessoryId) };
+        dbUpsert('virtual_pets', updated);
+        return updated;
       }),
     );
   }, []);
@@ -2251,11 +2310,13 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
       prev.map((p) => {
         if (p.member_id !== memberId) return p;
         const newXp = Math.max(0, p.xp + amount);
-        return {
+        const updated = {
           ...p,
           xp: newXp,
           unlocked_actions: deriveUnlockedActions(newXp),
         };
+        dbUpsert('virtual_pets', updated);
+        return updated;
       }),
     );
   }, []);
@@ -2387,6 +2448,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
       reloadFromCloud,
       reloading,
       lastReloadAt,
+      online,
     }),
     [
       family,
@@ -2479,6 +2541,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
       reloadFromCloud,
       reloading,
       lastReloadAt,
+      online,
     ],
   );
 

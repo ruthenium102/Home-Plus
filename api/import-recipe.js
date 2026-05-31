@@ -50,8 +50,8 @@ export default async function handler(req, res) {
       return res.status(422).json({
         ok: false,
         error: jsonLdRecipe
-          ? 'Found partial recipe data but it was incomplete. Set ANTHROPIC_API_KEY to enable AI fallback.'
-          : 'No structured recipe data on this page. Set ANTHROPIC_API_KEY to enable AI extraction.',
+          ? 'This page only had partial recipe data, and AI extraction is not configured (the server is missing ANTHROPIC_API_KEY).'
+          : "This page has no structured recipe data, and AI extraction is not configured (the server is missing ANTHROPIC_API_KEY). Try a recipe site like BBC Good Food.",
       });
     }
 

@@ -11,7 +11,7 @@ import { isSupabaseConfigured } from '@/lib/supabase';
  * server.
  */
 export function SyncIndicator() {
-  const { reloading, lastReloadAt, reloadFromCloud } = useFamily();
+  const { reloading, lastReloadAt, reloadFromCloud, online } = useFamily();
   const [now, setNow] = useState(Date.now());
 
   // Tick the relative-time label every 15s while idle so the tooltip
@@ -29,6 +29,21 @@ export function SyncIndicator() {
         aria-label="Local only"
       >
         <CloudOff size={15} />
+      </span>
+    );
+  }
+
+  // Offline takes priority: writes are staying on the device until the
+  // connection returns, so make that explicit rather than showing "synced".
+  if (!online) {
+    return (
+      <span
+        className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-accent-soft text-accent text-[11px] font-medium"
+        title="You're offline — changes are saved on this device and will sync when you reconnect"
+        aria-label="Offline — changes not synced"
+      >
+        <CloudOff size={13} />
+        Offline
       </span>
     );
   }
