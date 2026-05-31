@@ -78,6 +78,12 @@ function daysAgoISO(n: number) {
 
 // ---- Family ----------------------------------------------------------------
 
+// DEMO ONLY — the parent PIN baked into the offline localStorage demo family.
+// This never touches Supabase (demo mode is fully client-side), but it is still
+// a well-known default credential. Anyone running a real/shared device must set
+// their own PIN in Settings → Family members. See README "Demo PINs".
+export const DEMO_PIN = '1234';
+
 export const DEMO_FAMILY: Family = {
   id: 'fam-ellis',
   name: 'The Ellis Family',
@@ -94,7 +100,7 @@ export const DEMO_MEMBERS: FamilyMember[] = [
     color: 'terracotta',
     avatar_url: null,
     has_pin: true,
-    pin_hash: hashPinSync('1234'),
+    pin_hash: hashPinSync(DEMO_PIN),
     birthday: null,
     current_location: 'Home',
     location_until: null,
@@ -115,7 +121,7 @@ export const DEMO_MEMBERS: FamilyMember[] = [
     color: 'sage',
     avatar_url: null,
     has_pin: true,
-    pin_hash: hashPinSync('1234'),
+    pin_hash: hashPinSync(DEMO_PIN),
     birthday: null,
     current_location: 'Home',
     location_until: null,

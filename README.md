@@ -22,7 +22,13 @@ It runs in **demo mode** out of the box — no Supabase needed. Demo data is the
 
 ### Demo PINs
 
-Both parent accounts have PIN `1234`. The kid accounts (Sophie, Henry, Laura) have no PIN — tap their face on the lock screen and you're in.
+> ⚠️ **Demo / local use only.** The PIN below is a well-known default that ships
+> with the offline demo family. It exists purely so you can poke around without
+> setting anything up — it is **not** a real credential and never authenticates
+> against Supabase. **Change it (and set PINs for any real accounts) before
+> putting the app on a shared iPad or any device you hand to someone else.**
+
+Both parent accounts have the demo PIN `1234`. The kid accounts (Sophie, Henry, Laura) have no PIN — tap their face on the lock screen and you're in.
 
 You can change PINs in **Settings → Family members → tap "PIN set" / "No PIN"**.
 
@@ -295,8 +301,9 @@ Home Plus/
 
 ## Demo PIN reference
 
-- **Ben** — `1234`
-- **Susan** — `1234`
-- **Sophie / Henry / Laura** — no PIN, tap to enter
+> ⚠️ **Default demo credentials — local/offline only, not a real login.**
+> **Change these in Settings before sharing the device with anyone.**
 
-Change all of these in Settings before sharing the device.
+- **Ben** — `1234` (demo default)
+- **Susan** — `1234` (demo default)
+- **Sophie / Henry / Laura** — no PIN, tap to enter

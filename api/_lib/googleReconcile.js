@@ -90,12 +90,21 @@ async function maybeRenewChannel(token, integration, webhookUrl) {
     }
   }
   try {
-    const ch = await watchCalendar(token, integration.google_calendar_id, randomUUID(), webhookUrl);
+    // Fresh token per channel; the webhook validates X-Goog-Channel-Token.
+    const channelToken = randomUUID();
+    const ch = await watchCalendar(
+      token,
+      integration.google_calendar_id,
+      randomUUID(),
+      webhookUrl,
+      channelToken,
+    );
     await admin
       .from('google_calendar_integrations')
       .update({
         channel_id: ch?.id || null,
         channel_resource_id: ch?.resourceId || null,
+        channel_token: ch ? channelToken : null,
         channel_expires_at: ch?.expiration
           ? new Date(Number(ch.expiration)).toISOString()
           : null,

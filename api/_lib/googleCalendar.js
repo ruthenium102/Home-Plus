@@ -111,13 +111,18 @@ export async function listEvents(token, calendarId, opts = {}) {
 // Open (or renew) a push notification channel. Google posts to webhookUrl
 // with an X-Goog-Resource-State header (sync/exists/not_exists) whenever the
 // calendar changes. Channels expire after ~7 days, so we re-up via cron.
-export async function watchCalendar(token, calendarId, channelId, webhookUrl) {
+//
+// `channelToken` is an opaque secret we choose; Google echoes it back on every
+// push as the X-Goog-Channel-Token header. The webhook validates it so a forged
+// notification (correct channel id guessed, but no token) can't trigger a sync.
+export async function watchCalendar(token, calendarId, channelId, webhookUrl, channelToken) {
   return gfetch(token, `/calendars/${encodeURIComponent(calendarId)}/events/watch`, {
     method: 'POST',
     body: JSON.stringify({
       id: channelId,
       type: 'web_hook',
       address: webhookUrl,
+      ...(channelToken ? { token: channelToken } : {}),
       // 7 days max; we'll renew before expiry via cron.
       expiration: String(Date.now() + 7 * 24 * 60 * 60 * 1000),
     }),

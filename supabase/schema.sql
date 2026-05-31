@@ -1272,6 +1272,9 @@ create table if not exists google_calendar_integrations (
   sync_token text,
   channel_id text,
   channel_resource_id text,
+  -- Secret echoed back by Google as X-Goog-Channel-Token on every push; the
+  -- webhook validates it so a forged notification can't trigger a sync (v18).
+  channel_token text,
   channel_expires_at timestamptz,
   last_synced_at timestamptz,
   last_sync_error text,
@@ -1348,6 +1351,25 @@ create table if not exists google_oauth_states (
 create index if not exists idx_google_oauth_states_expiry on google_oauth_states(expires_at);
 alter table google_oauth_states enable row level security;
 -- No policies → service_role only.
+
+-- Reaper for expired/abandoned OAuth state rows (v18). Completed flows delete
+-- their own row in the callback (one-time use); abandoned flows expire here.
+-- Called opportunistically by /api/google/auth-init via the service role.
+create or replace function public.cleanup_google_oauth_states()
+returns integer
+language sql
+security definer
+set search_path = public as $$
+  with deleted as (
+    delete from google_oauth_states
+     where expires_at < now()
+    returning 1
+  )
+  select count(*)::int from deleted;
+$$;
+revoke execute on function public.cleanup_google_oauth_states() from public;
+revoke execute on function public.cleanup_google_oauth_states() from anon;
+revoke execute on function public.cleanup_google_oauth_states() from authenticated;
 
 create or replace function public.get_family_google_integration(p_family_id uuid)
 returns table (

@@ -50,6 +50,14 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: `Failed to persist OAuth state: ${stateErr.message}` });
   }
 
+  // Opportunistically reap expired/abandoned state rows so the table doesn't
+  // grow unbounded (each Connect click inserts one; only completed flows are
+  // deleted on the callback). Best-effort — never block the connect.
+  admin.rpc('cleanup_google_oauth_states').then(
+    () => {},
+    (err) => console.warn('[google] cleanup_google_oauth_states failed', err),
+  );
+
   try {
     return res.status(200).json({ url: buildAuthUrl(state) });
   } catch (err) {

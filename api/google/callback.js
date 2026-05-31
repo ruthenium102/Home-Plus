@@ -88,6 +88,9 @@ export default async function handler(req, res) {
     );
 
     let channelInfo = null;
+    // Secret echoed back by Google on every push as X-Goog-Channel-Token; the
+    // webhook validates it so a forged notification can't trigger a sync.
+    const channelToken = randomUUID();
     try {
       const webhookUrl = siteRedirect('/api/google/webhook');
       channelInfo = await watchCalendar(
@@ -95,6 +98,7 @@ export default async function handler(req, res) {
         calendar.id,
         randomUUID(),
         webhookUrl,
+        channelToken,
       );
     } catch (watchErr) {
       console.warn('[google] watchCalendar failed, falling back to poll-only:', watchErr);
@@ -115,6 +119,7 @@ export default async function handler(req, res) {
           sync_token: null,
           channel_id: channelInfo?.id || null,
           channel_resource_id: channelInfo?.resourceId || null,
+          channel_token: channelInfo ? channelToken : null,
           channel_expires_at: channelInfo?.expiration
             ? new Date(Number(channelInfo.expiration)).toISOString()
             : null,
