@@ -2,6 +2,7 @@ import { useCallback } from 'react';
 import { useFamily } from '@/context/FamilyContext';
 import { useToast } from '@/context/ToastContext';
 import { supabase } from '@/lib/supabase';
+import { apiUrl } from '@/lib/apiBase';
 import { localISO } from '@/lib/dates';
 import type { ChoreFrequency, EventCategory, FamilyMember } from '@/types';
 
@@ -81,7 +82,7 @@ export function useVoiceIntake() {
 
       let action: VoiceAction;
       try {
-        const res = await fetch('/api/voice-intake', {
+        const res = await fetch(apiUrl('/api/voice-intake'), {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

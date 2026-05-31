@@ -100,7 +100,7 @@ export function SettingsPage() {
 
   return (
     <div className="space-y-5 max-w-3xl mx-auto">
-      {isDemoMode && (
+      {isDemoMode && import.meta.env.DEV && (
         <div className="card p-4 border-accent/40 bg-accent-soft/40">
           <div className="text-sm text-text font-medium mb-1">Running in demo mode</div>
           <div className="text-xs text-text-muted leading-relaxed">

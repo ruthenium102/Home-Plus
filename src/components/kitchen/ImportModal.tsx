@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { X, Loader2 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
+import { apiUrl } from '@/lib/apiBase';
 import type { Recipe } from '@/types';
 
 interface Props {
@@ -25,7 +26,7 @@ export function ImportModal({ onImport, onClose }: Props) {
         throw new Error('Sign in to import recipes.');
       }
 
-      const res = await fetch('/api/import-recipe', {
+      const res = await fetch(apiUrl('/api/import-recipe'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

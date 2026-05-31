@@ -12,6 +12,7 @@ import {
 import { useFamily } from '@/context/FamilyContext';
 import { useToast } from '@/context/ToastContext';
 import { supabase } from '@/lib/supabase';
+import { apiUrl } from '@/lib/apiBase';
 import { Avatar } from './Avatar';
 import { getAusPublicHolidays, getWASchoolTerms, type ImportableEvent } from '@/lib/holidays';
 import type { CalendarEvent } from '@/types';
@@ -496,7 +497,7 @@ async function extractEventsFromText(
     // No session → skip the authed AI route and fall back to the regex extractor.
     if (!token) return regexExtractEvents(text);
 
-    const res = await fetch('/api/extract-events', {
+    const res = await fetch(apiUrl('/api/extract-events'), {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

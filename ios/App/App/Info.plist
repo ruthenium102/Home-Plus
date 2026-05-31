@@ -30,7 +30,7 @@
 	<string>Main</string>
 	<key>UIRequiredDeviceCapabilities</key>
 	<array>
-		<string>armv7</string>
+		<string>arm64</string>
 	</array>
 	<key>UISupportedInterfaceOrientations</key>
 	<array>
@@ -51,5 +51,9 @@
 	<string>Home Plus uses the microphone for voice commands like "add eggs to the shopping list" or "log my reading habit".</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
 	<string>Home Plus uses on-device speech recognition to turn your voice commands into list items, events, and habit check-ins.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Home Plus uses your location to show the weather where you are, so your family can see if they need a coat today.</string>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 </dict>
 </plist>

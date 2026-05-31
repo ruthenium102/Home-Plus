@@ -8,6 +8,7 @@
 // the safety net.
 
 import { supabase } from './supabase';
+import { apiUrl } from './apiBase';
 
 async function postWithAuth(path: string, body: unknown): Promise<void> {
   if (!supabase) return;
@@ -15,7 +16,7 @@ async function postWithAuth(path: string, body: unknown): Promise<void> {
     const { data } = await supabase.auth.getSession();
     const token = data.session?.access_token;
     if (!token) return;
-    await fetch(path, {
+    await fetch(apiUrl(path), {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

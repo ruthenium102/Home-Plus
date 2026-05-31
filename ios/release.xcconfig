@@ -1,0 +1,6 @@
+// Release build configuration.
+//
+// Deliberately does NOT enable CAPACITOR_DEBUG so production builds don't ship
+// the debug WKWebView flag in Info.plist. The Debug config uses debug.xcconfig
+// (CAPACITOR_DEBUG = true); this file keeps it off for App Store builds.
+CAPACITOR_DEBUG = false

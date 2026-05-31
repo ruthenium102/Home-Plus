@@ -108,7 +108,7 @@ export function dbUpsert<T extends TableName>(table: T, data: Tables[T]['Insert'
   let payload: unknown = data;
   if (table === 'family_members') {
     const { pin_hash: _ph, has_pin: _hp, reward_balances: _rb, ...rest } =
-      data as Record<string, unknown>;
+      data as unknown as Record<string, unknown>;
     void _ph; void _hp; void _rb;
     payload = rest;
   }
