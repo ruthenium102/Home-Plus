@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { X } from 'lucide-react';
 import { buildTabList, type TabKey, type TabVisibility } from './TabBar';
 
@@ -13,7 +14,7 @@ interface Props extends TabVisibility {
  * placement. Replaces the bottom TabBar at that size. Both are driven from
  * the same buildTabList() so adding a new tab updates both surfaces.
  */
-export function SideRail({ active, onChange, onClose, ...visibility }: Props) {
+export const SideRail = memo(function SideRail({ active, onChange, onClose, ...visibility }: Props) {
   const tabs = buildTabList(visibility);
 
   return (
@@ -45,7 +46,7 @@ export function SideRail({ active, onChange, onClose, ...visibility }: Props) {
             key={t.key}
             onClick={() => onChange(t.key)}
             className={
-              'flex items-center gap-3 px-3 py-2.5 rounded-md transition-all min-h-[44px] text-left ' +
+              'flex items-center gap-3 px-3 py-2.5 rounded-md transition-[transform,background-color,color,box-shadow] min-h-[44px] text-left ' +
               (isActive
                 ? 'bg-accent text-white shadow-sm'
                 : 'text-text-muted hover:bg-surface-2 hover:text-text')
@@ -58,4 +59,4 @@ export function SideRail({ active, onChange, onClose, ...visibility }: Props) {
       })}
     </nav>
   );
-}
+});

@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
 
 // Capture invite token + password-recovery state from the URL immediately on
 // module load — before React renders and before Supabase consumes the hash.
@@ -64,6 +64,7 @@ import { TabFallback } from '@/components/TabFallback';
 import { SetPasswordModal } from '@/components/SetPasswordModal';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 import { useDockPlacement, useSideRailOpen } from '@/lib/dockPreference';
+import { hapticLight } from '@/lib/native';
 
 // Lazy-load tab pages so the lock screen + home tab load fast.
 // Each chunk is fetched on first visit to that tab.
@@ -118,6 +119,14 @@ function AppShell() {
     return () => subscription.unsubscribe();
   }, []);
 
+  // Navigation tap → light haptic + switch. Stable identity (useCallback, no
+  // deps; setTab from useState is itself stable) so the memoized TabBar /
+  // SideRail don't re-render just because AppShell re-rendered.
+  const changeTab = useCallback((k: TabKey) => {
+    void hapticLight();
+    setTab(k);
+  }, []);
+
   // Reset to home when switching members so hidden tabs aren't left active
   const prevMemberId = useRef(activeMember?.id);
   useEffect(() => {
@@ -137,7 +146,7 @@ function AppShell() {
 
   return (
     <div
-      className="min-h-[100dvh] bg-bg"
+      className="min-h-dvh bg-bg"
       style={{ paddingTop: 'env(safe-area-inset-top)' }}
     >
       {/* Side rail — shown when dock placement preference is 'side' AND the
@@ -145,7 +154,7 @@ function AppShell() {
       {railVisible && (
         <SideRail
           active={tab}
-          onChange={setTab}
+          onChange={changeTab}
           onClose={() => setRailOpen(false)}
           showMyDay={showMyDay}
           showChores={showChores}
@@ -189,7 +198,7 @@ function AppShell() {
         <TopBar onSwitchUser={() => setSwitcherOpen(true)} />
 
         <main>
-          {tab === 'home' && <HomePage onNavigate={setTab} />}
+          {tab === 'home' && <HomePage onNavigate={changeTab} />}
           {tab !== 'home' && (
             <Suspense fallback={<TabFallback />}>
               {tab === 'calendar' && <CalendarPage />}
@@ -214,7 +223,7 @@ function AppShell() {
           <div className="max-w-6xl mx-auto">
             <TabBar
               active={tab}
-              onChange={setTab}
+              onChange={changeTab}
               showMyDay={showMyDay}
               showChores={showChores}
               showHabits={showHabits}
@@ -254,7 +263,7 @@ function AuthGate() {
   // Waiting for Supabase to resolve the session
   if (loading) {
     return (
-      <div className="min-h-[100dvh] bg-bg flex items-center justify-center">
+      <div className="min-h-dvh bg-bg flex items-center justify-center">
         <div className="text-text-faint text-sm animate-pulse">Loading…</div>
       </div>
     );

@@ -80,6 +80,34 @@ button,
   user-select: none;
 }
 
+/* iOS auto-zooms the whole viewport toward any focused form control whose
+   computed font-size is < 16px — yanking and panning the page on every text
+   field. Force 16px on touch-width viewports; restore the denser 14px rhythm
+   at sm+ (iPad/desktop) where focus-zoom doesn't trigger. */
+input,
+select,
+textarea {
+  font-size: 16px;
+}
+@media (min-width: 640px) {
+  input,
+  select,
+  textarea {
+    font-size: 0.875rem;
+  }
+}
+
+/* Full-height containers with a fallback for iOS < 15.4 (no `dvh` support):
+   `vh` lands first, `dvh` overrides where available. */
+.min-h-dvh {
+  min-height: 100vh;
+}
+@supports (min-height: 100dvh) {
+  .min-h-dvh {
+    min-height: 100dvh;
+  }
+}
+
 /* Hide scrollbars on horizontal scrollers but keep functionality */
 .scroll-x-clean {
   scrollbar-width: none;
@@ -325,15 +353,6 @@ button,
 .treat-drag:active {
   cursor: grabbing;
   transform: scale(1.12);
-}
-
-/* Reorder polish — slightly lift dragged rows and smooth drop transitions
-   so HTML5 drag feels less mechanical. */
-[draggable='true'] {
-  transition:
-    transform 140ms cubic-bezier(0.16, 1, 0.3, 1),
-    box-shadow 140ms cubic-bezier(0.16, 1, 0.3, 1),
-    opacity 140ms ease-out;
 }
 
 /* Pet container — used as drop target highlight */

@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import {
   Home,
   Calendar,
@@ -65,7 +66,10 @@ export function buildTabList({
   ];
 }
 
-export function TabBar({ active, onChange, ...visibility }: Props) {
+// Memoized: AppShell re-renders on every FamilyContext change, but TabBar's
+// props (stable `onChange` + primitive visibility flags + `active`) rarely
+// change, so memo skips the re-render and keeps tab switches smooth.
+export const TabBar = memo(function TabBar({ active, onChange, ...visibility }: Props) {
   const tabs = buildTabList(visibility);
 
   // Buttons size to fit; with a sensible cap on tab count for phones this
@@ -80,7 +84,7 @@ export function TabBar({ active, onChange, ...visibility }: Props) {
             key={t.key}
             onClick={() => onChange(t.key)}
             className={
-              'flex-1 min-w-0 min-h-[48px] flex flex-col items-center gap-1 px-1 py-2 rounded-md transition-all active:scale-95 ' +
+              'flex-1 min-w-0 min-h-[48px] flex flex-col items-center gap-1 px-1 py-2 rounded-md transition-[transform,background-color,color,box-shadow] active:scale-95 ' +
               (isActive
                 ? 'bg-accent text-white shadow-sm'
                 : 'text-text-muted hover:bg-surface-2 hover:text-text')
@@ -93,4 +97,4 @@ export function TabBar({ active, onChange, ...visibility }: Props) {
       })}
     </nav>
   );
-}
+});

@@ -228,8 +228,34 @@ interface FamilyContextValue {
 const FamilyContext = createContext<FamilyContextValue | null>(null);
 
 // Persists a slice to localStorage whenever it changes.
+//
+// Debounced (400ms trailing) so a burst of edits — typing in a field, ticking
+// several list items, dragging a reorder — coalesces into a single
+// JSON.stringify + write instead of serializing the whole slice on the main
+// thread on every keystroke/toggle. A pagehide / visibility-hidden flush
+// guarantees the latest value is written before iOS suspends the WebView, so
+// the debounce never risks losing data.
 function usePersisted<T>(key: string, value: T) {
-  useEffect(() => storage.set(key, value), [key, value]);
+  const ref = useRef(value);
+  ref.current = value;
+
+  useEffect(() => {
+    const id = window.setTimeout(() => storage.set(key, ref.current), 400);
+    return () => window.clearTimeout(id);
+  }, [key, value]);
+
+  useEffect(() => {
+    const flush = () => storage.set(key, ref.current);
+    const onVis = () => {
+      if (document.visibilityState === 'hidden') flush();
+    };
+    window.addEventListener('pagehide', flush);
+    document.addEventListener('visibilitychange', onVis);
+    return () => {
+      window.removeEventListener('pagehide', flush);
+      document.removeEventListener('visibilitychange', onVis);
+    };
+  }, [key]);
 }
 
 const SESSION_KEY = 'session';

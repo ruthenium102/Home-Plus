@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { format } from 'date-fns';
 import { Repeat } from 'lucide-react';
 import { useTheme } from '@/context/ThemeContext';
@@ -15,7 +16,10 @@ interface Props {
  * The colour of an event is derived from its first assigned member.
  * Whole-family events (no member_ids) use the accent.
  */
-export function EventChip({ event, onClick, variant = 'list' }: Props) {
+// Memoized: a calendar view mounts many chips; memo limits re-renders to the
+// chips whose props actually change. Pays off fully once the FamilyContext
+// split stops CalendarPage re-rendering on unrelated data edits.
+export const EventChip = memo(function EventChip({ event, onClick, variant = 'list' }: Props) {
   const { resolved } = useTheme();
   const { members, kitchenSettings } = useFamily();
   const isDark = resolved === 'dark';
@@ -98,4 +102,4 @@ export function EventChip({ event, onClick, variant = 'list' }: Props) {
       )}
     </button>
   );
-}
+});
