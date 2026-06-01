@@ -3,7 +3,33 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <meta name="theme-color" content="#1a1815" />
+    <meta name="theme-color" content="#f8f4ed" />
+    <!-- Resolve and apply the theme BEFORE first paint, so a dark-mode user
+         never sees a flash of the light cream background while the JS bundle
+         loads inside WKWebView. Mirrors ThemeContext: stored 'hp:theme' is
+         JSON ("system" | "light" | "dark"); 'system' follows the OS. Setting
+         the <html> .dark class + body bg + theme-color here means the very
+         first painted frame is already the correct theme. -->
+    <script>
+      (function () {
+        try {
+          var raw = localStorage.getItem('hp:theme');
+          var mode = raw ? JSON.parse(raw) : 'system';
+          var dark =
+            mode === 'dark' ||
+            (mode === 'system' &&
+              window.matchMedia &&
+              window.matchMedia('(prefers-color-scheme: dark)').matches);
+          var bg = dark ? '#1a1815' : '#f8f4ed';
+          if (dark) document.documentElement.classList.add('dark');
+          document.documentElement.style.backgroundColor = bg;
+          var meta = document.querySelector('meta[name="theme-color"]');
+          if (meta) meta.setAttribute('content', bg);
+        } catch (e) {
+          /* localStorage unavailable — fall back to CSS default (light) */
+        }
+      })();
+    </script>
     <!-- Self-hosted fonts (bundled in /public/fonts). No network dependency,
          so cold launch never blocks on Google Fonts and the kitchen iPad keeps
          its typeface offline. Preload the two most-used faces to cut FOUT. -->

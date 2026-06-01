@@ -82,7 +82,7 @@ export function ListsPage() {
             const isActive = list.id === activeListId;
             const itemCount = listItems.filter((i) => i.list_id === list.id && !i.done).length;
 
-            const { isDragging, dropEdge, ...rowHandlers } = listDnd.getRowProps(list.id);
+            const { dropEdge, ...rowHandlers } = listDnd.getRowProps(list.id);
             return (
               <div
                 key={list.id}
@@ -91,7 +91,6 @@ export function ListsPage() {
                   'flex items-center gap-2 px-2 py-2 rounded-md transition-colors group ' +
                   (isActive ? 'bg-surface-2' : 'hover:bg-surface-2/60') +
                   ' ' +
-                  (isDragging ? 'opacity-40 ' : '') +
                   (dropEdge === 'top' ? 'shadow-[0_-3px_0_0_rgb(var(--accent))] ' : '') +
                   (dropEdge === 'bottom' ? 'shadow-[0_3px_0_0_rgb(var(--accent))] ' : '')
                 }
@@ -360,14 +359,13 @@ const ListItemRow = memo(function ListItemRow({
     });
   };
 
-  const { isDragging, dropEdge, ...rowHandlers } = dragProps;
+  const { dropEdge, ...rowHandlers } = dragProps;
   return (
     <SwipeableRow onDelete={handleDelete} mode={swipeMode}>
       <div
         {...rowHandlers}
         className={
           'flex items-center gap-2 p-3 bg-surface-2/40 hover:bg-surface-2/70 transition-colors ' +
-          (isDragging ? 'opacity-40 ' : '') +
           (dropEdge === 'top' ? 'shadow-[0_-3px_0_0_rgb(var(--accent))] ' : '') +
           (dropEdge === 'bottom' ? 'shadow-[0_3px_0_0_rgb(var(--accent))] ' : '')
         }

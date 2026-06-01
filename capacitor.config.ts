@@ -7,6 +7,17 @@ const config: CapacitorConfig = {
   server: {
     androidScheme: 'https'
   },
+  plugins: {
+    SplashScreen: {
+      // We hide the splash from JS (hideSplash) once React paints the first
+      // screen, so there's no flash. launchAutoHide:false keeps the native
+      // splash up until then; the long fallback timeout is just a safety net.
+      launchAutoHide: false,
+      launchFadeOutDuration: 200,
+      backgroundColor: '#F8F4ED',
+      showSpinner: false,
+    },
+  },
   ios: {
     contentInset: 'automatic',
     // Match the light-theme --bg cream so the WKWebView host doesn't show

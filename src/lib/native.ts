@@ -6,6 +6,7 @@ import { Capacitor } from '@capacitor/core';
 import { StatusBar, Style } from '@capacitor/status-bar';
 import { Keyboard, KeyboardResize } from '@capacitor/keyboard';
 import { Haptics, ImpactStyle } from '@capacitor/haptics';
+import { SplashScreen } from '@capacitor/splash-screen';
 
 const isNative = Capacitor.isNativePlatform();
 
@@ -45,6 +46,17 @@ export async function hapticMedium() {
   if (!isNative) return;
   try {
     await Haptics.impact({ style: ImpactStyle.Medium });
+  } catch {
+    /* ignore */
+  }
+}
+
+/** Hide the native launch splash. Call once React has painted the first
+ *  screen so there's no white/cream flash between splash and content. */
+export async function hideSplash() {
+  if (!isNative) return;
+  try {
+    await SplashScreen.hide();
   } catch {
     /* ignore */
   }

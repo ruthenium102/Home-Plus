@@ -64,7 +64,7 @@ import { TabFallback } from '@/components/TabFallback';
 import { SetPasswordModal } from '@/components/SetPasswordModal';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 import { useDockPlacement, useSideRailOpen } from '@/lib/dockPreference';
-import { hapticLight } from '@/lib/native';
+import { hapticLight, hideSplash } from '@/lib/native';
 
 // Lazy-load tab pages so the lock screen + home tab load fast.
 // Each chunk is fetched on first visit to that tab.
@@ -260,11 +260,32 @@ function AuthGate() {
   // Demo mode: skip auth, go straight to the app
   if (!isSupabaseConfigured) return <AppShell />;
 
-  // Waiting for Supabase to resolve the session
+  // Waiting for Supabase to resolve the session. Show a branded app-shaped
+  // skeleton (top bar + dock + cards) rather than a bare "Loading…" string, so
+  // the cold-start hand-off reads as the app arriving, not a spinner.
   if (loading) {
     return (
-      <div className="min-h-dvh bg-bg flex items-center justify-center">
-        <div className="text-text-faint text-sm animate-pulse">Loading…</div>
+      <div
+        className="min-h-dvh bg-bg p-3 sm:p-6"
+        style={{ paddingTop: 'max(0.75rem, env(safe-area-inset-top))' }}
+      >
+        <div className="max-w-6xl mx-auto animate-pulse">
+          {/* top bar */}
+          <div className="flex items-center justify-between mb-6">
+            <div className="space-y-2">
+              <div className="h-6 w-40 bg-surface-2 rounded-md" />
+              <div className="h-3 w-24 bg-surface-2 rounded-md" />
+            </div>
+            <div className="h-10 w-10 bg-surface-2 rounded-full" />
+          </div>
+          {/* content cards */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
+            <div className="h-32 bg-surface-2 rounded-2xl" />
+            <div className="h-32 bg-surface-2 rounded-2xl" />
+            <div className="h-32 bg-surface-2 rounded-2xl" />
+          </div>
+          <div className="h-48 bg-surface-2 rounded-2xl" />
+        </div>
       </div>
     );
   }
@@ -283,6 +304,22 @@ function AuthGate() {
 }
 
 export default function App() {
+  // Hide the native launch splash once React has committed the first frame,
+  // so the hand-off is splash -> content with no white/cream flash. A double
+  // rAF ensures the browser has actually painted before we pull the splash.
+  useEffect(() => {
+    let raf2 = 0;
+    const raf1 = requestAnimationFrame(() => {
+      raf2 = requestAnimationFrame(() => {
+        void hideSplash();
+      });
+    });
+    return () => {
+      cancelAnimationFrame(raf1);
+      if (raf2) cancelAnimationFrame(raf2);
+    };
+  }, []);
+
   return (
     <ErrorBoundary>
       <ThemeProvider>

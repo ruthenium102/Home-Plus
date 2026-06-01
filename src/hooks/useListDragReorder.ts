@@ -184,8 +184,23 @@ export function useListDragReorder<T extends { id: string }>(
       isDragging: dragId === id,
       isOver: overId === id,
       dropEdge: overId === id ? overEdge : null,
-      // While we're dragging this row, block native scroll.
-      style: dragId === id ? { touchAction: 'none' } : undefined,
+      // While dragging this row: block native scroll, and give it a
+      // compositor-only "grabbed" lift (scale + shadow + raised z), the way
+      // native iOS list reordering picks a row up. Transition is transform/
+      // shadow only (never layout), so it stays on the compositor at 60fps.
+      // Consumers no longer fade the row to opacity-40 — the lift + the
+      // drop-edge line communicate the drag instead.
+      style:
+        dragId === id
+          ? {
+              touchAction: 'none',
+              transform: 'scale(1.02)',
+              boxShadow: '0 10px 24px -8px rgb(0 0 0 / 0.28)',
+              position: 'relative',
+              zIndex: 20,
+              transition: 'transform 140ms cubic-bezier(0.16,1,0.3,1), box-shadow 140ms ease-out',
+            }
+          : undefined,
     }),
     [dragId, overId, overEdge, onPointerDown],
   );

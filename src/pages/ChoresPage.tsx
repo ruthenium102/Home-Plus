@@ -529,7 +529,7 @@ const ManageChoreRow = memo(function ManageChoreRow({
   onEdit,
   onDelete,
 }: ManageChoreRowProps) {
-  const { isDragging, dropEdge, ...rowHandlers } = dragProps;
+  const { dropEdge, ...rowHandlers } = dragProps;
   return (
     <SwipeableRow mode={swipeMode} onDelete={() => onDelete(c)}>
       <div
@@ -537,7 +537,6 @@ const ManageChoreRow = memo(function ManageChoreRow({
         onClick={() => onEdit(c)}
         className={
           'w-full flex items-center gap-3 p-3 bg-surface-2/40 hover:bg-surface-2/70 transition-colors cursor-pointer first:rounded-t-lg last:rounded-b-lg ' +
-          (isDragging ? 'opacity-40 ' : '') +
           (dropEdge === 'top' ? 'shadow-[0_-3px_0_0_rgb(var(--accent))] ' : '') +
           (dropEdge === 'bottom' ? 'shadow-[0_3px_0_0_rgb(var(--accent))] ' : '')
         }

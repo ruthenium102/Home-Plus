@@ -193,7 +193,7 @@ export function HomePage({ onNavigate }: Props) {
                       }}
                       className={
                         'w-8 h-8 rounded-full flex items-center justify-center shrink-0 text-[11px] font-bold tabular-nums transition-transform active:scale-95 cursor-pointer ' +
-                        (checked
+                        (checked && count > 0
                           ? 'bg-accent text-white'
                           : count > 0
                             ? 'bg-accent/30 text-text border-2 border-accent/40'
@@ -211,7 +211,8 @@ export function HomePage({ onNavigate }: Props) {
                       <div className="flex-1 min-w-0">
                         <div
                           className={
-                            'text-sm truncate ' + (checked ? 'text-text-muted' : 'text-text')
+                            'text-sm truncate ' +
+                            (checked && count > 0 ? 'text-text-muted' : 'text-text')
                           }
                         >
                           {habit.title}

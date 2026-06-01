@@ -631,7 +631,6 @@ function MemberRow({
 }) {
   const hasLogin = !!member.auth_user_id;
   const {
-    isDragging,
     isOver: _ignoredIsOver,
     dropEdge,
     ...rowHandlers
@@ -641,7 +640,6 @@ function MemberRow({
       {...(dragProps ? rowHandlers : {})}
       className={
         'flex items-center gap-3 p-3 rounded-md bg-surface-2/40 hover:bg-surface-2/70 transition-colors ' +
-        (isDragging ? 'opacity-40 ' : '') +
         (dropEdge === 'top' ? 'shadow-[0_-3px_0_0_rgb(var(--accent))] ' : '') +
         (dropEdge === 'bottom' ? 'shadow-[0_3px_0_0_rgb(var(--accent))] ' : '')
       }
