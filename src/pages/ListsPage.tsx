@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { memo, useMemo, useState } from 'react';
 import {
   Plus,
   CheckCircle2,
@@ -252,6 +252,16 @@ function ItemsList({
   onReorderItems: (orderedIds: string[]) => void;
 }) {
   const itemDnd = useListDragReorder(items, onReorderItems);
+  // Hoist the context subscriptions OUT of the per-row component. A component
+  // that calls useFamily()/useToast() re-renders on every context change no
+  // matter what React.memo says, so the rows could never be memoized while they
+  // read context directly. These actions are all stable (useCallback) and
+  // swipeMode is a primitive, so passing them down as props lets ListItemRow
+  // skip re-render when an unrelated item (or an unrelated context slice, e.g.
+  // the 90s cloud poll) changes — only the toggled row re-renders.
+  const { toggleListItem, deleteListItem, addListItem } = useFamily();
+  const { show } = useToast();
+  const swipeMode = useSwipeMode();
   return (
     <div className="divide-y divide-border">
       {items.map((item) => (
@@ -260,30 +270,68 @@ function ItemsList({
           item={item}
           list={list}
           members={members}
+          swipeMode={swipeMode}
           dragProps={itemDnd.getRowProps(item.id)}
-          onEdit={() => onEditItem(item)}
+          toggleListItem={toggleListItem}
+          deleteListItem={deleteListItem}
+          addListItem={addListItem}
+          showToast={show}
+          onEdit={onEditItem}
         />
       ))}
     </div>
   );
 }
 
-function ListItemRow({
-  item,
-  list,
-  members,
-  dragProps,
-  onEdit,
-}: {
+type ListItemRowProps = {
   item: TodoItem;
   list: TodoList;
   members: ReturnType<typeof useFamily>['members'];
+  swipeMode: 'partial' | 'full';
   dragProps: ReturnType<ReturnType<typeof useListDragReorder<TodoItem>>['getRowProps']>;
-  onEdit: () => void;
-}) {
-  const { toggleListItem, deleteListItem, addListItem } = useFamily();
-  const { show } = useToast();
-  const swipeMode = useSwipeMode();
+  toggleListItem: ReturnType<typeof useFamily>['toggleListItem'];
+  deleteListItem: ReturnType<typeof useFamily>['deleteListItem'];
+  addListItem: ReturnType<typeof useFamily>['addListItem'];
+  showToast: ReturnType<typeof useToast>['show'];
+  onEdit: (item: TodoItem) => void;
+};
+
+/**
+ * Skip a row's re-render unless something it actually renders changed.
+ *
+ * Compares the data the row reads (item ref, members ref, the two list fields
+ * it uses, swipeMode, and the drag PRIMITIVES). Function props are
+ * intentionally ignored: toggleListItem/deleteListItem/addListItem/showToast/
+ * onEdit are logically stable (same behaviour for this item.id), and the drag
+ * handlers from useListDragReorder read live state through refs, so retaining a
+ * prior closure on a skipped render stays correct. `item` keeps its identity
+ * for untouched rows (toggle only replaces the one edited item), so ticking one
+ * item re-renders one row instead of the whole list.
+ */
+function areRowPropsEqual(a: ListItemRowProps, b: ListItemRowProps): boolean {
+  return (
+    a.item === b.item &&
+    a.members === b.members &&
+    a.swipeMode === b.swipeMode &&
+    a.list.id === b.list.id &&
+    a.list.owner_id === b.list.owner_id &&
+    a.dragProps.isDragging === b.dragProps.isDragging &&
+    a.dragProps.dropEdge === b.dragProps.dropEdge
+  );
+}
+
+const ListItemRow = memo(function ListItemRow({
+  item,
+  list,
+  members,
+  swipeMode,
+  dragProps,
+  toggleListItem,
+  deleteListItem,
+  addListItem,
+  showToast,
+  onEdit,
+}: ListItemRowProps) {
   const assignee = findAssignee(members, item);
   const dueLabel = item.next_due || item.due_date;
   const overdue = isOverdue(item);
@@ -293,7 +341,7 @@ function ListItemRow({
     // Snapshot for undo
     const snapshot = { ...item };
     deleteListItem(item.id);
-    show({
+    showToast({
       message: `"${item.title}" deleted`,
       onUndo: () => {
         addListItem({
@@ -370,7 +418,7 @@ function ListItemRow({
         </div>
         {list.owner_id === null && assignee && <Avatar member={assignee} size={26} />}
         <button
-          onClick={onEdit}
+          onClick={() => onEdit(item)}
           className="w-7 h-7 rounded-md hover:bg-surface-2 flex items-center justify-center text-text-faint hover:text-text shrink-0"
           title="Edit item"
         >
@@ -379,4 +427,4 @@ function ListItemRow({
       </div>
     </SwipeableRow>
   );
-}
+}, areRowPropsEqual);

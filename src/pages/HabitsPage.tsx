@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { memo, useMemo, useState } from 'react';
 import { localISO } from '@/lib/dates';
 import { Plus, Pencil, Lock, Users, Flame, Sparkles, Check, X } from 'lucide-react';
 import { useFamily } from '@/context/FamilyContext';
@@ -275,7 +275,41 @@ interface HabitRowProps {
   onEdit: () => void;
 }
 
-function HabitRow({
+/**
+ * Skip a habit row's re-render unless its own display data changed. The parent
+ * recomputes last7/streak/counts for EVERY habit whenever ANY check-in changes,
+ * so without this, ticking one habit re-renders every sibling row. We compare
+ * the render-affecting data (habit identity, streak, today's count/checked,
+ * flags, drag primitives, and the heatmap cells element-wise) and ignore the
+ * per-render closure props — each closure captures stable habit.id/member.id
+ * for its keyed row, so retaining a prior one on a skipped render is correct.
+ */
+function areHabitRowsEqual(a: HabitRowProps, b: HabitRowProps): boolean {
+  if (
+    a.habit !== b.habit ||
+    a.canEdit !== b.canEdit ||
+    a.canCheck !== b.canCheck ||
+    a.todayISO !== b.todayISO ||
+    a.isCheckedToday !== b.isCheckedToday ||
+    a.streak !== b.streak ||
+    a.todayCount !== b.todayCount ||
+    a.color.base !== b.color.base ||
+    a.color.soft !== b.color.soft ||
+    (a.dragProps?.isDragging ?? null) !== (b.dragProps?.isDragging ?? null) ||
+    (a.dragProps?.dropEdge ?? null) !== (b.dragProps?.dropEdge ?? null)
+  ) {
+    return false;
+  }
+  if (a.last7.length !== b.last7.length) return false;
+  for (let i = 0; i < a.last7.length; i++) {
+    const x = a.last7[i];
+    const y = b.last7[i];
+    if (x.date !== y.date || x.checked !== y.checked || x.count !== y.count) return false;
+  }
+  return true;
+}
+
+const HabitRow = memo(function HabitRow({
   habit,
   color,
   canEdit,
@@ -434,4 +468,4 @@ function HabitRow({
       )}
     </div>
   );
-}
+}, areHabitRowsEqual);
