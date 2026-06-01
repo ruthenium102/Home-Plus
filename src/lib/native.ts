@@ -24,8 +24,16 @@ export async function setStatusBarForTheme(resolved: 'light' | 'dark') {
 export async function configureKeyboard() {
   if (!isNative) return;
   try {
-    // 'Body' resize avoids covering modal inputs — the WebView shrinks to fit.
-    await Keyboard.setResizeMode({ mode: KeyboardResize.Body });
+    // 'Native' resizes the whole WKWebView frame when the keyboard appears, so
+    // `vh` units and `position: fixed` elements shrink to the area ABOVE the
+    // keyboard. This is what makes a sticky modal footer / bottom-of-page Save
+    // button reachable.
+    //
+    // (Was 'Body', which only resizes <body>. Because our editor modals are
+    // `position: fixed; inset-0` sized in vh, Body mode left them anchored to
+    // the full layout viewport — so their Save footer rendered behind the
+    // keyboard and couldn't be scrolled to. 'Native' fixes that everywhere.)
+    await Keyboard.setResizeMode({ mode: KeyboardResize.Native });
   } catch {
     /* ignore */
   }
