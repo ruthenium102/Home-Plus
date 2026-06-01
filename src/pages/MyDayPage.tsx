@@ -132,7 +132,7 @@ function FocusMode({ blocks, onClose, onToggleDone }: FocusModeProps) {
             <button
               onClick={() => onToggleDone(current.id)}
               className={
-                'flex items-center gap-3 px-8 py-4 rounded-2xl text-xl font-semibold transition-all ' +
+                'flex items-center gap-3 px-8 py-4 rounded-2xl text-xl font-semibold transition-[transform,opacity,background-color,border-color,color,box-shadow] ' +
                 (current.done
                   ? 'bg-surface-2 text-text-muted border-2 border-border'
                   : 'bg-accent text-white shadow-lg active:scale-95')
@@ -500,7 +500,7 @@ function PoolItemChip({ item, onEdit, onDelete, onDragStart, isDragging }: PoolI
       </div>
       <button
         onClick={onEdit}
-        className="shrink-0 w-6 h-6 min-w-[44px] min-h-[44px] rounded flex items-center justify-center text-text-faint hover:text-accent hover:bg-accent/10 opacity-0 group-hover:opacity-100 transition-all"
+        className="shrink-0 w-6 h-6 min-w-[44px] min-h-[44px] rounded flex items-center justify-center text-text-faint hover:text-accent hover:bg-accent/10 opacity-0 group-hover:opacity-100 transition-[transform,opacity,background-color,border-color,color,box-shadow]"
         title="Edit activity"
         aria-label="Edit activity"
       >
@@ -508,7 +508,7 @@ function PoolItemChip({ item, onEdit, onDelete, onDragStart, isDragging }: PoolI
       </button>
       <button
         onClick={onDelete}
-        className="shrink-0 w-6 h-6 min-w-[44px] min-h-[44px] rounded flex items-center justify-center text-text-faint hover:text-red-500 hover:bg-red-500/10 opacity-0 group-hover:opacity-100 transition-all"
+        className="shrink-0 w-6 h-6 min-w-[44px] min-h-[44px] rounded flex items-center justify-center text-text-faint hover:text-red-500 hover:bg-red-500/10 opacity-0 group-hover:opacity-100 transition-[transform,opacity,background-color,border-color,color,box-shadow]"
         title="Delete activity"
         aria-label="Delete activity"
       >

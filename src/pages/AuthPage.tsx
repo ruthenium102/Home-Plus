@@ -295,7 +295,7 @@ export function AuthPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-3 bg-accent text-white text-sm font-semibold rounded-md hover:opacity-90 active:scale-[0.98] transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+            className="w-full py-3 bg-accent text-white text-sm font-semibold rounded-md hover:opacity-90 active:scale-[0.98] transition-[transform,opacity,background-color,border-color,color,box-shadow] disabled:opacity-50 flex items-center justify-center gap-2"
           >
             {loading && <Loader2 size={16} className="animate-spin" />}
             {mode === 'signin' && 'Sign in'}

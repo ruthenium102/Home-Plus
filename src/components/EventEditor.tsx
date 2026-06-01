@@ -497,7 +497,7 @@ export function EventEditor({ open, onClose, editing, initialStart }: Props) {
                     key={m.id}
                     onClick={() => toggleMember(m.id)}
                     className={
-                      'flex items-center gap-2 pl-1 pr-3 py-1 rounded-full border transition-all ' +
+                      'flex items-center gap-2 pl-1 pr-3 py-1 rounded-full border transition-[transform,opacity,background-color,border-color,color,box-shadow] ' +
                       (selected
                         ? 'bg-surface-2 border-accent'
                         : 'border-border hover:border-border-strong opacity-70')
@@ -511,7 +511,7 @@ export function EventEditor({ open, onClose, editing, initialStart }: Props) {
               <button
                 onClick={() => setMemberIds([])}
                 className={
-                  'flex items-center gap-1.5 px-3 py-1 rounded-full border transition-all ' +
+                  'flex items-center gap-1.5 px-3 py-1 rounded-full border transition-[transform,opacity,background-color,border-color,color,box-shadow] ' +
                   (memberIds.length === 0
                     ? 'bg-surface-2 border-accent'
                     : 'border-border hover:border-border-strong opacity-70')

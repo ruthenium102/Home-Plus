@@ -26,6 +26,7 @@ import {
   Briefcase,
 } from 'lucide-react';
 import { useFamily } from '@/context/FamilyContext';
+import { hapticLight, hapticMedium } from '@/lib/native';
 import { expandEvents, type ExpandedEvent } from '@/lib/recurrence';
 import { EventChip } from '@/components/EventChip';
 import { EventEditor } from '@/components/EventEditor';
@@ -131,10 +132,16 @@ export function CalendarPage() {
       return null;
     };
 
+    let rafId = 0;
+    let lastKey: string | null = null;
+    let lastClientX = 0;
+    let lastClientY = 0;
     const move = (ev: PointerEvent) => {
       if (!started) {
         if (Math.abs(ev.clientY - startY) < 6 && Math.abs(ev.clientX - startX) < 6) return;
         started = true;
+        // Light pickup tap to match native drag lift-off.
+        void hapticLight();
         try {
           target.setPointerCapture(pointerId);
         } catch {
@@ -142,11 +149,29 @@ export function CalendarPage() {
         }
         draggingRef.current = e;
       }
-      const key = findDayKeyAt(ev.clientX, ev.clientY);
-      setDragOverDayKey(key);
       ev.preventDefault();
+      lastClientX = ev.clientX;
+      lastClientY = ev.clientY;
+      // Throttle the hit-test + hover-state write to one per animation frame.
+      // Previously this ran setDragOverDayKey on EVERY pointermove, re-rendering
+      // the whole month/week grid each frame and dropping frames on A-series
+      // devices. Coalescing to rAF keeps the drag at 60fps, and we only call
+      // setState when the hovered day actually changes.
+      if (rafId) return;
+      rafId = requestAnimationFrame(() => {
+        rafId = 0;
+        const key = findDayKeyAt(lastClientX, lastClientY);
+        if (key !== lastKey) {
+          lastKey = key;
+          setDragOverDayKey(key);
+        }
+      });
     };
     const cleanup = () => {
+      if (rafId) {
+        cancelAnimationFrame(rafId);
+        rafId = 0;
+      }
       target.removeEventListener('pointermove', move);
       target.removeEventListener('pointerup', up);
       target.removeEventListener('pointercancel', cancel);
@@ -191,6 +216,9 @@ export function CalendarPage() {
     if (!evt) return;
     const source = events.find((x) => x.id === evt.id);
     if (!source || source.recurrence) return;
+    // Confirm the move with a medium tap (only once we know a real, movable
+    // event landed on a day — recurring/no-op drops return above silently).
+    void hapticMedium();
 
     if (source.all_day) {
       const origStart = new Date(evt.occurrence_start);

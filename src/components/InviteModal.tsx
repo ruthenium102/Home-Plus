@@ -184,7 +184,7 @@ export function InviteModal({ open, onClose, defaultName, defaultRole = 'child' 
                         onClick={() => setRole(r)}
                         disabled={state === 'loading'}
                         className={
-                          'py-2 text-sm font-medium rounded-md border-2 transition-all capitalize ' +
+                          'py-2 text-sm font-medium rounded-md border-2 transition-[transform,opacity,background-color,border-color,color,box-shadow] capitalize ' +
                           (role === r
                             ? 'border-accent bg-accent-soft text-accent'
                             : 'border-border text-text-muted hover:border-border-strong')

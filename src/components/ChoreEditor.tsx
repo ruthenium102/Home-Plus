@@ -229,7 +229,7 @@ export function ChoreEditor({ open, onClose, editing }: Props) {
                       )
                     }
                     className={
-                      'flex items-center gap-2 pl-1 pr-3 py-1 rounded-full border transition-all ' +
+                      'flex items-center gap-2 pl-1 pr-3 py-1 rounded-full border transition-[transform,opacity,background-color,border-color,color,box-shadow] ' +
                       (selected
                         ? 'bg-surface-2 border-accent'
                         : 'border-border hover:border-border-strong opacity-70')

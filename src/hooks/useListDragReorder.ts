@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { hapticLight, hapticMedium } from '@/lib/native';
 
 type DropEdge = 'top' | 'bottom' | null;
 
@@ -92,6 +93,9 @@ export function useListDragReorder<T extends { id: string }>(
           if (Math.abs(ev.clientY - startY) < THRESHOLD && Math.abs(ev.clientX - startX) < THRESHOLD)
             return;
           started = true;
+          // Light pickup tap — iOS users expect a tactile cue when a drag
+          // lifts off, matching native list reordering.
+          void hapticLight();
           // Now own the gesture — prevents scrolling and stray clicks.
           try {
             target.setPointerCapture(pointerId);
@@ -146,6 +150,7 @@ export function useListDragReorder<T extends { id: string }>(
         const shiftedToIdx = fromIdx < toIdx ? toIdx - 1 : toIdx;
         const insertIdx = edge === 'bottom' ? shiftedToIdx + 1 : shiftedToIdx;
         reordered.splice(insertIdx, 0, id);
+        void hapticMedium();
         onReorder(reordered);
         finish();
       };

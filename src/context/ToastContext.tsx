@@ -74,7 +74,7 @@ function ToastPill({ toast, onDismiss }: { toast: Toast; onDismiss: () => void }
   return (
     <div
       className={
-        'pointer-events-auto flex items-center gap-3 px-4 py-2.5 bg-text text-bg rounded-full shadow-lg transition-all duration-200 ' +
+        'pointer-events-auto flex items-center gap-3 px-4 py-2.5 bg-text text-bg rounded-full shadow-lg transition-[opacity,transform] duration-200 ' +
         (visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2')
       }
       style={{ minWidth: 240 }}

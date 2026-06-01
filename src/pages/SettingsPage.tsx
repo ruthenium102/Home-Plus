@@ -143,7 +143,7 @@ export function SettingsPage() {
               key={v}
               onClick={() => setMode(v as ThemeMode)}
               className={
-                'flex flex-col items-center gap-2 p-4 rounded-md border-2 transition-all ' +
+                'flex flex-col items-center gap-2 p-4 rounded-md border-2 transition-[transform,opacity,background-color,border-color,color,box-shadow] ' +
                 (mode === v
                   ? 'border-accent bg-accent-soft'
                   : 'border-border hover:border-border-strong')
@@ -176,7 +176,7 @@ export function SettingsPage() {
                 key={v}
                 onClick={() => setDockPlacement(v as DockPlacement)}
                 className={
-                  'p-3 rounded-md border-2 transition-all text-left ' +
+                  'p-3 rounded-md border-2 transition-[transform,opacity,background-color,border-color,color,box-shadow] text-left ' +
                   (dockPlacement === v
                     ? 'border-accent bg-accent-soft'
                     : 'border-border hover:border-border-strong')
@@ -443,7 +443,7 @@ export function SettingsPage() {
                     key={hex}
                     onClick={() => updateKitchenSettings({ meal_color: hex })}
                     className={
-                      'w-8 h-8 rounded-full border-2 transition-all ' +
+                      'w-8 h-8 rounded-full border-2 transition-[transform,opacity,background-color,border-color,color,box-shadow] ' +
                       (active ? 'border-text scale-110' : 'border-transparent hover:scale-105')
                     }
                     style={{ background: hex }}

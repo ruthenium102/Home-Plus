@@ -402,7 +402,7 @@ function RepeatMealModal({
                 key={wd}
                 onClick={() => toggle(wd)}
                 className={
-                  'py-2 rounded-md text-xs font-medium border-2 transition-all active:scale-95 ' +
+                  'py-2 rounded-md text-xs font-medium border-2 transition-[transform,opacity,background-color,border-color,color,box-shadow] active:scale-95 ' +
                   (active
                     ? 'border-accent bg-accent-soft text-text'
                     : 'border-border text-text-muted hover:border-border-strong')

@@ -95,7 +95,7 @@ function StatBar({
         </div>
         <div className="h-2.5 rounded-full bg-surface-2 overflow-hidden">
           <div
-            className="h-full rounded-full transition-all duration-700"
+            className="h-full rounded-full transition-[width] duration-700"
             style={{ width: `${pct}%`, backgroundColor: color }}
           />
         </div>
@@ -117,7 +117,7 @@ function ActionButton({ emoji, label, onClick, disabled, color }: ActionButtonPr
     <button
       onClick={onClick}
       disabled={disabled}
-      className="flex flex-col items-center gap-1.5 px-4 py-3 rounded-2xl font-medium text-white transition-all active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed shadow-sm"
+      className="flex flex-col items-center gap-1.5 px-4 py-3 rounded-2xl font-medium text-white transition-[transform,opacity,background-color,border-color,color,box-shadow] active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed shadow-sm"
       style={{ background: disabled ? undefined : color, minWidth: 72 }}
     >
       <span className="text-2xl">{emoji}</span>
@@ -164,7 +164,7 @@ function SetupScreen({ memberId }: { memberId: string }) {
               key={animal}
               onClick={() => setSelectedAnimal(animal)}
               className={
-                'flex flex-col items-center gap-2 p-3 rounded-2xl border-2 transition-all active:scale-95 ' +
+                'flex flex-col items-center gap-2 p-3 rounded-2xl border-2 transition-[transform,opacity,background-color,border-color,color,box-shadow] active:scale-95 ' +
                 (selectedAnimal === animal
                   ? 'border-accent bg-accent-soft shadow-md'
                   : 'border-border hover:border-border-strong bg-surface-2/50')
@@ -634,7 +634,7 @@ function PetView({ pet, memberId }: PetViewProps) {
                   disabled={locked}
                   onClick={() => onToggleAccessory(a)}
                   className={
-                    'p-3 rounded-2xl border-2 text-center transition-all active:scale-95 ' +
+                    'p-3 rounded-2xl border-2 text-center transition-[transform,opacity,background-color,border-color,color,box-shadow] active:scale-95 ' +
                     (worn
                       ? 'border-accent bg-accent-soft shadow-md'
                       : locked
@@ -674,7 +674,7 @@ function PetView({ pet, memberId }: PetViewProps) {
           </div>
           <div className="h-3 rounded-full bg-surface-2 overflow-hidden">
             <div
-              className="h-full rounded-full transition-all duration-700"
+              className="h-full rounded-full transition-[width] duration-700"
               style={{
                 width: `${(xpInLevel / nextLevelXp) * 100}%`,
                 background: `linear-gradient(90deg, ${MEMBER_COLORS.sand.base}, ${tokens.base})`,

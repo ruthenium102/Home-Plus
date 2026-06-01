@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { memo, useMemo, useState } from 'react';
 import { localISO } from '@/lib/dates';
 import {
   CheckCircle2,
@@ -148,7 +148,7 @@ function KidView({ member }: { member: FamilyMember }) {
             </div>
             <div className="h-1.5 bg-surface-2 rounded-full overflow-hidden">
               <div
-                className="h-full rounded-full transition-all"
+                className="h-full rounded-full transition-[width]"
                 style={{ width: `${goalProgress}%`, background: tokens.base }}
               />
             </div>
@@ -195,14 +195,31 @@ function KidView({ member }: { member: FamilyMember }) {
   );
 }
 
-function KidChoreRow({
-  item,
-  onComplete,
-}: {
+type KidChoreRowProps = {
   item: ChoreItem;
   memberId: string;
   onComplete: () => void;
-}) {
+};
+
+// Memo: the kid view recomputes choreItems on any chores/completions change;
+// compare the fields this row renders so an unrelated chore's update doesn't
+// re-render every row. onComplete is a per-render closure but stable in
+// behaviour for this chore.id, so it's intentionally excluded.
+function areKidRowsEqual(a: KidChoreRowProps, b: KidChoreRowProps): boolean {
+  return (
+    a.item.state === b.item.state &&
+    a.item.chore.id === b.item.chore.id &&
+    a.item.chore.title === b.item.chore.title &&
+    a.item.chore.description === b.item.chore.description &&
+    a.item.chore.payout === b.item.chore.payout &&
+    a.item.chore.requires_photo === b.item.chore.requires_photo
+  );
+}
+
+const KidChoreRow = memo(function KidChoreRow({
+  item,
+  onComplete,
+}: KidChoreRowProps) {
   const isDone = item.state === 'done';
   const isPending = item.state === 'pending';
   const isRejected = item.state === 'rejected';
@@ -221,7 +238,7 @@ function KidChoreRow({
       onClick={item.state === 'todo' ? onComplete : undefined}
       disabled={item.state !== 'todo'}
       className={
-        'w-full flex items-center gap-3 p-3 rounded-md border text-left transition-all ' +
+        'w-full flex items-center gap-3 p-3 rounded-md border text-left transition-[transform,border-color,background-color] ' +
         (item.state === 'todo'
           ? 'border-border hover:border-accent hover:bg-accent-soft active:scale-[0.99] cursor-pointer'
           : 'border-border bg-surface-2/50 cursor-default')
@@ -252,7 +269,7 @@ function KidChoreRow({
       </div>
     </button>
   );
-}
+}, areKidRowsEqual);
 
 // ============================================================================
 // PARENT VIEW
@@ -457,47 +474,17 @@ function ParentManage() {
       </div>
 
       <div className="card divide-y divide-border">
-        {activeChores.map((c) => {
-          const { isDragging, dropEdge, ...rowHandlers } = choreDnd.getRowProps(c.id);
-          return (
-            <SwipeableRow key={c.id} mode={swipeMode} onDelete={() => handleDeleteChore(c)}>
-              <div
-                {...rowHandlers}
-                onClick={() => handleEdit(c)}
-                className={
-                  'w-full flex items-center gap-3 p-3 bg-surface-2/40 hover:bg-surface-2/70 transition-colors cursor-pointer first:rounded-t-lg last:rounded-b-lg ' +
-                  (isDragging ? 'opacity-40 ' : '') +
-                  (dropEdge === 'top' ? 'shadow-[0_-3px_0_0_rgb(var(--accent))] ' : '') +
-                  (dropEdge === 'bottom' ? 'shadow-[0_3px_0_0_rgb(var(--accent))] ' : '')
-                }
-              >
-                <DragHandle />
-                <div className="flex-1 min-w-0">
-                  <div className="text-sm font-medium text-text">{c.title}</div>
-                  <div className="text-xs text-text-faint">
-                    {formatFrequency(c)} · {formatPayout(c.payout)}
-                  </div>
-                </div>
-                <div className="flex -space-x-1.5">
-                  {c.assigned_to.map((id) => {
-                    const m = members.find((x) => x.id === id);
-                    if (!m) return null;
-                    return <Avatar key={id} member={m} size={26} />;
-                  })}
-                </div>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleEdit(c);
-                  }}
-                  className="w-7 h-7 rounded-md hover:bg-surface-2 flex items-center justify-center text-text-faint hover:text-text shrink-0"
-                >
-                  <Pencil size={12} />
-                </button>
-              </div>
-            </SwipeableRow>
-          );
-        })}
+        {activeChores.map((c) => (
+          <ManageChoreRow
+            key={c.id}
+            chore={c}
+            members={members}
+            swipeMode={swipeMode}
+            dragProps={choreDnd.getRowProps(c.id)}
+            onEdit={handleEdit}
+            onDelete={handleDeleteChore}
+          />
+        ))}
         {activeChores.length === 0 && (
           <div className="p-6 text-center text-text-faint text-sm">
             No chores yet. Tap "New chore" above.
@@ -509,6 +496,79 @@ function ParentManage() {
     </div>
   );
 }
+
+type ManageChoreRowProps = {
+  chore: Chore;
+  members: FamilyMember[];
+  swipeMode: 'partial' | 'full';
+  dragProps: ReturnType<ReturnType<typeof useListDragReorder<Chore>>['getRowProps']>;
+  onEdit: (c: Chore) => void;
+  onDelete: (c: Chore) => void;
+};
+
+// Memo: ParentManage re-renders on any chores/members/completions change (and
+// the 90s cloud poll). Compare what the row renders — chore identity, the
+// title/frequency/payout/assignees it shows, members ref, swipeMode, and drag
+// primitives — so editing or completing one chore doesn't re-render every row.
+// onEdit/onDelete are stable in behaviour for this chore and excluded.
+function areManageRowsEqual(a: ManageChoreRowProps, b: ManageChoreRowProps): boolean {
+  return (
+    a.chore === b.chore &&
+    a.members === b.members &&
+    a.swipeMode === b.swipeMode &&
+    a.dragProps.isDragging === b.dragProps.isDragging &&
+    a.dragProps.dropEdge === b.dragProps.dropEdge
+  );
+}
+
+const ManageChoreRow = memo(function ManageChoreRow({
+  chore: c,
+  members,
+  swipeMode,
+  dragProps,
+  onEdit,
+  onDelete,
+}: ManageChoreRowProps) {
+  const { isDragging, dropEdge, ...rowHandlers } = dragProps;
+  return (
+    <SwipeableRow mode={swipeMode} onDelete={() => onDelete(c)}>
+      <div
+        {...rowHandlers}
+        onClick={() => onEdit(c)}
+        className={
+          'w-full flex items-center gap-3 p-3 bg-surface-2/40 hover:bg-surface-2/70 transition-colors cursor-pointer first:rounded-t-lg last:rounded-b-lg ' +
+          (isDragging ? 'opacity-40 ' : '') +
+          (dropEdge === 'top' ? 'shadow-[0_-3px_0_0_rgb(var(--accent))] ' : '') +
+          (dropEdge === 'bottom' ? 'shadow-[0_3px_0_0_rgb(var(--accent))] ' : '')
+        }
+      >
+        <DragHandle />
+        <div className="flex-1 min-w-0">
+          <div className="text-sm font-medium text-text">{c.title}</div>
+          <div className="text-xs text-text-faint">
+            {formatFrequency(c)} · {formatPayout(c.payout)}
+          </div>
+        </div>
+        <div className="flex -space-x-1.5">
+          {c.assigned_to.map((id) => {
+            const m = members.find((x) => x.id === id);
+            if (!m) return null;
+            return <Avatar key={id} member={m} size={26} />;
+          })}
+        </div>
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onEdit(c);
+          }}
+          className="w-7 h-7 rounded-md hover:bg-surface-2 flex items-center justify-center text-text-faint hover:text-text shrink-0"
+        >
+          <Pencil size={12} />
+        </button>
+      </div>
+    </SwipeableRow>
+  );
+}, areManageRowsEqual);
 
 function ParentApprovals() {
   const {

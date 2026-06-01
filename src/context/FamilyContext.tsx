@@ -28,7 +28,7 @@ import {
 } from '@/lib/db';
 import { useToast } from '@/context/ToastContext';
 import { syncEventToGoogle, unsyncEventFromGoogle } from '@/lib/googleSync';
-import { hapticLight } from '@/lib/native';
+import { hapticLight, hapticMedium } from '@/lib/native';
 import {
   storage,
   DEMO_FAMILY,
@@ -1507,6 +1507,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
 
   const requestRedemption = useCallback(
     (memberId: string, category: RewardCategoryKey, amount: number, reason: string): Redemption => {
+      void hapticMedium();
       const cat = DEFAULT_REWARD_CATEGORIES.find((c) => c.key === category);
       const threshold = cat?.auto_approve_under ?? null;
       const autoApprove = threshold !== null && threshold > 0 && amount <= threshold;
@@ -1835,6 +1836,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
 
   const incrementCheckIn = useCallback(
     (habitId: string, memberId: string, forDate: string) => {
+      void hapticLight();
       setCheckIns((prev) => {
         const existing = prev.find(
           (c) => c.habit_id === habitId && c.member_id === memberId && c.for_date === forDate,

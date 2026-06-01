@@ -109,7 +109,7 @@ export function PinPad({
           onClick={() => canSave && onComplete(pin)}
           disabled={!canSave}
           className={
-            'w-full max-w-[260px] py-3 rounded-xl text-base font-semibold transition-all ' +
+            'w-full max-w-[260px] py-3 rounded-xl text-base font-semibold transition-[transform,opacity,background-color,border-color,color,box-shadow] ' +
             (canSave
               ? 'bg-accent text-white shadow-sm active:scale-[0.98]'
               : 'bg-surface-2 text-text-faint cursor-not-allowed')
@@ -136,7 +136,7 @@ function PinButton({
     <button
       onClick={onPress}
       className={
-        'w-20 h-20 rounded-full text-2xl font-medium flex items-center justify-center transition-all active:scale-90 ' +
+        'w-20 h-20 rounded-full text-2xl font-medium flex items-center justify-center transition-[transform,opacity,background-color,border-color,color,box-shadow] active:scale-90 ' +
         (variant === 'muted'
           ? 'text-text-muted text-sm hover:bg-surface-2'
           : 'bg-surface border border-border hover:bg-surface-2 text-text')

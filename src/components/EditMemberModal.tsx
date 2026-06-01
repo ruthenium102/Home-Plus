@@ -178,7 +178,7 @@ export function EditMemberModal({ open, member, onClose }: Props) {
                   type="button"
                   onClick={() => setRole(r)}
                   className={
-                    'py-2 text-sm font-medium rounded-md border-2 transition-all capitalize ' +
+                    'py-2 text-sm font-medium rounded-md border-2 transition-[transform,opacity,background-color,border-color,color,box-shadow] capitalize ' +
                     (role === r
                       ? 'border-accent bg-accent-soft text-accent'
                       : 'border-border text-text-muted hover:border-border-strong')
