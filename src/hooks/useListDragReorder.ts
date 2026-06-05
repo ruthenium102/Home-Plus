@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { hapticLight, hapticMedium } from '@/lib/native';
+import { createEdgeAutoScroller } from '@/lib/dragAutoScroll';
 
 type DropEdge = 'top' | 'bottom' | null;
 
@@ -7,6 +8,13 @@ interface RowProps {
   /** Data attribute used by the pointer-move logic to identify hover targets. */
   'data-dnd-id': string;
   onPointerDown: (e: React.PointerEvent) => void;
+  /** Keyboard reorder: space/enter to pick up, arrows to move, esc/space to drop. */
+  onKeyDown: (e: React.KeyboardEvent) => void;
+  /** Drops a keyboard "pick up" if focus leaves the row entirely. */
+  onBlur: (e: React.FocusEvent) => void;
+  /** Makes the row focusable so keyboard reordering is reachable via Tab. */
+  tabIndex: number;
+  'aria-roledescription': string;
   isDragging: boolean;
   /** True when the dragged item is hovering this row (legacy — prefer dropEdge). */
   isOver: boolean;
@@ -36,6 +44,10 @@ export function useListDragReorder<T extends { id: string }>(
   const [dragId, setDragId] = useState<string | null>(null);
   const [overId, setOverId] = useState<string | null>(null);
   const [overEdge, setOverEdge] = useState<DropEdge>(null);
+  // Keyboard reorder: the id currently "picked up" via the keyboard, if any.
+  const [grabbedId, setGrabbedId] = useState<string | null>(null);
+  // One auto-scroller for the hook; pointer drags reuse it across gestures.
+  const autoScrollRef = useRef(createEdgeAutoScroller());
   // Latest hover state held in refs so the up-handler can read without
   // closing over stale React state.
   const overRef = useRef<{ id: string | null; edge: DropEdge }>({ id: null, edge: null });
@@ -102,8 +114,14 @@ export function useListDragReorder<T extends { id: string }>(
           } catch {
             /* ignore */
           }
+          // A pointer drag supersedes any pending keyboard "pick up".
+          setGrabbedId(null);
           setDragId(id);
         }
+        // Drive edge auto-scroll so off-screen drop targets are reachable on
+        // long lists (the pointer is captured + touch-action:none, so native
+        // scroll is suppressed during the drag).
+        autoScrollRef.current.update(ev.clientX, ev.clientY);
         const hit = findRowAt(ev.clientX, ev.clientY);
         // Don't track hover when over the dragged item itself.
         const nextId = hit.id && hit.id !== id ? hit.id : null;
@@ -115,6 +133,7 @@ export function useListDragReorder<T extends { id: string }>(
       };
 
       const cleanup = () => {
+        autoScrollRef.current.stop();
         target.removeEventListener('pointermove', move);
         target.removeEventListener('pointerup', up);
         target.removeEventListener('pointercancel', cancel);
@@ -166,6 +185,63 @@ export function useListDragReorder<T extends { id: string }>(
     [findRowAt, onReorder, finish],
   );
 
+  // Keyboard reorder (accessibility): space/enter picks the focused row up,
+  // arrow keys move it one slot at a time, space/enter or escape drops it.
+  // Mirrors the pointer path's persistence — onReorder gets the full new order.
+  const moveByKeyboard = useCallback(
+    (id: string, dir: -1 | 1) => {
+      const ids = itemsRef.current.map((it) => it.id);
+      const from = ids.indexOf(id);
+      if (from < 0) return;
+      const to = from + dir;
+      if (to < 0 || to >= ids.length) return;
+      const reordered = ids.slice();
+      reordered.splice(from, 1);
+      reordered.splice(to, 0, id);
+      void hapticLight();
+      onReorder(reordered);
+    },
+    [onReorder],
+  );
+
+  const onKeyDown = useCallback(
+    (id: string) => (e: React.KeyboardEvent) => {
+      // Leave inner controls (buttons, inputs, links) to their own handlers.
+      const evTarget = e.target as HTMLElement | null;
+      if (
+        evTarget &&
+        evTarget !== e.currentTarget &&
+        evTarget.closest('button, a, input, textarea, select, [contenteditable]')
+      ) {
+        return;
+      }
+      if (e.key === ' ' || e.key === 'Enter') {
+        e.preventDefault();
+        setGrabbedId((cur) => {
+          if (cur === id) {
+            void hapticMedium();
+            return null;
+          }
+          void hapticLight();
+          return id;
+        });
+        return;
+      }
+      if (grabbedId !== id) return;
+      if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        moveByKeyboard(id, -1);
+      } else if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        moveByKeyboard(id, 1);
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        setGrabbedId(null);
+      }
+    },
+    [grabbedId, moveByKeyboard],
+  );
+
   // Belt-and-braces — if the document loses pointer events somehow (e.g.
   // visibility change mid-drag), clear state on the next escape press.
   useEffect(() => {
@@ -181,7 +257,20 @@ export function useListDragReorder<T extends { id: string }>(
     (id: string): RowProps => ({
       'data-dnd-id': id,
       onPointerDown: onPointerDown(id),
-      isDragging: dragId === id,
+      onKeyDown: onKeyDown(id),
+      onBlur: (e: React.FocusEvent) => {
+        // Only clear when focus truly leaves the row (not moving to a child).
+        const next = e.relatedTarget as Node | null;
+        if (grabbedId === id && (!next || !e.currentTarget.contains(next))) {
+          setGrabbedId(null);
+        }
+      },
+      tabIndex: 0,
+      'aria-roledescription':
+        'Sortable item. Press space to pick up, arrow keys to move, space to drop.',
+      // Treat a keyboard "pick up" exactly like a pointer drag for styling so
+      // the lift + memo invalidation fire the same way.
+      isDragging: dragId === id || grabbedId === id,
       isOver: overId === id,
       dropEdge: overId === id ? overEdge : null,
       // While dragging this row: block native scroll, and give it a
@@ -191,7 +280,7 @@ export function useListDragReorder<T extends { id: string }>(
       // Consumers no longer fade the row to opacity-40 — the lift + the
       // drop-edge line communicate the drag instead.
       style:
-        dragId === id
+        dragId === id || grabbedId === id
           ? {
               touchAction: 'none',
               transform: 'scale(1.02)',
@@ -202,8 +291,8 @@ export function useListDragReorder<T extends { id: string }>(
             }
           : undefined,
     }),
-    [dragId, overId, overEdge, onPointerDown],
+    [dragId, grabbedId, overId, overEdge, onPointerDown, onKeyDown],
   );
 
-  return { getRowProps, isDraggingAny: dragId !== null };
+  return { getRowProps, isDraggingAny: dragId !== null || grabbedId !== null };
 }

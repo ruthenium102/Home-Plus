@@ -3,6 +3,8 @@ import { ChevronLeft, ChevronRight, X, Heart, Search, Repeat } from 'lucide-reac
 import { addDays, format, startOfWeek } from 'date-fns';
 import { useFamily } from '@/context/FamilyContext';
 import { getMonday, mealTypeLabel } from '@/lib/kitchen';
+import { hapticLight, hapticMedium } from '@/lib/native';
+import { createEdgeAutoScroller } from '@/lib/dragAutoScroll';
 import type { MealPlan, MealType, Recipe } from '@/types';
 
 const MEAL_TYPES: MealType[] = ['breakfast', 'lunch', 'dinner', 'snack'];
@@ -96,6 +98,7 @@ export function MealPlannerView() {
     const startY = downEv.clientY;
     let started = false;
     const pointerId = downEv.pointerId;
+    const autoScroll = createEdgeAutoScroller();
 
     const findDayAt = (clientX: number, clientY: number): string | null => {
       const els = document.elementsFromPoint(clientX, clientY);
@@ -110,6 +113,8 @@ export function MealPlannerView() {
       if (!started) {
         if (Math.abs(ev.clientY - startY) < 6 && Math.abs(ev.clientX - startX) < 6) return;
         started = true;
+        // Match the rest of the app's drag lift-off cue.
+        void hapticLight();
         try {
           target.setPointerCapture(pointerId);
         } catch {
@@ -117,10 +122,12 @@ export function MealPlannerView() {
         }
         draggingRecipeRef.current = recipeId;
       }
+      autoScroll.update(ev.clientX, ev.clientY);
       setDragOverDay(findDayAt(ev.clientX, ev.clientY));
       ev.preventDefault();
     };
     const cleanup = () => {
+      autoScroll.stop();
       target.removeEventListener('pointermove', move);
       target.removeEventListener('pointerup', up);
       target.removeEventListener('pointercancel', cancel);
@@ -137,6 +144,7 @@ export function MealPlannerView() {
       draggingRecipeRef.current = null;
       setDragOverDay(null);
       if (started && dropTarget && recipe) {
+        void hapticMedium();
         handleAdd(recipe, dropTarget, selectedMealType);
       }
     };

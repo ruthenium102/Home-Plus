@@ -1,4 +1,5 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
+import { createEdgeAutoScroller } from '@/lib/dragAutoScroll';
 
 /**
  * Pointer-based "drag a source onto a drop zone" helper. HTML5 drag-and-drop
@@ -54,6 +55,9 @@ export function usePointerDragToDrop<P>({
   const [isDragging, setIsDragging] = useState(false);
   const [overDropId, setOverDropId] = useState<string | null>(null);
   const datasetKey = dropAttrToDatasetKey(dropAttr);
+  // Edge auto-scroll so a drop target below the fold stays reachable while the
+  // pointer is captured (which suppresses native scroll during the drag).
+  const autoScrollRef = useRef(createEdgeAutoScroller());
 
   const findDropAt = useCallback(
     (clientX: number, clientY: number): string | null => {
@@ -96,11 +100,13 @@ export function usePointerDragToDrop<P>({
           }
           setIsDragging(true);
         }
+        autoScrollRef.current.update(ev.clientX, ev.clientY);
         setOver(findDropAt(ev.clientX, ev.clientY));
         ev.preventDefault();
       };
 
       const cleanup = () => {
+        autoScrollRef.current.stop();
         target.removeEventListener('pointermove', move);
         target.removeEventListener('pointerup', up);
         target.removeEventListener('pointercancel', cancel);

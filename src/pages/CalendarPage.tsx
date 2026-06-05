@@ -27,6 +27,7 @@ import {
 } from 'lucide-react';
 import { useFamily } from '@/context/FamilyContext';
 import { hapticLight, hapticMedium } from '@/lib/native';
+import { createEdgeAutoScroller } from '@/lib/dragAutoScroll';
 import { expandEvents, type ExpandedEvent } from '@/lib/recurrence';
 import { EventChip } from '@/components/EventChip';
 import { EventEditor } from '@/components/EventEditor';
@@ -136,6 +137,7 @@ export function CalendarPage() {
     let lastKey: string | null = null;
     let lastClientX = 0;
     let lastClientY = 0;
+    const autoScroll = createEdgeAutoScroller();
     const move = (ev: PointerEvent) => {
       if (!started) {
         if (Math.abs(ev.clientY - startY) < 6 && Math.abs(ev.clientX - startX) < 6) return;
@@ -150,6 +152,8 @@ export function CalendarPage() {
         draggingRef.current = e;
       }
       ev.preventDefault();
+      // Auto-scroll the month/week grid so a day below the fold is reachable.
+      autoScroll.update(ev.clientX, ev.clientY);
       lastClientX = ev.clientX;
       lastClientY = ev.clientY;
       // Throttle the hit-test + hover-state write to one per animation frame.
@@ -168,6 +172,7 @@ export function CalendarPage() {
       });
     };
     const cleanup = () => {
+      autoScroll.stop();
       if (rafId) {
         cancelAnimationFrame(rafId);
         rafId = 0;

@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { localISO } from '@/lib/dates';
+import { hapticLight, hapticMedium } from '@/lib/native';
+import { createEdgeAutoScroller } from '@/lib/dragAutoScroll';
 import { Trash2, Camera, ShieldCheck, RotateCw } from 'lucide-react';
 import { useFamily } from '@/context/FamilyContext';
 import { isoWeekStr } from '@/lib/rotation';
@@ -471,6 +473,7 @@ function RosterDragList({
     const startY = downEv.clientY;
     let started = false;
     const pointerId = downEv.pointerId;
+    const autoScroll = createEdgeAutoScroller();
 
     const findRosterIdAt = (clientX: number, clientY: number): string | null => {
       const els = document.elementsFromPoint(clientX, clientY);
@@ -485,6 +488,8 @@ function RosterDragList({
       if (!started) {
         if (Math.abs(ev.clientY - startY) < 6 && Math.abs(ev.clientX - startX) < 6) return;
         started = true;
+        // Match the app-wide drag lift-off cue.
+        void hapticLight();
         try {
           target.setPointerCapture(pointerId);
         } catch {
@@ -492,6 +497,7 @@ function RosterDragList({
         }
         dragIdRef.current = id;
       }
+      autoScroll.update(ev.clientX, ev.clientY);
       const overId = findRosterIdAt(ev.clientX, ev.clientY);
       if (!overId || overId === id) return;
       const cur = rosterRef.current;
@@ -505,8 +511,9 @@ function RosterDragList({
       ev.preventDefault();
     };
     const cleanup = () => {
+      autoScroll.stop();
       target.removeEventListener('pointermove', move);
-      target.removeEventListener('pointerup', cleanup);
+      target.removeEventListener('pointerup', up);
       target.removeEventListener('pointercancel', cleanup);
       try {
         target.releasePointerCapture(pointerId);
@@ -515,9 +522,14 @@ function RosterDragList({
       }
       dragIdRef.current = null;
     };
+    const up = () => {
+      // Settle cue on a genuine reorder drop (not a plain tap).
+      if (started) void hapticMedium();
+      cleanup();
+    };
 
     target.addEventListener('pointermove', move);
-    target.addEventListener('pointerup', cleanup);
+    target.addEventListener('pointerup', up);
     target.addEventListener('pointercancel', cleanup);
   };
 
