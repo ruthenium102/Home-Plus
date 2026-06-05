@@ -142,20 +142,20 @@ function AppShell() {
   }
 
   const dockIsSide = dockPlacement === 'side';
-  const railVisible = dockIsSide && railOpen;
 
   return (
     <div
       className="min-h-dvh bg-bg"
       style={{ paddingTop: 'env(safe-area-inset-top)' }}
     >
-      {/* Side rail — shown when dock placement preference is 'side' AND the
-          rail isn't collapsed via the hamburger toggle. */}
-      {railVisible && (
+      {/* Side rail — mounted whenever dock placement is 'side'; it slides in/
+          out via a transform driven by `railOpen` so open/close stays smooth. */}
+      {dockIsSide && (
         <SideRail
           active={tab}
           onChange={changeTab}
           onClose={() => setRailOpen(false)}
+          open={railOpen}
           showMyDay={showMyDay}
           showChores={showChores}
           showHabits={showHabits}
@@ -170,9 +170,12 @@ function AppShell() {
           // On a side rail (iPad landscape), let content use the full width
           // beside the rail instead of clamping to a centred phone column.
           // When the rail is collapsed the floating hamburger sits at top-left,
-          // so reserve space on the left of the TopBar so it can't overlap the
-          // family name / date.
-          (dockIsSide ? (railOpen ? 'pb-8 ml-56' : 'pb-8 pl-14 sm:pl-16') : 'max-w-6xl pb-28 sm:pb-36')
+          // so keep a little left margin so the TopBar can't overlap it. The
+          // margin transitions so content glides as the rail slides in/out.
+          (dockIsSide
+            ? 'pb-8 transition-[margin] duration-300 ease-out ' +
+              (railOpen ? 'ml-56' : 'ml-14 sm:ml-16')
+            : 'max-w-6xl pb-28 sm:pb-36')
         }
         style={
           dockIsSide
@@ -180,10 +183,15 @@ function AppShell() {
             : { paddingBottom: 'max(6.5rem, calc(5.5rem + env(safe-area-inset-bottom)))' }
         }
       >
-        {dockIsSide && !railOpen && (
+        {dockIsSide && (
           <button
             onClick={() => setRailOpen(true)}
-            className="fixed top-3 left-3 z-40 w-10 h-10 rounded-md bg-surface border border-border flex items-center justify-center text-text-muted hover:bg-surface-2 shadow-sm"
+            aria-hidden={railOpen}
+            tabIndex={railOpen ? -1 : 0}
+            className={
+              'fixed top-3 left-3 z-40 w-10 h-10 rounded-md bg-surface border border-border flex items-center justify-center text-text-muted hover:bg-surface-2 shadow-sm transition-opacity duration-200 ' +
+              (railOpen ? 'opacity-0 pointer-events-none' : 'opacity-100 delay-150')
+            }
             style={{ top: 'max(0.75rem, calc(env(safe-area-inset-top) + 0.75rem))' }}
             title="Open navigation"
             aria-label="Open navigation"

@@ -248,6 +248,35 @@ export function CalendarPage() {
     setEditorOpen(true);
   };
 
+  // Horizontal swipe to page the calendar (mainly for phone, where week view
+  // is a narrow 3-day window). Reuses goPrev/goNext so each view steps by its
+  // own unit. Swipes that begin on a draggable event chip are ignored so
+  // dragging an event to another day still works.
+  const swipeRef = useRef<{ x: number; y: number; skip: boolean } | null>(null);
+  const onSwipeStart = (e: React.TouchEvent) => {
+    if (e.touches.length !== 1) {
+      swipeRef.current = null;
+      return;
+    }
+    const t = e.touches[0];
+    const skip = !!(e.target as HTMLElement).closest?.('[data-event-chip]');
+    swipeRef.current = { x: t.clientX, y: t.clientY, skip };
+  };
+  const onSwipeEnd = (e: React.TouchEvent) => {
+    const s = swipeRef.current;
+    swipeRef.current = null;
+    if (!s || s.skip) return;
+    const t = e.changedTouches[0];
+    if (!t) return;
+    const dx = t.clientX - s.x;
+    const dy = t.clientY - s.y;
+    // Require a clearly horizontal swipe so vertical scrolling isn't hijacked.
+    if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.4) {
+      if (dx > 0) goPrev();
+      else goNext();
+    }
+  };
+
   const headerLabel =
     view === 'day'
       ? format(cursor, 'EEEE, d MMMM yyyy')
@@ -366,20 +395,24 @@ export function CalendarPage() {
         </button>
       </div>
 
-      {/* View */}
+      {/* View — day & week support horizontal swipe to page through dates. */}
       {view === 'day' && (
-        <DayView date={cursor} events={expanded} onEdit={handleEditEvent} onCreate={handleNew} />
+        <div onTouchStart={onSwipeStart} onTouchEnd={onSwipeEnd}>
+          <DayView date={cursor} events={expanded} onEdit={handleEditEvent} onCreate={handleNew} />
+        </div>
       )}
       {view === 'week' && (
-        <WeekView
-          weekStart={range.start}
-          dayCount={weekDayCount}
-          events={expanded}
-          onEdit={handleEditEvent}
-          onCreate={handleNew}
-          onStartEventDrag={startEventDrag}
-          dragOverDayKey={dragOverDayKey}
-        />
+        <div onTouchStart={onSwipeStart} onTouchEnd={onSwipeEnd}>
+          <WeekView
+            weekStart={range.start}
+            dayCount={weekDayCount}
+            events={expanded}
+            onEdit={handleEditEvent}
+            onCreate={handleNew}
+            onStartEventDrag={startEventDrag}
+            dragOverDayKey={dragOverDayKey}
+          />
+        </div>
       )}
       {view === 'month' && (
         <MonthView
@@ -568,6 +601,7 @@ function WeekView({
                   ) : (
                     <div
                       key={e.occurrence_key}
+                      data-event-chip
                       style={{ touchAction: 'none' }}
                       onPointerDown={(ev) => onStartEventDrag(e, ev)}
                     >

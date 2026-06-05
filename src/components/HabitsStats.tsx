@@ -7,10 +7,13 @@ import { getColorTokens } from '@/lib/colors';
 import { localISO } from '@/lib/dates';
 import {
   computeHabitStreak,
+  computeWeeklyStreak,
   dailyCells,
   habitRangeStats,
   habitStartISO,
+  habitWeekStart,
   longestHabitStreak,
+  longestWeeklyStreak,
   targetLabel,
   visibleHabits,
   type HabitDayCell,
@@ -158,17 +161,24 @@ function HabitStatsCard({
   checkIns,
   color,
 }: CardProps) {
+  const isWeekly = habit.cadence === 'weekly';
   const stats = useMemo(
     () => habitRangeStats(habit, checkIns, memberId, fromISO, toISO),
     [habit, checkIns, memberId, fromISO, toISO],
   );
   const currentStreak = useMemo(
-    () => computeHabitStreak(checkIns, habit.id, memberId),
-    [checkIns, habit.id, memberId],
+    () =>
+      isWeekly
+        ? computeWeeklyStreak(checkIns, habit, memberId)
+        : computeHabitStreak(checkIns, habit.id, memberId),
+    [isWeekly, habit, checkIns, memberId],
   );
   const bestStreak = useMemo(
-    () => longestHabitStreak(checkIns, habit.id, memberId),
-    [checkIns, habit.id, memberId],
+    () =>
+      isWeekly
+        ? longestWeeklyStreak(checkIns, habit, memberId)
+        : longestHabitStreak(checkIns, habit.id, memberId),
+    [isWeekly, habit, checkIns, memberId],
   );
   const cells = useMemo(
     () => dailyCells(habit, checkIns, memberId, fromISO, toISO),
@@ -188,7 +198,8 @@ function HabitStatsCard({
         <div className="min-w-0">
           <div className="text-sm font-medium text-text truncate">{habit.title}</div>
           <div className="text-[11px] text-text-faint tabular-nums">
-            {targetLabel(habit.daily_target ?? 1, habit.target_op)} · since {startedLabel}
+            {targetLabel(habit.daily_target ?? 1, habit.target_op, isWeekly ? 'week' : 'day')} ·
+            since {startedLabel}
           </div>
         </div>
       </div>
@@ -199,25 +210,29 @@ function HabitStatsCard({
           value={stats.daysDue === 0 ? '—' : `${Math.round(stats.successRate * 100)}%`}
           accent={color.base}
         />
-        <StatTile label="Days met" value={`${stats.daysMet}/${stats.daysDue}`} />
+        <StatTile
+          label={isWeekly ? 'Weeks met' : 'Days met'}
+          value={`${stats.daysMet}/${stats.daysDue}`}
+        />
         <StatTile
           label="Current"
-          value={`${currentStreak}d`}
+          value={`${currentStreak}${isWeekly ? 'w' : 'd'}`}
           icon={
             <Flame
               size={12}
-              className={currentStreak > 0 ? 'text-accent' : 'text-text-faint'}
+              className={currentStreak > 0 ? 'text-red-500' : 'text-text-faint'}
+              fill={currentStreak > 0 ? 'currentColor' : 'none'}
             />
           }
         />
         <StatTile
           label="Best"
-          value={`${bestStreak}d`}
+          value={`${bestStreak}${isWeekly ? 'w' : 'd'}`}
           icon={<Trophy size={12} className="text-text-faint" />}
         />
       </div>
 
-      <Heatmap cells={cells} todayISO={todayISO} />
+      <Heatmap cells={cells} todayISO={todayISO} weekStart={isWeekly ? habitWeekStart(habit) : 1} />
     </div>
   );
 }
@@ -249,22 +264,36 @@ function StatTile({
   );
 }
 
-const WEEKDAY_ROW_LABELS = ['M', '', 'W', '', 'F', '', ''];
+// 0=Sun..6=Sat. Used to build the weekday row labels for any week-start.
+const DAY_LETTERS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 
-function Heatmap({ cells, todayISO }: { cells: HabitDayCell[]; todayISO: string }) {
-  // GitHub-style grid: rows = weekday (Mon→Sun), columns = weeks. Pad the head
-  // so the first cell sits on its true weekday. Each column also records the
-  // YYYY-MM key of its first in-month cell so we can group columns into month
-  // sections with a small gap + header label between them.
+function Heatmap({
+  cells,
+  todayISO,
+  weekStart = 1,
+}: {
+  cells: HabitDayCell[];
+  todayISO: string;
+  weekStart?: number;
+}) {
+  // GitHub-style grid: rows = weekday, columns = weeks. Rows run from
+  // `weekStart` so weekly habits' columns align to their own week window. Pad
+  // the head so the first cell sits on its true weekday. Each column also
+  // records the YYYY-MM key of its first in-month cell so we can group columns
+  // into month sections with a small gap + header label between them.
+  const rowLabels = useMemo(
+    () => Array.from({ length: 7 }, (_, i) => (i % 2 === 0 ? DAY_LETTERS[(weekStart + i) % 7] : '')),
+    [weekStart],
+  );
   const grid = useMemo(() => {
     if (cells.length === 0) {
       return [] as { cells: (HabitDayCell | null)[]; monthKey: string }[];
     }
     const first = new Date(cells[0].date + 'T00:00:00');
     const dow = first.getDay();
-    const mondayOffset = dow === 0 ? 6 : dow - 1;
+    const startOffset = (dow - weekStart + 7) % 7;
     const padded: (HabitDayCell | null)[] = [
-      ...Array(mondayOffset).fill(null),
+      ...Array(startOffset).fill(null),
       ...cells,
     ];
     const cols: { cells: (HabitDayCell | null)[]; monthKey: string }[] = [];
@@ -277,7 +306,7 @@ function Heatmap({ cells, todayISO }: { cells: HabitDayCell[]; todayISO: string 
       cols.push({ cells: slice, monthKey });
     }
     return cols;
-  }, [cells]);
+  }, [cells, weekStart]);
 
   if (cells.length === 0) {
     return <div className="text-xs text-text-faint">No data in this range</div>;
@@ -289,7 +318,7 @@ function Heatmap({ cells, todayISO }: { cells: HabitDayCell[]; todayISO: string 
         <div className="flex items-start">
           {/* Left column: weekday letters so M/W/F orient the reader */}
           <div className="flex flex-col gap-[3px] pr-1 pt-4">
-            {WEEKDAY_ROW_LABELS.map((label, i) => (
+            {rowLabels.map((label, i) => (
               <div
                 key={i}
                 className="w-3 h-3 text-[8px] leading-[0.75rem] text-text-faint text-right tabular-nums"

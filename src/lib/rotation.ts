@@ -44,6 +44,37 @@ function weeksBetween(anchor: string, current: string): number {
   return parseIsoWeek(current) - parseIsoWeek(anchor);
 }
 
+/** Whole days since the Unix epoch for a local calendar date. */
+function dayNumberOf(date: Date): number {
+  return Math.floor(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()) / 86400000);
+}
+
+/** Day-number (UTC) of the Monday of a given ISO-week string. */
+function isoWeekMondayDayNumber(week: string): number {
+  const [yearStr, weekStr] = week.split('-W');
+  const year = parseInt(yearStr, 10);
+  const wk = parseInt(weekStr, 10);
+  const jan4 = Date.UTC(year, 0, 4);
+  const jan4Day = new Date(jan4).getUTCDay() || 7; // Mon=1 … Sun=7
+  const week1Monday = jan4 - (jan4Day - 1) * 86400000;
+  const weekMonday = week1Monday + (wk - 1) * 7 * 86400000;
+  return Math.floor(weekMonday / 86400000);
+}
+
+/**
+ * Index of the 7-day period a day-number falls in, aligned to `startWeekday`
+ * (0=Sun..6=Sat). Consecutive periods differ by exactly 1, so subtracting two
+ * indices gives the number of `startWeekday` boundaries crossed between them.
+ * For Monday (1) this matches the ISO-week ordinal, so existing Monday-based
+ * rotations are unaffected.
+ */
+function weekOrdinal(dayNumber: number, startWeekday: number): number {
+  // 1970-01-01 (day 0) was a Thursday → weekday 4 in 0=Sun..6=Sat terms.
+  const weekday = (((dayNumber % 7) + 4) % 7 + 7) % 7;
+  const shift = (weekday - startWeekday + 7) % 7;
+  return Math.floor((dayNumber - shift) / 7);
+}
+
 function isMemberAway(member: FamilyMember): boolean {
   if (!member.location_until) return false;
   return new Date(member.location_until) > new Date();
@@ -59,12 +90,23 @@ export function currentRotationAssignee(
   members: FamilyMember[],
   date: Date = new Date(),
 ): string | null {
-  const { rotation_roster, rotation_pointer, rotation_anchor_iso_week } = chore;
+  const { rotation_roster, rotation_pointer, rotation_anchor_iso_week, rotation_weekday } = chore;
   if (!rotation_roster || rotation_roster.length === 0) return null;
 
   const currentWeek = isoWeekStr(date);
   const anchor = rotation_anchor_iso_week || currentWeek;
-  const offset = Math.max(0, weeksBetween(anchor, currentWeek));
+  // null/undefined weekday = Monday — preserves the original ISO-week cadence
+  // exactly via weeksBetween. A custom weekday counts boundaries of that day
+  // since the anchor week's Monday instead.
+  const startWeekday = rotation_weekday ?? 1;
+  const offset =
+    startWeekday === 1
+      ? Math.max(0, weeksBetween(anchor, currentWeek))
+      : Math.max(
+          0,
+          weekOrdinal(dayNumberOf(date), startWeekday) -
+            weekOrdinal(isoWeekMondayDayNumber(anchor), startWeekday),
+        );
 
   // Try each slot in order; skip members who are away
   for (let attempt = 0; attempt < rotation_roster.length; attempt++) {

@@ -379,6 +379,9 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<ActiveSession | null>(() =>
     storage.get<ActiveSession | null>(SESSION_KEY, null),
   );
+  // Supabase auth user id (cloud mode). Used to auto-select the member that
+  // logged in with their own credentials so we can skip the profile picker.
+  const [authUserId, setAuthUserId] = useState<string | null>(null);
   const [dayPlanBlocks, setDayPlanBlocks] = useState<DayPlanBlock[]>(() =>
     storage.get<DayPlanBlock[]>(DAY_PLAN_KEY, []),
   );
@@ -669,6 +672,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
 
     supabase.auth.getSession().then(({ data }) => {
       const u = data.session?.user;
+      setAuthUserId(u?.id ?? null);
       handleAuth(u?.id ?? null, u?.user_metadata ?? null, u?.email ?? null);
     });
 
@@ -678,9 +682,11 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
       // Reset handled flag on sign-out so next sign-in re-runs
       if (!sess) {
         handled.current = false;
+        setAuthUserId(null);
         return;
       }
       const u = sess.user;
+      setAuthUserId(u?.id ?? null);
       handleAuth(u?.id ?? null, u?.user_metadata ?? null, u?.email ?? null);
     });
 
@@ -834,6 +840,21 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
     () => (session ? (members.find((m) => m.id === session.member_id) ?? null) : null),
     [session, members],
   );
+
+  // Auto-select the member linked to the signed-in auth user. Someone who
+  // logged in with their own email/password IS that member, so we skip the
+  // "Who's using Home Plus?" picker (and any PIN). This is reactive so it also
+  // covers paths where the member links/hydrates after auth resolves. The
+  // in-app switch-user button still lets a shared device change profiles.
+  useEffect(() => {
+    if (session || !authUserId) return;
+    const mine = members.find((m) => m.auth_user_id === authUserId);
+    if (mine) {
+      const sess: ActiveSession = { member_id: mine.id, authenticated_at: Date.now() };
+      storage.set(SESSION_KEY, sess);
+      setSession(sess);
+    }
+  }, [session, authUserId, members]);
 
   // Auto-revert "Away til..." when the until date passes.
   // Re-runs whenever members change (incl. async load from Supabase) so a

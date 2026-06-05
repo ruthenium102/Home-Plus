@@ -41,6 +41,8 @@ export function ChoreEditor({ open, onClose, editing }: Props) {
   const [mode, setMode] = useState<ChoreMode>('standard');
   const [rotationRoster, setRotationRoster] = useState<string[]>([]);
   const [rosterRoleName, setRosterRoleName] = useState('');
+  // Weekday the rotation advances on (0=Sun..6=Sat). Default Monday.
+  const [rotationWeekday, setRotationWeekday] = useState(1);
 
   useEffect(() => {
     if (!open) return;
@@ -56,6 +58,7 @@ export function ChoreEditor({ open, onClose, editing }: Props) {
       setMode(editing.mode ?? 'standard');
       setRotationRoster(editing.rotation_roster ?? []);
       setRosterRoleName(editing.roster_role_name ?? '');
+      setRotationWeekday(editing.rotation_weekday ?? 1);
     } else {
       setTitle('');
       setDescription('');
@@ -68,6 +71,7 @@ export function ChoreEditor({ open, onClose, editing }: Props) {
       setMode('standard');
       setRotationRoster([]);
       setRosterRoleName('');
+      setRotationWeekday(1);
     }
   }, [open, editing]);
 
@@ -132,6 +136,7 @@ export function ChoreEditor({ open, onClose, editing }: Props) {
       rotation_anchor_iso_week:
         editing?.rotation_anchor_iso_week ?? (mode !== 'standard' ? isoWeekStr() : null),
       roster_role_name: mode === 'roster_role' ? rosterRoleName.trim() || null : null,
+      rotation_weekday: mode !== 'standard' ? rotationWeekday : null,
     };
 
     if (editing) {
@@ -328,6 +333,8 @@ export function ChoreEditor({ open, onClose, editing }: Props) {
                   mode={mode}
                   rosterRoleName={rosterRoleName}
                   onRoleNameChange={setRosterRoleName}
+                  rotationWeekday={rotationWeekday}
+                  onRotationWeekdayChange={setRotationWeekday}
                 />
               )}
             </div>
@@ -427,6 +434,8 @@ function SegmentedToggle({
 
 // ---- Roster drag-and-drop reorder ------------------------------------------
 
+const FULL_WEEKDAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
 interface RosterDragListProps {
   roster: string[];
   kids: FamilyMember[];
@@ -434,6 +443,8 @@ interface RosterDragListProps {
   mode: ChoreMode;
   rosterRoleName: string;
   onRoleNameChange: (v: string) => void;
+  rotationWeekday: number;
+  onRotationWeekdayChange: (v: number) => void;
 }
 
 function RosterDragList({
@@ -443,6 +454,8 @@ function RosterDragList({
   mode,
   rosterRoleName,
   onRoleNameChange,
+  rotationWeekday,
+  onRotationWeekdayChange,
 }: RosterDragListProps) {
   // Pointer-event drag-to-reorder — HTML5 DnD doesn't work on iOS touch.
   // We use elementsFromPoint to find which chip the pointer is hovering and
@@ -537,6 +550,27 @@ function RosterDragList({
           className="w-full px-2.5 py-1.5 bg-surface border border-border rounded-md text-xs text-text placeholder:text-text-faint focus:outline-none focus:border-accent"
         />
       )}
+      <div>
+        <div className="mb-1.5">Rotation advances on:</div>
+        <div className="flex flex-wrap gap-1">
+          {FULL_WEEKDAY_LABELS.map((label, i) => (
+            <button
+              key={i}
+              type="button"
+              onClick={() => onRotationWeekdayChange(i)}
+              className={
+                'px-2.5 py-1 rounded-full text-xs font-medium border transition-colors ' +
+                (rotationWeekday === i
+                  ? 'bg-accent text-white border-accent'
+                  : 'bg-surface border-border text-text-muted hover:border-border-strong')
+              }
+              aria-pressed={rotationWeekday === i}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }

@@ -1,13 +1,13 @@
 import { useEffect, useState } from 'react';
 import { Trash2, Lock, Users, Sparkles, Minus, Plus, ChevronLeft, ChevronRight } from 'lucide-react';
-import { format, subDays } from 'date-fns';
+import { format, subDays, addDays, subWeeks } from 'date-fns';
 import { useFamily } from '@/context/FamilyContext';
 import { useTheme } from '@/context/ThemeContext';
 import { Avatar } from './Avatar';
 import { Modal } from './Modal';
 import { localISO } from '@/lib/dates';
 import { getColorTokens } from '@/lib/colors';
-import { habitCellState } from '@/lib/habits';
+import { habitCellState, startOfHabitWeek, targetMet } from '@/lib/habits';
 import type { Habit, HabitCadence } from '@/types';
 
 interface Props {
@@ -54,6 +54,8 @@ export function HabitEditor({ open, editing, onClose }: Props) {
   const [streakRewards, setStreakRewards] = useState(false);
   const [dailyTarget, setDailyTarget] = useState(1);
   const [targetOp, setTargetOp] = useState<'lte' | 'eq' | 'gte'>('gte');
+  // First day of the week for weekly habits (0=Sun..6=Sat). Default Monday.
+  const [weekStart, setWeekStart] = useState(1);
   // `weekOffset` = how many weeks before "this week" the recent-counts grid is
   // showing. 0 = the current 7-day window ending today, 1 = the prior 7 days,
   // etc. The arrow buttons step this.
@@ -76,6 +78,7 @@ export function HabitEditor({ open, editing, onClose }: Props) {
       setStreakRewards(editing.streak_rewards);
       setDailyTarget(editing.daily_target ?? 1);
       setTargetOp(editing.target_op ?? 'gte');
+      setWeekStart(editing.week_start ?? 1);
       setWeekOffset(0);
     } else {
       setTitle('');
@@ -88,6 +91,7 @@ export function HabitEditor({ open, editing, onClose }: Props) {
       setStreakRewards(false);
       setDailyTarget(1);
       setTargetOp('gte');
+      setWeekStart(1);
     }
   }, [open, editing?.id]);
 
@@ -119,6 +123,7 @@ export function HabitEditor({ open, editing, onClose }: Props) {
         count_mode: true,
         daily_target: Math.max(1, dailyTarget),
         target_op: targetOp,
+        week_start: cadence === 'weekly' ? weekStart : null,
       });
     } else {
       if (selectedMemberIds.length === 0) return;
@@ -136,6 +141,7 @@ export function HabitEditor({ open, editing, onClose }: Props) {
           count_mode: true,
           daily_target: Math.max(1, dailyTarget),
           target_op: targetOp,
+          week_start: cadence === 'weekly' ? weekStart : null,
         });
       }
     }
@@ -289,6 +295,29 @@ export function HabitEditor({ open, editing, onClose }: Props) {
                 })}
               </div>
             )}
+            {cadence === 'weekly' && (
+              <div className="mt-2">
+                <div className="text-xs text-text-faint mb-1.5">Week starts on</div>
+                <div className="flex flex-wrap gap-1">
+                  {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((label, i) => (
+                    <button
+                      key={i}
+                      type="button"
+                      onClick={() => setWeekStart(i)}
+                      className={
+                        'px-2.5 py-1 rounded-full text-xs font-medium border transition-colors ' +
+                        (weekStart === i
+                          ? 'bg-accent text-white border-accent'
+                          : 'bg-surface-2 border-border text-text-muted hover:border-border-strong')
+                      }
+                      aria-pressed={weekStart === i}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Visibility */}
@@ -353,7 +382,9 @@ export function HabitEditor({ open, editing, onClose }: Props) {
               now implicit. Op picker lets the user set ≤ / = / ≥ semantics. */}
           <div className="px-3 py-2.5 rounded-md bg-surface-2/60 border border-border space-y-2.5">
             <div className="flex items-center gap-3">
-              <span className="text-sm text-text-muted flex-1">Daily target</span>
+              <span className="text-sm text-text-muted flex-1">
+                {cadence === 'weekly' ? 'Weekly target' : 'Daily target'}
+              </span>
               <div className="flex items-center gap-2">
                 <button
                   type="button"
@@ -416,15 +447,45 @@ export function HabitEditor({ open, editing, onClose }: Props) {
                 ? getColorTokens(ownerMember.color, isDark)
                 : { base: 'rgb(var(--accent))', soft: 'rgb(var(--accent-soft))', text: '#fff' };
               const todayIso = localISO();
-              // The visible window is the 7 days ending at `windowEnd`. With
-              // offset 0 the window ends today; with offset 1 it ends 7 days
-              // ago, and so on.
-              const windowEnd = subDays(new Date(`${todayIso}T00:00:00`), weekOffset * 7);
-              const windowStart = subDays(windowEnd, 6);
+              const isWeekly = cadence === 'weekly';
+              const target = Math.max(1, dailyTarget);
+              // For weekly habits the 7 boxes are the configured week (aligned
+              // to week_start), stepped back a whole week per offset. For other
+              // cadences they're the rolling 7 days ending at `windowEnd`.
+              let days: Date[];
+              let windowStart: Date;
+              let windowEnd: Date;
+              if (isWeekly) {
+                const ref = subWeeks(new Date(`${todayIso}T00:00:00`), weekOffset);
+                windowStart = startOfHabitWeek(ref, weekStart);
+                days = Array.from({ length: 7 }, (_, i) => addDays(windowStart, i));
+                windowEnd = days[6];
+              } else {
+                windowEnd = subDays(new Date(`${todayIso}T00:00:00`), weekOffset * 7);
+                windowStart = subDays(windowEnd, 6);
+                days = Array.from({ length: 7 }, (_, i) => subDays(windowEnd, 6 - i));
+              }
               const rangeLabel =
                 weekOffset === 0
                   ? 'This week'
                   : `${format(windowStart, 'd MMM')} – ${format(windowEnd, 'd MMM')}`;
+              // Weekly: the whole window shares one compliance state, driven by
+              // the week total (forgiving — no red until an lte cap is blown).
+              const countForIso = (iso: string) => {
+                const ci = checkIns.find(
+                  (c) => c.habit_id === editing.id && c.member_id === memberId && c.for_date === iso,
+                );
+                return ci ? (ci.count ?? 1) : 0;
+              };
+              const weekTotal = isWeekly
+                ? days.reduce((s, d) => s + countForIso(format(d, 'yyyy-MM-dd')), 0)
+                : 0;
+              const weekState: ReturnType<typeof habitCellState> =
+                weekTotal > 0 && targetMet(weekTotal, target, targetOp)
+                  ? 'met'
+                  : targetOp === 'lte' && weekTotal > target
+                    ? 'violated'
+                    : 'empty';
               return (
                 <div className="space-y-2">
                   <div className="flex items-center justify-between gap-2">
@@ -452,20 +513,29 @@ export function HabitEditor({ open, editing, onClose }: Props) {
                       </button>
                     </div>
                   </div>
+                  {isWeekly && (
+                    <div className="text-[11px] text-text-muted tabular-nums">
+                      Week total:{' '}
+                      <span
+                        className={
+                          weekState === 'met'
+                            ? 'text-emerald-600 dark:text-emerald-400 font-semibold'
+                            : weekState === 'violated'
+                              ? 'text-red-500 font-semibold'
+                              : 'text-text'
+                        }
+                      >
+                        {weekTotal}
+                      </span>{' '}
+                      / {target} {targetOp === 'lte' ? 'max' : targetOp === 'eq' ? 'exactly' : 'target'}
+                    </div>
+                  )}
                   <div className="grid grid-cols-7 gap-1.5">
-                    {Array.from({ length: 7 }, (_, i) => {
-                      const day = subDays(windowEnd, 6 - i);
+                    {days.map((day) => {
                       const iso = format(day, 'yyyy-MM-dd');
-                      const ci = checkIns.find(
-                        (c) =>
-                          c.habit_id === editing.id &&
-                          c.member_id === memberId &&
-                          c.for_date === iso,
-                      );
-                      const count = ci ? (ci.count ?? 1) : 0;
+                      const count = countForIso(iso);
                       const isToday = iso === todayIso;
-                      const target = Math.max(1, dailyTarget);
-                      const state = habitCellState(count, target, targetOp);
+                      const state = isWeekly ? weekState : habitCellState(count, target, targetOp);
                       void tokens;
                       return (
                         <div key={iso} className="flex flex-col items-stretch gap-1">

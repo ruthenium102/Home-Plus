@@ -1042,6 +1042,10 @@ do $$ begin
   alter table chores add column if not exists rotation_pointer integer not null default 0;
   alter table chores add column if not exists rotation_anchor_iso_week text;
   alter table chores add column if not exists roster_role_name text;
+  -- Weekday (0=Sun..6=Sat) the rotation advances on; null = Monday (v19).
+  alter table chores add column if not exists rotation_weekday integer;
+  -- First day of week (0=Sun..6=Sat) for weekly-target habits; null = Monday (v19).
+  alter table habits add column if not exists week_start integer;
 end $$;
 
 -- ============================================================================

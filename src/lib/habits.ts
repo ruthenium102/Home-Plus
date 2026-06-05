@@ -124,10 +124,14 @@ export function targetMet(count: number, target: number, op?: Habit['target_op']
   }
 }
 
-/** "≥ 3/day" style label. */
-export function targetLabel(target: number, op?: Habit['target_op']): string {
+/** "≥ 3/day" / "≥ 3/week" style label. */
+export function targetLabel(
+  target: number,
+  op?: Habit['target_op'],
+  period: 'day' | 'week' = 'day',
+): string {
   const sym = op === 'lte' ? '≤' : op === 'eq' ? '=' : '≥';
-  return `${sym} ${target}/day`;
+  return `${sym} ${target}/${period === 'week' ? 'week' : 'day'}`;
 }
 
 export function nextStreakMilestone(streak: number): number {
@@ -211,6 +215,11 @@ export function habitRangeStats(
   fromISO: string,
   toISO: string,
 ): HabitRangeStats {
+  // Weekly habits are scored per-week, not per-day. daysDue/daysMet then hold
+  // weeks (the Stats UI relabels the tile accordingly).
+  if (habit.cadence === 'weekly') {
+    return weeklyRangeStats(habit, checkIns, memberId, fromISO, toISO);
+  }
   const start = fromISO > habitStartISO(habit) ? fromISO : habitStartISO(habit);
   if (start > toISO) {
     return { daysDue: 0, daysMet: 0, totalCount: 0, successRate: 0 };
@@ -289,6 +298,11 @@ export function dailyCells(
   fromISO: string,
   toISO: string,
 ): HabitDayCell[] {
+  // Weekly habits colour each day by its WEEK's compliance so the heatmap
+  // reads as week-coloured columns (aligned to week_start).
+  if (habit.cadence === 'weekly') {
+    return weeklyCells(habit, checkIns, memberId, fromISO, toISO);
+  }
   const target = habit.daily_target ?? 1;
   const startISO = habitStartISO(habit);
   const counts = countsByDate(checkIns, habit.id, memberId);
@@ -301,6 +315,242 @@ export function dailyCells(
       date,
       count,
       state: habitCellState(count, target, habit.target_op),
+      inRange: date >= startISO || count > 0,
+    };
+  });
+}
+
+// ----------------------------------------------------------------------------
+// Weekly targets
+//
+// A weekly habit's target (stored in daily_target) applies to the TOTAL count
+// across its week window. The window is 7 days aligned to `week_start`
+// (0=Sun..6=Sat, default Monday). Compliance is judged per week:
+//   • gte/eq: a week can't be "missed" until it has fully ended (forgiving) —
+//     in-progress weeks stay neutral until the target is reached.
+//   • lte: the cap can be blown mid-week, so an over-cap week shows violated
+//     immediately.
+//   • The partial first week (habit created mid-week) only ever counts toward
+//     success if it was met — it's never penalised.
+//   • A completed week with zero logging stays neutral on the heatmap
+//     (forgiving) but still counts as a miss in the success %.
+// ----------------------------------------------------------------------------
+
+/** First-day-of-week (0=Sun..6=Sat) for a weekly habit. Default Monday. */
+export function habitWeekStart(habit: Habit): number {
+  const v = habit.week_start;
+  return v === null || v === undefined ? 1 : v;
+}
+
+/** Local midnight Date of the week-start day for the week containing `date`. */
+export function startOfHabitWeek(date: Date, weekStart: number): Date {
+  const d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const shift = (d.getDay() - weekStart + 7) % 7;
+  d.setDate(d.getDate() - shift);
+  return d;
+}
+
+/** Sum of counts across the 7 days starting at `weekStart`. */
+function sumWeek(counts: Map<string, number>, weekStart: Date): number {
+  let total = 0;
+  const c = new Date(weekStart);
+  for (let i = 0; i < 7; i++) {
+    total += counts.get(localISO(c)) ?? 0;
+    c.setDate(c.getDate() + 1);
+  }
+  return total;
+}
+
+/**
+ * Compliance state for a single week given its total count. `isComplete` is
+ * true once the whole week is in the past; `isPartialFirst` true when the
+ * habit was created after the week began.
+ */
+function weekCellState(
+  count: number,
+  target: number,
+  op: Habit['target_op'],
+  isComplete: boolean,
+  isPartialFirst: boolean,
+): HabitCellState {
+  if (count > 0 && targetMet(count, target, op)) return 'met';
+  // An lte cap that's already exceeded is a hard miss, even mid-week.
+  if (op === 'lte' && count > target) return 'violated';
+  if (count === 0) return 'empty'; // un-logged → neutral (forgiving)
+  // Some activity but a gte/eq target not reached: a miss only once the week
+  // has fully ended (and isn't the forgiving partial first week).
+  if (isComplete && !isPartialFirst) return 'violated';
+  return 'empty';
+}
+
+export interface WeeklyProgress {
+  weekStartISO: string;
+  count: number;
+  target: number;
+  state: HabitCellState;
+  days: { date: string; count: number; isToday: boolean }[];
+}
+
+/** Current-week progress for the daily-list row. */
+export function weeklyProgress(
+  checkIns: HabitCheckIn[],
+  habit: Habit,
+  memberId: string,
+  today: Date = new Date(),
+): WeeklyProgress {
+  const ws = habitWeekStart(habit);
+  const target = habit.daily_target ?? 1;
+  const counts = countsByDate(checkIns, habit.id, memberId);
+  const weekStart = startOfHabitWeek(today, ws);
+  const todayISO = localISO(today);
+  const habitStartDate = new Date(habitStartISO(habit) + 'T00:00:00');
+  const days: WeeklyProgress['days'] = [];
+  const c = new Date(weekStart);
+  for (let i = 0; i < 7; i++) {
+    const iso = localISO(c);
+    days.push({ date: iso, count: counts.get(iso) ?? 0, isToday: iso === todayISO });
+    c.setDate(c.getDate() + 1);
+  }
+  const count = days.reduce((s, d) => s + d.count, 0);
+  const isPartialFirst = weekStart < habitStartDate;
+  const state = weekCellState(count, target, habit.target_op, false, isPartialFirst);
+  return { weekStartISO: localISO(weekStart), count, target, state, days };
+}
+
+function weeklyRangeStats(
+  habit: Habit,
+  checkIns: HabitCheckIn[],
+  memberId: string,
+  fromISO: string,
+  toISO: string,
+): HabitRangeStats {
+  const ws = habitWeekStart(habit);
+  const target = habit.daily_target ?? 1;
+  const counts = countsByDate(checkIns, habit.id, memberId);
+  const startISO = fromISO > habitStartISO(habit) ? fromISO : habitStartISO(habit);
+  if (startISO > toISO) {
+    return { daysDue: 0, daysMet: 0, totalCount: 0, successRate: 0 };
+  }
+  const habitStartDate = new Date(habitStartISO(habit) + 'T00:00:00');
+  const todayISO = localISO();
+  const lastWeekStart = startOfHabitWeek(new Date(toISO + 'T00:00:00'), ws);
+  const cursor = startOfHabitWeek(new Date(startISO + 'T00:00:00'), ws);
+  let weeksDue = 0;
+  let weeksMet = 0;
+  let totalCount = 0;
+  while (cursor <= lastWeekStart) {
+    const count = sumWeek(counts, cursor);
+    totalCount += count;
+    const weekEnd = new Date(cursor);
+    weekEnd.setDate(weekEnd.getDate() + 6);
+    const isComplete = localISO(weekEnd) < todayISO;
+    const isPartialFirst = cursor < habitStartDate;
+    const met = count > 0 && targetMet(count, target, habit.target_op);
+    if (met) {
+      weeksDue++;
+      weeksMet++;
+    } else if (isComplete && !isPartialFirst) {
+      weeksDue++;
+    }
+    cursor.setDate(cursor.getDate() + 7);
+  }
+  return {
+    daysDue: weeksDue,
+    daysMet: weeksMet,
+    totalCount,
+    successRate: weeksDue === 0 ? 0 : weeksMet / weeksDue,
+  };
+}
+
+/** Consecutive met weeks ending at the current week (forgiving on the live week). */
+export function computeWeeklyStreak(
+  checkIns: HabitCheckIn[],
+  habit: Habit,
+  memberId: string,
+): number {
+  const ws = habitWeekStart(habit);
+  const target = habit.daily_target ?? 1;
+  const counts = countsByDate(checkIns, habit.id, memberId);
+  let streak = 0;
+  const cursor = startOfHabitWeek(new Date(), ws);
+  for (let i = 0; i < 520; i++) {
+    const count = sumWeek(counts, cursor);
+    const met = count > 0 && targetMet(count, target, habit.target_op);
+    if (met) {
+      streak++;
+    } else if (i === 0) {
+      // Current week not met yet — that's fine, look back from last week.
+    } else {
+      break;
+    }
+    cursor.setDate(cursor.getDate() - 7);
+  }
+  return streak;
+}
+
+/** Longest run of consecutive met weeks since the habit began. */
+export function longestWeeklyStreak(
+  checkIns: HabitCheckIn[],
+  habit: Habit,
+  memberId: string,
+): number {
+  const ws = habitWeekStart(habit);
+  const target = habit.daily_target ?? 1;
+  const counts = countsByDate(checkIns, habit.id, memberId);
+  const cursor = startOfHabitWeek(new Date(habitStartISO(habit) + 'T00:00:00'), ws);
+  const end = startOfHabitWeek(new Date(), ws);
+  let best = 0;
+  let cur = 0;
+  while (cursor <= end) {
+    const count = sumWeek(counts, cursor);
+    const met = count > 0 && targetMet(count, target, habit.target_op);
+    if (met) {
+      cur++;
+      if (cur > best) best = cur;
+    } else {
+      cur = 0;
+    }
+    cursor.setDate(cursor.getDate() + 7);
+  }
+  return best;
+}
+
+/** Heatmap cells for a weekly habit — each day carries its WEEK's state. */
+function weeklyCells(
+  habit: Habit,
+  checkIns: HabitCheckIn[],
+  memberId: string,
+  fromISO: string,
+  toISO: string,
+): HabitDayCell[] {
+  const ws = habitWeekStart(habit);
+  const target = habit.daily_target ?? 1;
+  const counts = countsByDate(checkIns, habit.id, memberId);
+  const startISO = habitStartISO(habit);
+  const habitStartDate = new Date(startISO + 'T00:00:00');
+  const todayISO = localISO();
+  const weekStateCache = new Map<string, HabitCellState>();
+  const stateForDate = (dateISO: string): HabitCellState => {
+    const wkStart = startOfHabitWeek(new Date(dateISO + 'T00:00:00'), ws);
+    const key = localISO(wkStart);
+    let st = weekStateCache.get(key);
+    if (st === undefined) {
+      const count = sumWeek(counts, wkStart);
+      const weekEnd = new Date(wkStart);
+      weekEnd.setDate(weekEnd.getDate() + 6);
+      const isComplete = localISO(weekEnd) < todayISO;
+      const isPartialFirst = wkStart < habitStartDate;
+      st = weekCellState(count, target, habit.target_op, isComplete, isPartialFirst);
+      weekStateCache.set(key, st);
+    }
+    return st;
+  };
+  return eachISO(fromISO, toISO).map((date) => {
+    const count = counts.get(date) ?? 0;
+    return {
+      date,
+      count,
+      state: stateForDate(date),
       inRange: date >= startISO || count > 0,
     };
   });

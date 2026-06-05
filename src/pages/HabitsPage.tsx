@@ -1,6 +1,6 @@
 import { memo, useMemo, useState } from 'react';
 import { localISO } from '@/lib/dates';
-import { Plus, Pencil, Lock, Users, Flame, Sparkles, Check, X } from 'lucide-react';
+import { Plus, Pencil, Lock, Users, Flame, Sparkles, Check } from 'lucide-react';
 import { useFamily } from '@/context/FamilyContext';
 import { useTheme } from '@/context/ThemeContext';
 import { useToast } from '@/context/ToastContext';
@@ -14,6 +14,8 @@ import { useListDragReorder } from '@/hooks/useListDragReorder';
 import { getColorTokens } from '@/lib/colors';
 import {
   computeHabitStreak,
+  computeWeeklyStreak,
+  weeklyProgress,
   isCheckedIn,
   lastNDays,
   visibleHabits,
@@ -21,6 +23,7 @@ import {
   targetMet,
   targetLabel,
   habitCellState,
+  type HabitCellState,
 } from '@/lib/habits';
 import type { Habit } from '@/types';
 
@@ -68,6 +71,7 @@ export function HabitsPage() {
           count_mode: snapshot.count_mode ?? false,
           daily_target: snapshot.daily_target ?? 1,
           target_op: snapshot.target_op,
+          week_start: snapshot.week_start ?? null,
         });
       },
     });
@@ -179,24 +183,34 @@ export function HabitsPage() {
                   );
                   const todayCount = todayCheckIn ? (todayCheckIn.count ?? 1) : 0;
                   const target = habit.daily_target ?? 1;
+                  const isWeekly = habit.cadence === 'weekly';
 
-                  // Heatmap data: every habit is count-mode now, so a day is
-                  // "checked" when count >= target. We carry the raw count
-                  // through so the cell can render a light overlay.
-                  const last7Data = lastNDays(checkIns, habit.id, member.id, 7).map((d) => {
-                    const ci = checkIns.find(
-                      (c) =>
-                        c.habit_id === habit.id &&
-                        c.member_id === member.id &&
-                        c.for_date === d.date,
-                    );
-                    const dayCount = ci ? (ci.count ?? 1) : 0;
-                    return {
-                      date: d.date,
-                      checked: targetMet(dayCount, target, habit.target_op),
-                      count: dayCount,
-                    };
-                  });
+                  // Weekly habits show the current configured week and judge
+                  // compliance on the week total; everything else shows a
+                  // rolling 7-day strip judged per day.
+                  const wp = isWeekly
+                    ? weeklyProgress(checkIns, habit, member.id, today)
+                    : null;
+                  const last7Data = wp
+                    ? wp.days.map((d) => ({
+                        date: d.date,
+                        checked: wp.state === 'met',
+                        count: d.count,
+                      }))
+                    : lastNDays(checkIns, habit.id, member.id, 7).map((d) => {
+                        const ci = checkIns.find(
+                          (c) =>
+                            c.habit_id === habit.id &&
+                            c.member_id === member.id &&
+                            c.for_date === d.date,
+                        );
+                        const dayCount = ci ? (ci.count ?? 1) : 0;
+                        return {
+                          date: d.date,
+                          checked: targetMet(dayCount, target, habit.target_op),
+                          count: dayCount,
+                        };
+                      });
 
                   const dragProps = isActive ? habitDnd.getRowProps(habit.id) : null;
                   const row = (
@@ -208,7 +222,12 @@ export function HabitsPage() {
                       canCheck={isActive}
                       todayISO={todayISO}
                       isCheckedToday={isCheckedIn(checkIns, habit.id, member.id, today)}
-                      streak={computeHabitStreak(checkIns, habit.id, member.id)}
+                      streak={
+                        isWeekly
+                          ? computeWeeklyStreak(checkIns, habit, member.id)
+                          : computeHabitStreak(checkIns, habit.id, member.id)
+                      }
+                      weekly={wp ? { state: wp.state, count: wp.count, target: wp.target } : null}
                       last7={last7Data}
                       todayCount={todayCount}
                       dragProps={dragProps}
@@ -263,6 +282,9 @@ interface HabitRowProps {
   todayISO: string;
   isCheckedToday: boolean;
   streak: number;
+  // Present for weekly-cadence habits: current-week total, target, and the
+  // week's compliance state. null for day-based cadences.
+  weekly: { state: HabitCellState; count: number; target: number } | null;
   last7: { date: string; checked: boolean; count: number }[];
   todayCount: number;
   dragProps: ReturnType<ReturnType<typeof useListDragReorder<Habit>>['getRowProps']> | null;
@@ -293,6 +315,9 @@ function areHabitRowsEqual(a: HabitRowProps, b: HabitRowProps): boolean {
     a.isCheckedToday !== b.isCheckedToday ||
     a.streak !== b.streak ||
     a.todayCount !== b.todayCount ||
+    (a.weekly?.state ?? null) !== (b.weekly?.state ?? null) ||
+    (a.weekly?.count ?? null) !== (b.weekly?.count ?? null) ||
+    (a.weekly?.target ?? null) !== (b.weekly?.target ?? null) ||
     a.color.base !== b.color.base ||
     a.color.soft !== b.color.soft ||
     (a.dragProps?.isDragging ?? null) !== (b.dragProps?.isDragging ?? null) ||
@@ -317,6 +342,7 @@ const HabitRow = memo(function HabitRow({
   todayISO,
   isCheckedToday,
   streak,
+  weekly,
   last7,
   todayCount,
   dragProps,
@@ -334,6 +360,7 @@ const HabitRow = memo(function HabitRow({
   void onIncrement;
   void isCheckedToday;
   void todayCount;
+  const isWeekly = habit.cadence === 'weekly';
   const milestone = nextStreakMilestone(streak);
   const milestoneTo = milestone - streak;
   const target = habit.daily_target ?? 1;
@@ -365,16 +392,39 @@ const HabitRow = memo(function HabitRow({
         </div>
         <div className="flex items-center gap-2 mt-0.5 text-xs">
           <span className="text-text-faint tabular-nums">
-            {targetLabel(target, habit.target_op)}
+            {targetLabel(target, habit.target_op, isWeekly ? 'week' : 'day')}
           </span>
+          {isWeekly && weekly && (
+            <>
+              <span className="text-text-faint">·</span>
+              <span
+                className={
+                  'tabular-nums font-medium ' +
+                  (weekly.state === 'met'
+                    ? 'text-emerald-600 dark:text-emerald-400'
+                    : weekly.state === 'violated'
+                      ? 'text-red-500'
+                      : 'text-text')
+                }
+              >
+                {weekly.count}/{weekly.target} this week
+              </span>
+            </>
+          )}
           <span className="text-text-faint">·</span>
           <div className="flex items-center gap-1">
-            <Flame size={11} className={streak > 0 ? 'text-accent' : 'text-text-faint'} />
+            <Flame
+              size={11}
+              className={streak > 0 ? 'text-red-500' : 'text-text-faint'}
+              fill={streak > 0 ? 'currentColor' : 'none'}
+            />
             <span className={'tabular-nums ' + (streak > 0 ? 'text-text' : 'text-text-faint')}>
-              {streak} day{streak === 1 ? '' : 's'}
+              {isWeekly
+                ? `${streak} wk${streak === 1 ? '' : 's'}`
+                : `${streak} day${streak === 1 ? '' : 's'}`}
             </span>
           </div>
-          {habit.streak_rewards && streak > 0 && (
+          {!isWeekly && habit.streak_rewards && streak > 0 && (
             <span className="text-[10px] text-text-faint">· {milestoneTo} to next reward</span>
           )}
         </div>
@@ -385,13 +435,20 @@ const HabitRow = memo(function HabitRow({
           once the user has logged more than once. Corrections live in the
           habit editor. */}
       <div className="flex items-end gap-1 shrink-0">
-        {last7.map((d, idx) => {
+        {last7.map((d) => {
           const isToday = d.date === todayISO;
           const date = new Date(d.date);
           const dayLabel = date.toLocaleDateString(undefined, { weekday: 'narrow' });
           const target = habit.daily_target ?? 1;
-          const state = habitCellState(d.count, target, habit.target_op);
-          const showCount = d.count >= 1;
+          const dayHasActivity = d.count >= 1;
+          // Weekly: every logged day of the week takes the WEEK's colour;
+          // un-logged days stay faint so you can still see which days you did
+          // it. Day cadences keep their per-day state.
+          const state = isWeekly
+            ? weekly?.state ?? 'empty'
+            : habitCellState(d.count, target, habit.target_op);
+          const weeklyEmptyDay = isWeekly && !dayHasActivity;
+          const showCount = dayHasActivity;
           void onToggleDate;
           void color;
           return (
@@ -404,7 +461,9 @@ const HabitRow = memo(function HabitRow({
                 (canCheck ? 'cursor-pointer' : 'cursor-default')
               }
               title={
-                `${d.date} · ${d.count}/${target}` +
+                (isWeekly && weekly
+                  ? `${d.date} · ${d.count} · week ${weekly.count}/${weekly.target}`
+                  : `${d.date} · ${d.count}/${target}`) +
                 (canCheck ? ' (tap to add another · edit habit to correct)' : '')
               }
             >
@@ -414,32 +473,26 @@ const HabitRow = memo(function HabitRow({
                   (canCheck ? 'group-hover:scale-110' : '') +
                   (isToday ? ' ring-1 ring-text/30' : '') +
                   ' ' +
-                  (state === 'met'
-                    ? 'bg-emerald-400'
-                    : state === 'violated'
-                      ? 'bg-red-500'
-                      : 'bg-accent/70 dark:bg-accent/55')
+                  (weeklyEmptyDay
+                    ? 'bg-surface-3 border border-border/60'
+                    : state === 'met'
+                      ? 'bg-emerald-400'
+                      : state === 'violated'
+                        ? 'bg-red-500'
+                        : 'bg-accent/70 dark:bg-accent/55')
                 }
               >
-                {/* Redundant, colour-independent state cue (for colour-blind
-                    users): met shows a count or a check, violated shows the
-                    count plus a small ✕ glyph so green vs red is never the
-                    only signal. Neutral/un-logged days stay blank — they
-                    deliberately carry no "missed" mark per the forgiving rule. */}
+                {/* Met/over-target days show their count (or a check when the
+                    target is 1). Missed days carry their red fill + count;
+                    the corner ✕ glyph was removed per design. Neutral/un-logged
+                    days stay blank per the forgiving rule. */}
                 {showCount ? (
                   <span className="text-[9px] font-bold leading-none text-white/90 tabular-nums">
                     {d.count}
                   </span>
-                ) : state === 'met' ? (
+                ) : !weeklyEmptyDay && state === 'met' ? (
                   <Check size={11} strokeWidth={3} className="text-white/90" />
                 ) : null}
-                {state === 'violated' && (
-                  <X
-                    size={8}
-                    strokeWidth={3}
-                    className="absolute -top-0.5 -right-0.5 text-white bg-red-600 rounded-full p-px"
-                  />
-                )}
               </div>
               <span
                 className={
@@ -447,7 +500,7 @@ const HabitRow = memo(function HabitRow({
                   (isToday ? 'text-text-muted font-medium' : 'text-text-faint')
                 }
               >
-                {idx === last7.length - 1 ? 'Today' : dayLabel}
+                {isToday ? 'Today' : dayLabel}
               </span>
             </button>
           );

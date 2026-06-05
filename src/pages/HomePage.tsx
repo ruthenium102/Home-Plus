@@ -223,7 +223,7 @@ export function HomePage({ onNavigate }: Props) {
                       </div>
                       {streak > 0 && (
                         <div className="flex items-center gap-1 text-xs text-text-faint shrink-0">
-                          <Flame size={11} className="text-accent" />
+                          <Flame size={11} className="text-red-500" fill="currentColor" />
                           <span className="tabular-nums">{streak}</span>
                         </div>
                       )}

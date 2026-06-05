@@ -167,6 +167,10 @@ export interface Chore {
   rotation_pointer: number; // base index into rotation_roster
   rotation_anchor_iso_week: string | null; // YYYY-Www when rotation was anchored
   roster_role_name: string | null; // label for roster_role mode e.g. "Bins person"
+  // Weekday the rotation advances on (0=Sun..6=Sat). null/absent = Monday,
+  // matching the historical ISO-week behaviour. The turn changes when this
+  // weekday is crossed.
+  rotation_weekday?: number | null;
 }
 
 /**
@@ -310,7 +314,13 @@ export interface Habit {
   streak_rewards: boolean;
   archived: boolean;
   count_mode: boolean; // if true, track quantity instead of done/not-done
-  daily_target: number; // target count per day (default 1)
+  // Target count per period. For cadence !== 'weekly' this is the per-DAY
+  // target; for cadence === 'weekly' it is the total target across the whole
+  // week (e.g. ≥ 3 / week). Field name kept for backwards compatibility.
+  daily_target: number;
+  // First day of the week for weekly habits (0=Sun..6=Sat). null/absent =
+  // Monday. Defines the 7-day window the weekly target is measured over.
+  week_start?: number | null;
   // How to compare today's count against daily_target. Defaults to 'gte'
   // (at least N) when missing — matching the historical behaviour.
   //   'gte' = ≥ N (at least)         e.g. drink ≥ 8 glasses

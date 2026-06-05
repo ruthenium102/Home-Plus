@@ -21,6 +21,20 @@ export function SyncIndicator() {
     return () => clearInterval(t);
   }, []);
 
+  // Routine background reloads finish in well under a second, so flashing the
+  // spinner each time made the app look like it was "always syncing". Only
+  // surface the spinner once a sync has actually been in flight for a moment —
+  // quick reloads just leave the calm "Synced" cloud in place.
+  const [showSpinner, setShowSpinner] = useState(false);
+  useEffect(() => {
+    if (!reloading) {
+      setShowSpinner(false);
+      return;
+    }
+    const t = setTimeout(() => setShowSpinner(true), 600);
+    return () => clearTimeout(t);
+  }, [reloading]);
+
   if (!isSupabaseConfigured) {
     return (
       <span
@@ -48,7 +62,7 @@ export function SyncIndicator() {
     );
   }
 
-  if (reloading) {
+  if (reloading && showSpinner) {
     return (
       <span className="inline-flex items-center text-accent" title="Syncing…" aria-label="Syncing">
         <RefreshCw size={15} className="animate-spin" />

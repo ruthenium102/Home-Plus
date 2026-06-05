@@ -2,6 +2,14 @@
 export default {
   content: ['./index.html', './src/**/*.{ts,tsx}'],
   darkMode: 'class',
+  // On touch devices iOS fires a "sticky hover" on first tap: the tap is
+  // consumed to apply :hover (e.g. revealing a group-hover edit button), so
+  // the action needs a second tap. Restricting hover variants to devices that
+  // actually support hover makes those first taps activate immediately — fixes
+  // the "switching lists needs two taps" issue and similar across the app.
+  future: {
+    hoverOnlyWhenSupported: true,
+  },
   theme: {
     extend: {
       fontFamily: {
