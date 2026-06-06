@@ -9,6 +9,20 @@ import type { MealPlan, MealType, Recipe } from '@/types';
 
 const MEAL_TYPES: MealType[] = ['breakfast', 'lunch', 'dinner', 'snack'];
 
+// A floating chip that follows the pointer during a drag, so a recipe / meal
+// physically moves with the finger to its target day (matches the Calendar).
+function makeDragGhost(label: string): HTMLDivElement {
+  const el = document.createElement('div');
+  el.textContent = label;
+  el.style.cssText =
+    'position:fixed;left:0;top:0;z-index:200;pointer-events:none;' +
+    'padding:4px 10px;border-radius:8px;font-size:12px;font-weight:500;' +
+    'max-width:220px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;' +
+    'background:rgb(var(--surface));color:rgb(var(--text));' +
+    'border:1px solid rgb(var(--accent));box-shadow:0 10px 24px -8px rgba(0,0,0,0.35);';
+  return el;
+}
+
 export function MealPlannerView() {
   const { recipes, mealPlans, addMealPlan, removeMealPlan, moveMealPlan, repeatMealPlan, activeMember } =
     useFamily();
@@ -108,6 +122,7 @@ export function MealPlannerView() {
     const startX = downEv.clientX;
     const startY = downEv.clientY;
     let started = false;
+    let ghostEl: HTMLDivElement | null = null;
     const pointerId = downEv.pointerId;
     const autoScroll = createEdgeAutoScroller();
 
@@ -123,13 +138,23 @@ export function MealPlannerView() {
           /* ignore */
         }
         draggingRecipeRef.current = recipeId;
+        const r = recipes.find((x) => x.id === recipeId);
+        ghostEl = makeDragGhost(`${r?.icon || '🍽️'} ${r?.title ?? 'Meal'}`.trim());
+        document.body.appendChild(ghostEl);
+        target.style.opacity = '0.4';
       }
       autoScroll.update(ev.clientX, ev.clientY);
       setDragOverDay(findDayAt(ev.clientX, ev.clientY));
+      if (ghostEl) ghostEl.style.transform = `translate(${ev.clientX + 10}px, ${ev.clientY + 10}px)`;
       ev.preventDefault();
     };
     const cleanup = () => {
       autoScroll.stop();
+      if (ghostEl) {
+        ghostEl.remove();
+        ghostEl = null;
+      }
+      target.style.opacity = '';
       target.removeEventListener('pointermove', move);
       target.removeEventListener('pointerup', up);
       target.removeEventListener('pointercancel', cancel);
@@ -171,6 +196,7 @@ export function MealPlannerView() {
     const startX = downEv.clientX;
     const startY = downEv.clientY;
     let started = false;
+    let ghostEl: HTMLDivElement | null = null;
     const pointerId = downEv.pointerId;
     const autoScroll = createEdgeAutoScroller();
 
@@ -185,13 +211,24 @@ export function MealPlannerView() {
           /* ignore */
         }
         draggingMealRef.current = mealPlanId;
+        const mp = mealPlans.find((m) => m.id === mealPlanId);
+        const r = recipes.find((x) => x.id === mp?.recipe_id);
+        ghostEl = makeDragGhost(`${r?.icon || '🍽️'} ${r?.title ?? 'Meal'}`.trim());
+        document.body.appendChild(ghostEl);
+        target.style.opacity = '0.4';
       }
       autoScroll.update(ev.clientX, ev.clientY);
       setDragOverDay(findDayAt(ev.clientX, ev.clientY));
+      if (ghostEl) ghostEl.style.transform = `translate(${ev.clientX + 10}px, ${ev.clientY + 10}px)`;
       ev.preventDefault();
     };
     const cleanup = () => {
       autoScroll.stop();
+      if (ghostEl) {
+        ghostEl.remove();
+        ghostEl = null;
+      }
+      target.style.opacity = '';
       target.removeEventListener('pointermove', move);
       target.removeEventListener('pointerup', up);
       target.removeEventListener('pointercancel', cancel);
@@ -289,7 +326,7 @@ export function MealPlannerView() {
                     key={r.id}
                     style={{ touchAction: 'none' }}
                     onPointerDown={(e) => startRecipeDrag(r.id, e)}
-                    className="flex items-center gap-1.5 px-2 py-1.5 rounded-md text-sm bg-surface-2 hover:bg-surface-3 cursor-grab active:cursor-grabbing transition min-w-0"
+                    className="flex items-center gap-1.5 px-2 py-1.5 rounded-md text-sm bg-surface-2 hover:bg-surface-3 cursor-grab active:cursor-grabbing transition min-w-0 select-none"
                     onClick={() => selectedDay && handleAdd(r.id, selectedDay)}
                   >
                     <span className="text-base shrink-0">{r.icon || '🍽️'}</span>
