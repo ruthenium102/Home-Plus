@@ -447,8 +447,9 @@ function RepeatMealModal({
     () => new Set(sourceWeekday !== null ? [sourceWeekday] : []),
   );
   const [weeks, setWeeks] = useState(4);
-  // "Indefinitely" = repeat for two years' worth of weeks (a practical upper
-  // bound — the planner doesn't surface meals more than a few weeks out anyway).
+  // Labelled "Forever" in the UI, but meals are materialised rows so it can't be
+  // truly unbounded — "forever" = 104 weeks (2 years) of plans, a practical upper
+  // bound. (Next-version: give meals a real recurrence rule for genuine forever.)
   const INDEFINITE_WEEKS = 104;
   const [indefinite, setIndefinite] = useState(false);
   const dialogRef = useRef<HTMLDivElement>(null);
@@ -526,7 +527,7 @@ function RepeatMealModal({
         <div className="space-y-2">
           <label className="text-xs font-medium text-text-muted flex items-center justify-between">
             <span>For how long?</span>
-            <span>{indefinite ? 'Indefinitely' : `${weeks} week${weeks === 1 ? '' : 's'}`}</span>
+            <span>{indefinite ? 'Forever' : `${weeks} week${weeks === 1 ? '' : 's'}`}</span>
           </label>
           <input
             type="range"
@@ -545,7 +546,7 @@ function RepeatMealModal({
               onChange={(e) => setIndefinite(e.target.checked)}
               className="accent-accent"
             />
-            Repeat indefinitely (~2 years of plans)
+            Repeat forever
           </label>
         </div>
         <div className="flex gap-2 pt-1">
