@@ -10,7 +10,7 @@ import type { MealPlan, MealType, Recipe } from '@/types';
 const MEAL_TYPES: MealType[] = ['breakfast', 'lunch', 'dinner', 'snack'];
 
 export function MealPlannerView() {
-  const { recipes, mealPlans, addMealPlan, removeMealPlan, repeatMealPlan, activeMember } =
+  const { recipes, mealPlans, addMealPlan, removeMealPlan, moveMealPlan, repeatMealPlan, activeMember } =
     useFamily();
   const [repeatTargetId, setRepeatTargetId] = useState<string | null>(null);
   const [weekStart, setWeekStart] = useState(() => getMonday(new Date()));
@@ -101,24 +101,6 @@ export function MealPlannerView() {
     }
     return null;
   };
-
-  // Move an already-placed meal to another day. Recreate it on the new day so
-  // the linked calendar event is rebuilt correctly; removeMealPlan cleans up
-  // the old meal + its event.
-  function handleMoveMeal(mealPlanId: string, newDate: string) {
-    const mp = mealPlans.find((m) => m.id === mealPlanId);
-    if (!mp || mp.date === newDate) return;
-    removeMealPlan(mp.id);
-    addMealPlan({
-      recipe_id: mp.recipe_id,
-      date: newDate,
-      meal_type: mp.meal_type,
-      servings: mp.servings,
-      calendar_event_id: null,
-      notes: mp.notes,
-      created_by: mp.created_by,
-    });
-  }
 
   function startRecipeDrag(recipeId: string, downEv: React.PointerEvent) {
     if (downEv.button !== undefined && downEv.button !== 0) return;
@@ -227,7 +209,7 @@ export function MealPlannerView() {
       setDragOverDay(null);
       if (started && dropTarget && id) {
         void hapticMedium();
-        handleMoveMeal(id, dropTarget);
+        moveMealPlan(id, dropTarget);
       }
     };
     const cancel = () => {

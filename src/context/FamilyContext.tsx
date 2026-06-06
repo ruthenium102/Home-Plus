@@ -180,6 +180,8 @@ interface FamilyContextValue {
   toggleRecipeFavorite: (id: string) => void;
   addMealPlan: (mp: Omit<MealPlan, 'id' | 'created_at' | 'family_id'>) => void;
   removeMealPlan: (id: string) => void;
+  /** Move a placed meal to another day (in place: keeps ids, shifts its linked event). */
+  moveMealPlan: (id: string, newDate: string) => void;
   /**
    * Replicate an existing meal plan onto the given weekdays (0=Sun..6=Sat)
    * for the next `weeks` weeks (starting from the source plan's week).
@@ -2159,6 +2161,31 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
     [family.id],
   );
 
+  // Move a placed meal to a new day IN PLACE — update the meal_plans row's date
+  // and shift its already-linked calendar event. We don't delete+recreate (that
+  // races the events insert against the meal_plans FK on calendar_event_id).
+  const moveMealPlan = useCallback(
+    (id: string, newDate: string) => {
+      const mp = mealPlans.find((m) => m.id === id);
+      if (!mp || mp.date === newDate) return;
+      const updated: MealPlan = { ...mp, date: newDate };
+      setMealPlans((prev) => prev.map((m) => (m.id === id ? updated : m)));
+      dbUpsert('meal_plans', updated);
+      // Meal events store a naive `${date}THH:MM:SS`, so swap only the date
+      // prefix to keep the time-of-day (robust even if the value carries a tz).
+      if (mp.calendar_event_id) {
+        const evt = events.find((e) => e.id === mp.calendar_event_id);
+        if (evt) {
+          updateEvent(evt.id, {
+            start_at: newDate + evt.start_at.slice(10),
+            end_at: newDate + evt.end_at.slice(10),
+          });
+        }
+      }
+    },
+    [mealPlans, events, updateEvent],
+  );
+
   const repeatMealPlan = useCallback(
     (sourceMealPlanId: string, weekdays: number[], weeks: number) => {
       const source = mealPlans.find((m) => m.id === sourceMealPlanId);
@@ -2502,6 +2529,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
       toggleRecipeFavorite,
       addMealPlan,
       removeMealPlan,
+      moveMealPlan,
       repeatMealPlan,
       updateKitchenSettings,
       pets,
@@ -2595,6 +2623,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
       toggleRecipeFavorite,
       addMealPlan,
       removeMealPlan,
+      moveMealPlan,
       repeatMealPlan,
       updateKitchenSettings,
       pets,

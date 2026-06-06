@@ -122,6 +122,7 @@ export function CalendarPage() {
     const startX = downEv.clientX;
     const startY = downEv.clientY;
     let started = false;
+    let ghostEl: HTMLDivElement | null = null;
     const pointerId = downEv.pointerId;
 
     const findDayKeyAt = (clientX: number, clientY: number): string | null => {
@@ -150,8 +151,23 @@ export function CalendarPage() {
           /* ignore */
         }
         draggingRef.current = e;
+        // A floating chip that follows the pointer so the event physically
+        // moves with the finger/cursor (not just a day highlight).
+        ghostEl = document.createElement('div');
+        ghostEl.textContent = e.title;
+        ghostEl.style.cssText =
+          'position:fixed;left:0;top:0;z-index:200;pointer-events:none;' +
+          'padding:4px 10px;border-radius:8px;font-size:12px;font-weight:500;' +
+          'max-width:220px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;' +
+          'background:rgb(var(--surface));color:rgb(var(--text));' +
+          'border:1px solid rgb(var(--accent));box-shadow:0 10px 24px -8px rgba(0,0,0,0.35);';
+        document.body.appendChild(ghostEl);
+        target.style.opacity = '0.4';
       }
       ev.preventDefault();
+      if (ghostEl) {
+        ghostEl.style.transform = `translate(${ev.clientX + 10}px, ${ev.clientY + 10}px)`;
+      }
       // Auto-scroll the month/week grid so a day below the fold is reachable.
       autoScroll.update(ev.clientX, ev.clientY);
       lastClientX = ev.clientX;
@@ -173,6 +189,11 @@ export function CalendarPage() {
     };
     const cleanup = () => {
       autoScroll.stop();
+      if (ghostEl) {
+        ghostEl.remove();
+        ghostEl = null;
+      }
+      target.style.opacity = '';
       if (rafId) {
         cancelAnimationFrame(rafId);
         rafId = 0;
