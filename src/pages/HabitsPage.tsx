@@ -246,13 +246,12 @@ export function HabitsPage() {
                   );
                   // Only allow swipe-to-delete on your own habits
                   return isActive ? (
-                    <SwipeableRow
-                      key={habit.id}
-                      mode={swipeMode}
-                      onDelete={() => handleDeleteHabit(habit)}
-                    >
-                      {row}
-                    </SwipeableRow>
+                    <div key={habit.id} className="relative">
+                      {dragProps?.dropEdge && <DropIndicator edge={dragProps.dropEdge} />}
+                      <SwipeableRow mode={swipeMode} onDelete={() => handleDeleteHabit(habit)}>
+                        {row}
+                      </SwipeableRow>
+                    </div>
                   ) : (
                     row
                   );
@@ -368,7 +367,7 @@ const HabitRow = memo(function HabitRow({
 
   const {
     isOver: _ignoredIsOver,
-    dropEdge,
+    dropEdge: _ignoredDropEdge,
     handleProps,
     ...rowHandlers
   } = dragProps ?? {
@@ -382,7 +381,6 @@ const HabitRow = memo(function HabitRow({
       {...(dragProps ? rowHandlers : {})}
       className="relative flex items-center gap-3 p-3 rounded-md bg-surface-2/40 hover:bg-surface-2/70 transition-colors select-none"
     >
-      {dropEdge && <DropIndicator edge={dropEdge} />}
       {dragProps && <DragHandle handleProps={handleProps} />}
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">

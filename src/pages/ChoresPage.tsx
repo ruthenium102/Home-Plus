@@ -532,38 +532,40 @@ const ManageChoreRow = memo(function ManageChoreRow({
 }: ManageChoreRowProps) {
   const { dropEdge, handleProps, ...rowHandlers } = dragProps;
   return (
-    <SwipeableRow mode={swipeMode} onDelete={() => onDelete(c)}>
-      <div
-        {...rowHandlers}
-        onClick={() => onEdit(c)}
-        className="relative w-full flex items-center gap-3 p-3 bg-surface-2/40 hover:bg-surface-2/70 transition-colors cursor-pointer select-none first:rounded-t-lg last:rounded-b-lg"
-      >
-        {dropEdge && <DropIndicator edge={dropEdge} />}
-        <DragHandle handleProps={handleProps} />
-        <div className="flex-1 min-w-0">
-          <div className="text-sm font-medium text-text">{c.title}</div>
-          <div className="text-xs text-text-faint">
-            {formatFrequency(c)} · {formatPayout(c.payout)}
-          </div>
-        </div>
-        <div className="flex -space-x-1.5">
-          {c.assigned_to.map((id) => {
-            const m = members.find((x) => x.id === id);
-            if (!m) return null;
-            return <Avatar key={id} member={m} size={26} />;
-          })}
-        </div>
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onEdit(c);
-          }}
-          className="w-7 h-7 rounded-md hover:bg-surface-2 flex items-center justify-center text-text-faint hover:text-text shrink-0"
+    <div className="relative">
+      {dropEdge && <DropIndicator edge={dropEdge} />}
+      <SwipeableRow mode={swipeMode} onDelete={() => onDelete(c)}>
+        <div
+          {...rowHandlers}
+          onClick={() => onEdit(c)}
+          className="relative w-full flex items-center gap-3 p-3 bg-surface-2/40 hover:bg-surface-2/70 transition-colors cursor-pointer select-none first:rounded-t-lg last:rounded-b-lg"
         >
-          <Pencil size={12} />
-        </button>
-      </div>
-    </SwipeableRow>
+          <DragHandle handleProps={handleProps} />
+          <div className="flex-1 min-w-0">
+            <div className="text-sm font-medium text-text">{c.title}</div>
+            <div className="text-xs text-text-faint">
+              {formatFrequency(c)} · {formatPayout(c.payout)}
+            </div>
+          </div>
+          <div className="flex -space-x-1.5">
+            {c.assigned_to.map((id) => {
+              const m = members.find((x) => x.id === id);
+              if (!m) return null;
+              return <Avatar key={id} member={m} size={26} />;
+            })}
+          </div>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onEdit(c);
+            }}
+            className="w-7 h-7 rounded-md hover:bg-surface-2 flex items-center justify-center text-text-faint hover:text-text shrink-0"
+          >
+            <Pencil size={12} />
+          </button>
+        </div>
+      </SwipeableRow>
+    </div>
   );
 }, areManageRowsEqual);
 

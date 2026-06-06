@@ -360,65 +360,67 @@ const ListItemRow = memo(function ListItemRow({
 
   const { dropEdge, handleProps, ...rowHandlers } = dragProps;
   return (
-    <SwipeableRow onDelete={handleDelete} mode={swipeMode}>
-      <div
-        {...rowHandlers}
-        className="relative flex items-center gap-2 p-3 bg-surface-2/40 hover:bg-surface-2/70 transition-colors select-none"
-      >
-        {dropEdge && <DropIndicator edge={dropEdge} />}
-        <DragHandle handleProps={handleProps} />
-        <button data-no-swipe onClick={() => toggleListItem(item.id)} className="shrink-0">
-          {item.done ? (
-            <CheckCircle2 size={20} className="text-accent" />
-          ) : (
-            <Circle size={20} className="text-text-faint hover:text-text" />
-          )}
-        </button>
-        <div className="flex-1 min-w-0">
-          <div
-            className={
-              'text-sm ' + (item.done ? 'text-text-muted line-through' : 'text-text font-medium')
-            }
-          >
-            {item.title}
-          </div>
-          {item.notes && !item.done && (
-            <div className="text-xs text-text-faint mt-0.5">{item.notes}</div>
-          )}
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-0.5 text-[11px] text-text-faint">
-            {item.repeat !== 'never' && (
-              <span className="flex items-center gap-1">
-                <Repeat size={10} /> {formatRepeat(item.repeat)}
-              </span>
-            )}
-            {dueLabel && (
-              <span
-                className={
-                  'flex items-center gap-1 ' +
-                  (overdue && !item.done
-                    ? 'text-accent font-medium'
-                    : dueSoon && !item.done
-                      ? 'text-text-muted'
-                      : '')
-                }
-              >
-                <CalendarIcon size={10} /> {formatDue(dueLabel)}
-              </span>
-            )}
-            {item.done && item.repeat !== 'never' && item.next_due && (
-              <span className="text-text-faint">Next: {formatDue(item.next_due)}</span>
-            )}
-          </div>
-        </div>
-        {list.owner_id === null && assignee && <Avatar member={assignee} size={26} />}
-        <button
-          onClick={() => onEdit(item)}
-          className="w-7 h-7 rounded-md hover:bg-surface-2 flex items-center justify-center text-text-faint hover:text-text shrink-0"
-          title="Edit item"
+    <div className="relative">
+      {dropEdge && <DropIndicator edge={dropEdge} />}
+      <SwipeableRow onDelete={handleDelete} mode={swipeMode}>
+        <div
+          {...rowHandlers}
+          className="relative flex items-center gap-2 p-3 bg-surface-2/40 hover:bg-surface-2/70 transition-colors select-none"
         >
-          <Pencil size={12} />
-        </button>
-      </div>
-    </SwipeableRow>
+          <DragHandle handleProps={handleProps} />
+          <button data-no-swipe onClick={() => toggleListItem(item.id)} className="shrink-0">
+            {item.done ? (
+              <CheckCircle2 size={20} className="text-accent" />
+            ) : (
+              <Circle size={20} className="text-text-faint hover:text-text" />
+            )}
+          </button>
+          <div className="flex-1 min-w-0">
+            <div
+              className={
+                'text-sm ' + (item.done ? 'text-text-muted line-through' : 'text-text font-medium')
+              }
+            >
+              {item.title}
+            </div>
+            {item.notes && !item.done && (
+              <div className="text-xs text-text-faint mt-0.5">{item.notes}</div>
+            )}
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-0.5 text-[11px] text-text-faint">
+              {item.repeat !== 'never' && (
+                <span className="flex items-center gap-1">
+                  <Repeat size={10} /> {formatRepeat(item.repeat)}
+                </span>
+              )}
+              {dueLabel && (
+                <span
+                  className={
+                    'flex items-center gap-1 ' +
+                    (overdue && !item.done
+                      ? 'text-accent font-medium'
+                      : dueSoon && !item.done
+                        ? 'text-text-muted'
+                        : '')
+                  }
+                >
+                  <CalendarIcon size={10} /> {formatDue(dueLabel)}
+                </span>
+              )}
+              {item.done && item.repeat !== 'never' && item.next_due && (
+                <span className="text-text-faint">Next: {formatDue(item.next_due)}</span>
+              )}
+            </div>
+          </div>
+          {list.owner_id === null && assignee && <Avatar member={assignee} size={26} />}
+          <button
+            onClick={() => onEdit(item)}
+            className="w-7 h-7 rounded-md hover:bg-surface-2 flex items-center justify-center text-text-faint hover:text-text shrink-0"
+            title="Edit item"
+          >
+            <Pencil size={12} />
+          </button>
+        </div>
+      </SwipeableRow>
+    </div>
   );
 }, areRowPropsEqual);
