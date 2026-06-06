@@ -54,22 +54,40 @@ export function MealPlannerView() {
     [mealPlans, weekStart, weekEnd],
   );
 
-  // Top 6 most-recently-used recipes (based on most recent meal plan date per recipe)
-  const recentRecipes = useMemo(() => {
+  // Default sidebar list (no search): up to 10 most-recently-used recipes,
+  // topped up with favourites (then any remaining recipes) if there are fewer
+  // than 10 recent — so the panel is useful even with little meal history.
+  const defaultRecipes = useMemo(() => {
+    const LIMIT = 10;
     const lastUsed = new Map<string, string>();
     for (const mp of mealPlans) {
       const cur = lastUsed.get(mp.recipe_id);
       if (!cur || mp.date > cur) lastUsed.set(mp.recipe_id, mp.date);
     }
-    return recipes
+    const recent = recipes
       .filter((r) => lastUsed.has(r.id))
-      .sort((a, b) => (lastUsed.get(b.id) ?? '').localeCompare(lastUsed.get(a.id) ?? ''))
-      .slice(0, 6);
+      .sort((a, b) => (lastUsed.get(b.id) ?? '').localeCompare(lastUsed.get(a.id) ?? ''));
+    const out = recent.slice(0, LIMIT);
+    if (out.length < LIMIT) {
+      const have = new Set(out.map((r) => r.id));
+      // Favourites first, then any other recipes, alphabetical — to fill the gap.
+      const fillers = recipes
+        .filter((r) => !have.has(r.id))
+        .sort((a, b) => {
+          if (a.favorite !== b.favorite) return a.favorite ? -1 : 1;
+          return a.title.localeCompare(b.title);
+        });
+      for (const r of fillers) {
+        if (out.length >= LIMIT) break;
+        out.push(r);
+      }
+    }
+    return out;
   }, [recipes, mealPlans]);
 
   const sidebarRecipes = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return recentRecipes;
+    if (!q) return defaultRecipes;
     return recipes
       .filter(
         (r) =>
@@ -80,7 +98,7 @@ export function MealPlannerView() {
         if (a.favorite !== b.favorite) return a.favorite ? -1 : 1;
         return a.title.localeCompare(b.title);
       });
-  }, [recipes, query, recentRecipes]);
+  }, [recipes, query, defaultRecipes]);
 
   function plansForDay(date: string) {
     return plansThisWeek.filter((m) => m.date === date);
@@ -311,14 +329,16 @@ export function MealPlannerView() {
               />
             </div>
             <p className="text-xs text-text-faint mb-2">
-              {query.trim() ? 'Drag to a day, or click + Add' : 'Recently used — search for more'}
+              {query.trim()
+                ? 'Drag to a day, or click + Add'
+                : 'Recent & favourites — search for more'}
             </p>
             <div className="space-y-1 max-h-[50vh] overflow-y-auto">
               {sidebarRecipes.length === 0 ? (
                 <p className="text-xs text-text-faint p-2">
                   {query.trim()
                     ? 'No recipes found.'
-                    : 'No recent meals yet — search to find recipes.'}
+                    : 'No recipes yet — add some on the Recipes tab.'}
                 </p>
               ) : (
                 sidebarRecipes.map((r) => (
