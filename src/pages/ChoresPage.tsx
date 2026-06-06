@@ -20,6 +20,7 @@ import { useToast } from '@/context/ToastContext';
 import { useSwipeMode } from '@/hooks/useSwipeMode';
 import { Avatar } from '@/components/Avatar';
 import { DragHandle } from '@/components/DragHandle';
+import { DropIndicator } from '@/components/DropIndicator';
 import { ChoreEditor } from '@/components/ChoreEditor';
 import { useListDragReorder } from '@/hooks/useListDragReorder';
 import { RedemptionModal } from '@/components/RedemptionModal';
@@ -535,12 +536,9 @@ const ManageChoreRow = memo(function ManageChoreRow({
       <div
         {...rowHandlers}
         onClick={() => onEdit(c)}
-        className={
-          'w-full flex items-center gap-3 p-3 bg-surface-2/40 hover:bg-surface-2/70 transition-colors cursor-pointer select-none first:rounded-t-lg last:rounded-b-lg ' +
-          (dropEdge === 'top' ? 'shadow-[0_-3px_0_0_rgb(var(--accent))] ' : '') +
-          (dropEdge === 'bottom' ? 'shadow-[0_3px_0_0_rgb(var(--accent))] ' : '')
-        }
+        className="relative w-full flex items-center gap-3 p-3 bg-surface-2/40 hover:bg-surface-2/70 transition-colors cursor-pointer select-none first:rounded-t-lg last:rounded-b-lg"
       >
+        {dropEdge && <DropIndicator edge={dropEdge} />}
         <DragHandle handleProps={handleProps} />
         <div className="flex-1 min-w-0">
           <div className="text-sm font-medium text-text">{c.title}</div>

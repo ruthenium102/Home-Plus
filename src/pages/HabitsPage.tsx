@@ -7,6 +7,7 @@ import { useToast } from '@/context/ToastContext';
 import { useSwipeMode } from '@/hooks/useSwipeMode';
 import { Avatar } from '@/components/Avatar';
 import { DragHandle } from '@/components/DragHandle';
+import { DropIndicator } from '@/components/DropIndicator';
 import { HabitEditor } from '@/components/HabitEditor';
 import { HabitsStats } from '@/components/HabitsStats';
 import { SwipeableRow } from '@/components/SwipeableRow';
@@ -379,12 +380,9 @@ const HabitRow = memo(function HabitRow({
   return (
     <div
       {...(dragProps ? rowHandlers : {})}
-      className={
-        'flex items-center gap-3 p-3 rounded-md bg-surface-2/40 hover:bg-surface-2/70 transition-colors select-none ' +
-        (dropEdge === 'top' ? 'shadow-[0_-3px_0_0_rgb(var(--accent))] ' : '') +
-        (dropEdge === 'bottom' ? 'shadow-[0_3px_0_0_rgb(var(--accent))] ' : '')
-      }
+      className="relative flex items-center gap-3 p-3 rounded-md bg-surface-2/40 hover:bg-surface-2/70 transition-colors select-none"
     >
+      {dropEdge && <DropIndicator edge={dropEdge} />}
       {dragProps && <DragHandle handleProps={handleProps} />}
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">

@@ -39,6 +39,7 @@ import { DeleteAccountModal } from '@/components/DeleteAccountModal';
 import { InviteModal } from '@/components/InviteModal';
 import { AddMemberModal } from '@/components/AddMemberModal';
 import { EditMemberModal } from '@/components/EditMemberModal';
+import { DropIndicator } from '@/components/DropIndicator';
 import { GoogleIntegrationsSection } from '@/components/GoogleIntegrationsSection';
 import { MEMBER_COLORS } from '@/lib/colors';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
@@ -672,12 +673,9 @@ function MemberRow({
   return (
     <div
       {...(dragProps ? rowHandlers : {})}
-      className={
-        'flex items-center gap-3 p-3 rounded-md bg-surface-2/40 hover:bg-surface-2/70 transition-colors select-none ' +
-        (dropEdge === 'top' ? 'shadow-[0_-3px_0_0_rgb(var(--accent))] ' : '') +
-        (dropEdge === 'bottom' ? 'shadow-[0_3px_0_0_rgb(var(--accent))] ' : '')
-      }
+      className="relative flex items-center gap-3 p-3 rounded-md bg-surface-2/40 hover:bg-surface-2/70 transition-colors select-none"
     >
+      {dropEdge && <DropIndicator edge={dropEdge} />}
       {dragProps && <DragHandle handleProps={handleProps} />}
       <Avatar member={member} size={44} />
       <div className="flex-1 min-w-0">

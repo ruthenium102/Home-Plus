@@ -18,6 +18,7 @@ import { ListEditor, getListIcon } from '@/components/ListEditor';
 import { ListItemEditor } from '@/components/ListItemEditor';
 import { Avatar } from '@/components/Avatar';
 import { DragHandle } from '@/components/DragHandle';
+import { DropIndicator } from '@/components/DropIndicator';
 import { SwipeableRow } from '@/components/SwipeableRow';
 import { getColorTokens } from '@/lib/colors';
 import {
@@ -88,13 +89,11 @@ export function ListsPage() {
                 key={list.id}
                 {...rowHandlers}
                 className={
-                  'flex items-center gap-2 px-2 py-2 rounded-md transition-colors group select-none ' +
-                  (isActive ? 'bg-surface-2' : 'hover:bg-surface-2/60') +
-                  ' ' +
-                  (dropEdge === 'top' ? 'shadow-[0_-3px_0_0_rgb(var(--accent))] ' : '') +
-                  (dropEdge === 'bottom' ? 'shadow-[0_3px_0_0_rgb(var(--accent))] ' : '')
+                  'relative flex items-center gap-2 px-2 py-2 rounded-md transition-colors group select-none ' +
+                  (isActive ? 'bg-surface-2' : 'hover:bg-surface-2/60')
                 }
               >
+                {dropEdge && <DropIndicator edge={dropEdge} />}
                 <DragHandle handleProps={handleProps} />
                 <button
                   onClick={() => setActiveListId(list.id)}
@@ -364,12 +363,9 @@ const ListItemRow = memo(function ListItemRow({
     <SwipeableRow onDelete={handleDelete} mode={swipeMode}>
       <div
         {...rowHandlers}
-        className={
-          'flex items-center gap-2 p-3 bg-surface-2/40 hover:bg-surface-2/70 transition-colors select-none ' +
-          (dropEdge === 'top' ? 'shadow-[0_-3px_0_0_rgb(var(--accent))] ' : '') +
-          (dropEdge === 'bottom' ? 'shadow-[0_3px_0_0_rgb(var(--accent))] ' : '')
-        }
+        className="relative flex items-center gap-2 p-3 bg-surface-2/40 hover:bg-surface-2/70 transition-colors select-none"
       >
+        {dropEdge && <DropIndicator edge={dropEdge} />}
         <DragHandle handleProps={handleProps} />
         <button data-no-swipe onClick={() => toggleListItem(item.id)} className="shrink-0">
           {item.done ? (
