@@ -94,10 +94,16 @@ export function setDbErrorHandler(
   onWriteError = fn;
 }
 
-export function dbUpsert<T extends TableName>(table: T, data: Tables[T]['Insert']): void {
+// Returns a promise that resolves once the write has been attempted, so callers
+// with a foreign-key dependency can sequence writes (e.g. insert the events row
+// before the meal_plans row that references it). Most callers ignore it.
+export function dbUpsert<T extends TableName>(
+  table: T,
+  data: Tables[T]['Insert'],
+): PromiseLike<void> {
   const id = typeof (data as { id?: unknown }).id === 'string' ? (data as { id: string }).id : null;
   if (id) markPending(table, id);
-  if (!supabase) return;
+  if (!supabase) return Promise.resolve();
 
   // family_members carries some server-authoritative / non-existent columns on
   // the TS type that must NOT be written by a generic client upsert:
@@ -114,7 +120,7 @@ export function dbUpsert<T extends TableName>(table: T, data: Tables[T]['Insert'
     payload = rest;
   }
 
-  supabase
+  return supabase
     .from(table)
     .upsert(payload as Tables[T]['Insert'])
     .then(({ error }) => {

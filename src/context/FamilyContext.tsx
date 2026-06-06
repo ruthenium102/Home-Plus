@@ -2134,8 +2134,9 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
 
       setEvents((prev) => [...prev, newEvent]);
       setMealPlans((prev) => [...prev, newMealPlan]);
-      dbUpsert('events', newEvent);
-      dbUpsert('meal_plans', newMealPlan);
+      // The meal_plans row references the event via FK, so the event MUST land
+      // first — these are separate requests with no inherent ordering otherwise.
+      void dbUpsert('events', newEvent).then(() => dbUpsert('meal_plans', newMealPlan));
       syncEventToGoogle(newEvent.id);
     },
     [family.id, recipes, activeMember],
@@ -2251,8 +2252,10 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
       if (newPlans.length === 0) return;
       setEvents((prev) => [...prev, ...newEvents]);
       setMealPlans((prev) => [...prev, ...newPlans]);
-      newEvents.forEach((e) => dbUpsert('events', e));
-      newPlans.forEach((p) => dbUpsert('meal_plans', p));
+      // Events first — the meal_plans rows reference them via FK.
+      void Promise.all(newEvents.map((e) => dbUpsert('events', e))).then(() =>
+        newPlans.forEach((p) => dbUpsert('meal_plans', p)),
+      );
       newEvents.forEach((e) => syncEventToGoogle(e.id));
     },
     [mealPlans, recipes, family.id, activeMember],
