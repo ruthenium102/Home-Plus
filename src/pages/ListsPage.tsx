@@ -60,7 +60,7 @@ export function ListsPage() {
   }, [activeList, listItems]);
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-[260px_1fr] gap-4">
+    <div className="grid grid-cols-1 md:grid-cols-[270px_1fr] gap-4">
       {/* List sidebar */}
       <aside className="card p-2 self-start">
         <div className="flex items-center justify-between p-2 mb-1">

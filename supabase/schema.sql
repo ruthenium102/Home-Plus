@@ -187,6 +187,10 @@ create table if not exists events (
   member_ids uuid[] not null default '{}',
   -- Recurrence as JSON for flexibility (matches src/types Recurrence)
   recurrence jsonb,
+  -- Occurrence start ISO timestamps excluded from the series (migrate_v21) —
+  -- lets a single recurring occurrence be "moved" (excluded here + recreated
+  -- as a one-off event on the new day).
+  exdates text[] not null default '{}',
   -- Reminder offsets in minutes (e.g. [10, 60])
   reminder_offsets int[] not null default '{}',
   -- Per-event opt-out for Google Calendar sync (Phase 6)

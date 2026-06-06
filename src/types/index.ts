@@ -89,6 +89,9 @@ export interface CalendarEvent {
   member_ids: string[];
   // Recurrence — null for one-off. Otherwise an RRULE-like minimal struct.
   recurrence: Recurrence | null;
+  // For recurring events: occurrence start-times (ISO) to suppress, so a single
+  // occurrence can be "moved" (excluded here + recreated as a one-off elsewhere).
+  exdates?: string[];
   // Reminder offsets in minutes before start (e.g. [10, 60])
   reminder_offsets: number[];
   // Mirror this event to connected parents' Google Calendars. Defaults to true.

@@ -41,7 +41,7 @@ import type { CalendarEvent, FamilyMember } from '@/types';
 type ViewMode = 'day' | 'week' | 'month';
 
 export function CalendarPage() {
-  const { events, members, updateEvent } = useFamily();
+  const { events, members, updateEvent, addEvent } = useFamily();
   const isPhone = useIsPhone();
   const [view, setView] = useState<ViewMode>('week');
   const [cursor, setCursor] = useState<Date>(new Date());
@@ -220,10 +220,48 @@ export function CalendarPage() {
     setDragOverDayKey(null);
     if (!evt) return;
     const source = events.find((x) => x.id === evt.id);
-    if (!source || source.recurrence) return;
-    // Confirm the move with a medium tap (only once we know a real, movable
-    // event landed on a day — recurring/no-op drops return above silently).
+    if (!source) return;
+    // Confirm the move with a medium tap (only once we know a real event
+    // landed on a day).
     void hapticMedium();
+
+    // Recurring event: move just THIS occurrence — exclude its original
+    // occurrence from the series and recreate it as a one-off on the new day.
+    if (source.recurrence) {
+      const origStart = new Date(evt.occurrence_start);
+      const origEnd = new Date(evt.occurrence_end);
+      const spanMs = Math.max(0, origEnd.getTime() - origStart.getTime());
+      const newStart = startOfDay(day);
+      if (!source.all_day) {
+        newStart.setHours(origStart.getHours(), origStart.getMinutes(), 0, 0);
+      }
+      updateEvent(source.id, {
+        exdates: [...(source.exdates ?? []), evt.occurrence_start],
+      });
+      // Copy the event's content, drop series/identity fields, place on new day.
+      const {
+        id: _id,
+        created_at: _ca,
+        family_id: _fid,
+        recurrence: _rec,
+        exdates: _ex,
+        google_event_id: _g,
+        ...content
+      } = source;
+      void _id;
+      void _ca;
+      void _fid;
+      void _rec;
+      void _ex;
+      void _g;
+      addEvent({
+        ...content,
+        start_at: newStart.toISOString(),
+        end_at: new Date(newStart.getTime() + spanMs).toISOString(),
+        recurrence: null,
+      });
+      return;
+    }
 
     if (source.all_day) {
       const origStart = new Date(evt.occurrence_start);
@@ -595,25 +633,16 @@ function WeekView({
                 </div>
               </div>
               <div className="flex-1 flex flex-col gap-1">
-                {dayEvents.map((e) =>
-                  e.recurrence ? (
-                    <EventChip
-                      key={e.occurrence_key}
-                      event={e}
-                      onClick={() => onEdit(e)}
-                      variant="week"
-                    />
-                  ) : (
-                    <div
-                      key={e.occurrence_key}
-                      data-event-chip
-                      style={{ touchAction: 'none' }}
-                      onPointerDown={(ev) => onStartEventDrag(e, ev)}
-                    >
-                      <EventChip event={e} onClick={() => onEdit(e)} variant="week" />
-                    </div>
-                  ),
-                )}
+                {dayEvents.map((e) => (
+                  <div
+                    key={e.occurrence_key}
+                    data-event-chip
+                    style={{ touchAction: 'none' }}
+                    onPointerDown={(ev) => onStartEventDrag(e, ev)}
+                  >
+                    <EventChip event={e} onClick={() => onEdit(e)} variant="week" />
+                  </div>
+                ))}
               </div>
               <button
                 onClick={() => onCreate(day)}
@@ -761,17 +790,7 @@ function MonthView({
                       {e.title}
                     </div>
                   );
-                  return e.recurrence ? (
-                    <div
-                      key={e.occurrence_key}
-                      onClick={(ev) => {
-                        ev.stopPropagation();
-                        onEdit(e);
-                      }}
-                    >
-                      {chip}
-                    </div>
-                  ) : (
+                  return (
                     <div
                       key={e.occurrence_key}
                       style={{ touchAction: 'none' }}

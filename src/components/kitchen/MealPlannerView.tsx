@@ -90,6 +90,35 @@ export function MealPlannerView() {
   // recipe being dragged in a ref because the drop detection runs in a
   // global pointermove and pointerup loop (HTML5 DnD does not work on iOS).
   const draggingRecipeRef = useRef<string | null>(null);
+  const draggingMealRef = useRef<string | null>(null);
+
+  // Shared hit-test: which day cell (data-meal-day) is under the pointer.
+  const findDayAt = (clientX: number, clientY: number): string | null => {
+    const els = document.elementsFromPoint(clientX, clientY);
+    for (const el of els) {
+      const cell = (el as HTMLElement).closest?.('[data-meal-day]') as HTMLElement | null;
+      if (cell) return cell.dataset.mealDay ?? null;
+    }
+    return null;
+  };
+
+  // Move an already-placed meal to another day. Recreate it on the new day so
+  // the linked calendar event is rebuilt correctly; removeMealPlan cleans up
+  // the old meal + its event.
+  function handleMoveMeal(mealPlanId: string, newDate: string) {
+    const mp = mealPlans.find((m) => m.id === mealPlanId);
+    if (!mp || mp.date === newDate) return;
+    removeMealPlan(mp.id);
+    addMealPlan({
+      recipe_id: mp.recipe_id,
+      date: newDate,
+      meal_type: mp.meal_type,
+      servings: mp.servings,
+      calendar_event_id: null,
+      notes: mp.notes,
+      created_by: mp.created_by,
+    });
+  }
 
   function startRecipeDrag(recipeId: string, downEv: React.PointerEvent) {
     if (downEv.button !== undefined && downEv.button !== 0) return;
@@ -99,15 +128,6 @@ export function MealPlannerView() {
     let started = false;
     const pointerId = downEv.pointerId;
     const autoScroll = createEdgeAutoScroller();
-
-    const findDayAt = (clientX: number, clientY: number): string | null => {
-      const els = document.elementsFromPoint(clientX, clientY);
-      for (const el of els) {
-        const cell = (el as HTMLElement).closest?.('[data-meal-day]') as HTMLElement | null;
-        if (cell) return cell.dataset.mealDay ?? null;
-      }
-      return null;
-    };
 
     const move = (ev: PointerEvent) => {
       if (!started) {
@@ -159,6 +179,68 @@ export function MealPlannerView() {
     target.addEventListener('pointercancel', cancel);
   }
 
+  // Drag an already-placed meal chip to another day. Mirrors startRecipeDrag
+  // but commits a move (handleMoveMeal) instead of an add.
+  function startMealMove(mealPlanId: string, downEv: React.PointerEvent) {
+    if (downEv.button !== undefined && downEv.button !== 0) return;
+    // Let the chip's repeat/remove buttons handle their own taps.
+    if ((downEv.target as HTMLElement).closest('button')) return;
+    const target = downEv.currentTarget as HTMLElement;
+    const startX = downEv.clientX;
+    const startY = downEv.clientY;
+    let started = false;
+    const pointerId = downEv.pointerId;
+    const autoScroll = createEdgeAutoScroller();
+
+    const move = (ev: PointerEvent) => {
+      if (!started) {
+        if (Math.abs(ev.clientY - startY) < 6 && Math.abs(ev.clientX - startX) < 6) return;
+        started = true;
+        void hapticLight();
+        try {
+          target.setPointerCapture(pointerId);
+        } catch {
+          /* ignore */
+        }
+        draggingMealRef.current = mealPlanId;
+      }
+      autoScroll.update(ev.clientX, ev.clientY);
+      setDragOverDay(findDayAt(ev.clientX, ev.clientY));
+      ev.preventDefault();
+    };
+    const cleanup = () => {
+      autoScroll.stop();
+      target.removeEventListener('pointermove', move);
+      target.removeEventListener('pointerup', up);
+      target.removeEventListener('pointercancel', cancel);
+      try {
+        target.releasePointerCapture(pointerId);
+      } catch {
+        /* ignore */
+      }
+    };
+    const up = (ev: PointerEvent) => {
+      cleanup();
+      const dropTarget = started ? findDayAt(ev.clientX, ev.clientY) : null;
+      const id = draggingMealRef.current;
+      draggingMealRef.current = null;
+      setDragOverDay(null);
+      if (started && dropTarget && id) {
+        void hapticMedium();
+        handleMoveMeal(id, dropTarget);
+      }
+    };
+    const cancel = () => {
+      cleanup();
+      draggingMealRef.current = null;
+      setDragOverDay(null);
+    };
+
+    target.addEventListener('pointermove', move);
+    target.addEventListener('pointerup', up);
+    target.addEventListener('pointercancel', cancel);
+  }
+
   return (
     <div>
       {/* Week navigation */}
@@ -198,15 +280,15 @@ export function MealPlannerView() {
 
       <div className="flex flex-col lg:flex-row gap-4">
         {/* Recipe sidebar — LHS to match the rest of the create-flows. */}
-        <aside className="lg:w-52 flex-shrink-0 order-2 lg:order-1">
+        <aside className="lg:w-[270px] flex-shrink-0 order-2 lg:order-1">
           <div className="card p-3 lg:sticky lg:top-20 overflow-hidden">
-            <div className="flex items-center gap-2 mb-2 min-w-0">
+            <div className="flex items-center gap-2 mb-2 px-2 py-1.5 rounded-md bg-surface-2 border border-border focus-within:border-accent min-w-0">
               <Search size={13} className="text-text-faint shrink-0" />
               <input
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Search…"
-                className="input text-sm py-1 flex-1 min-w-0"
+                className="flex-1 bg-transparent text-sm text-text placeholder:text-text-faint focus:outline-none min-w-0"
               />
             </div>
             <p className="text-xs text-text-faint mb-2">
@@ -275,6 +357,7 @@ export function MealPlannerView() {
                           recipe={recipe}
                           onRemove={() => removeMealPlan(mp.id)}
                           onRepeat={() => setRepeatTargetId(mp.id)}
+                          onMoveStart={(e) => startMealMove(mp.id, e)}
                         />
                       );
                     })}
@@ -468,14 +551,20 @@ function MealChip({
   recipe,
   onRemove,
   onRepeat,
+  onMoveStart,
 }: {
   mealPlan: MealPlan;
   recipe?: Recipe;
   onRemove: () => void;
   onRepeat: () => void;
+  onMoveStart: (e: React.PointerEvent) => void;
 }) {
   return (
-    <div className="group relative bg-accent-soft rounded px-1.5 py-0.5 flex items-center gap-1 text-xs">
+    <div
+      style={{ touchAction: 'none' }}
+      onPointerDown={onMoveStart}
+      className="group relative bg-accent-soft rounded px-1.5 py-0.5 flex items-center gap-1 text-xs cursor-grab active:cursor-grabbing select-none"
+    >
       <span>{recipe?.icon || '🍽️'}</span>
       <span className="truncate text-text flex-1 leading-tight">
         {recipe?.title ?? 'Unknown'}

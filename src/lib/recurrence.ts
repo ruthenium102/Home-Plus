@@ -69,7 +69,11 @@ function expandRecurring(
       occCount += 1;
       const occStart = new Date(cursor);
       const occEnd = new Date(occStart.getTime() + durationMs);
-      if (isAfter(occEnd, rangeStart)) {
+      // Skip occurrences the user has "moved" out of the series (exdates holds
+      // their original occurrence start ISO). occCount still advances so a
+      // count-limited series isn't silently extended.
+      const excluded = e.exdates ? e.exdates.includes(occStart.toISOString()) : false;
+      if (isAfter(occEnd, rangeStart) && !excluded) {
         out.push({
           ...e,
           occurrence_start: occStart.toISOString(),

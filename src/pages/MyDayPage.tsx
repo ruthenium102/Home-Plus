@@ -745,7 +745,7 @@ export function MyDayPage() {
       </div>
       <div className="flex gap-4 max-w-5xl">
         {/* Activity pool sidebar — desktop only */}
-        <aside className="hidden lg:flex flex-col w-52 shrink-0 self-start card p-2 gap-2">
+        <aside className="hidden lg:flex flex-col w-[270px] shrink-0 self-start card p-2 gap-2">
           <div className="flex items-center justify-between mb-1">
             <span className="text-xs font-medium text-text-muted uppercase tracking-wider">
               Activities
