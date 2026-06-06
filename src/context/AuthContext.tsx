@@ -17,6 +17,13 @@ export interface AuthContextValue {
     password: string,
     name: string,
     familyName: string,
+    /**
+     * The user ticked the affirmative Terms + Privacy acceptance box (L2). For a
+     * new family (not an invite accept) this also carries the 18+ parent/guardian
+     * attestation (L4). Recorded as timestamps in user_metadata and copied onto
+     * the families row when the household is first created.
+     */
+    accept?: { tos: boolean; attestAdult: boolean },
   ) => Promise<{ error?: string }>;
   /** Sign completely out of Supabase Auth (not just the in-app member switch). */
   authSignOut: () => Promise<void>;
@@ -58,12 +65,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     password: string,
     name: string,
     familyName: string,
+    accept?: { tos: boolean; attestAdult: boolean },
   ): Promise<{ error?: string }> => {
     if (!supabase) return { error: 'Supabase not configured' };
+    const now = new Date().toISOString();
+    // Stamp acceptance into user_metadata. FamilyContext copies these onto the
+    // families row when it creates the household (the durable audit record).
+    const legal: Record<string, string> = {};
+    if (accept?.tos) {
+      legal.tos_accepted_at = now;
+      legal.privacy_accepted_at = now;
+    }
+    if (accept?.attestAdult) {
+      legal.owner_attested_adult_at = now;
+    }
     const { error } = await supabase.auth.signUp({
       email,
       password,
-      options: { data: { name, family_name: familyName } },
+      options: { data: { name, family_name: familyName, ...legal } },
     });
     if (!error) {
       // Suppress the post-accept "Set a password" modal — the user just

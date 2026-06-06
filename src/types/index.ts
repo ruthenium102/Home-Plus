@@ -40,6 +40,13 @@ export interface FamilyMember {
   pet_enabled: boolean;
   email: string | null;
   auth_user_id?: string | null; // links this profile to a Supabase auth user
+  // L4 — children's-data consent (migrate_v20). Both NULL/undefined until a
+  // parent grants consent. parental_consent_at: explicit consent to process
+  // this child's data, captured at profile creation. voice_consent_at: separate
+  // explicit consent to use voice for this child (sends transcripts to our AI
+  // sub-processor). NULL ⇒ voice intake is blocked for this child profile.
+  parental_consent_at?: string | null;
+  voice_consent_at?: string | null;
   created_at: string;
 }
 
@@ -47,6 +54,11 @@ export interface Family {
   id: string;
   name: string;
   timezone: string;
+  // L1/L2/L4 — account-holder acceptance captured at sign-up (migrate_v20).
+  // ISO timestamps; an audit trail of when acceptance/attestation happened.
+  tos_accepted_at?: string | null;
+  privacy_accepted_at?: string | null;
+  owner_attested_adult_at?: string | null;
   created_at: string;
 }
 

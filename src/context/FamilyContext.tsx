@@ -637,7 +637,17 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
       const memberId = crypto.randomUUID();
       const now = new Date().toISOString();
 
-      const newFamily: Family = { id: familyId, name: familyName, timezone: tz, created_at: now };
+      const newFamily: Family = {
+        id: familyId,
+        name: familyName,
+        timezone: tz,
+        // L1/L2/L4 — carry the sign-up acceptance/attestation timestamps that
+        // AuthContext.signUp stamped into user_metadata onto the durable row.
+        tos_accepted_at: (userMeta?.tos_accepted_at as string) ?? null,
+        privacy_accepted_at: (userMeta?.privacy_accepted_at as string) ?? null,
+        owner_attested_adult_at: (userMeta?.owner_attested_adult_at as string) ?? null,
+        created_at: now,
+      };
       const newMember: FamilyMember = {
         id: memberId,
         family_id: familyId,

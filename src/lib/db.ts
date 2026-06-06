@@ -323,7 +323,13 @@ export async function dbLoadFamily(familyId: string): Promise<FamilyData | null>
       { data: mealPlans },
       { data: pets },
     ] = await Promise.all([
-      supabase.from('families').select('id,name,timezone,created_at').eq('id', familyId).single(),
+      supabase
+        .from('families')
+        .select(
+          'id,name,timezone,created_at,tos_accepted_at,privacy_accepted_at,owner_attested_adult_at',
+        )
+        .eq('id', familyId)
+        .single(),
       supabase.from('family_members').select('*').eq('family_id', familyId),
       // events: last 90d of starts + ALL future + every recurring series (A1).
       supabase
@@ -403,6 +409,10 @@ export async function dbCreateFamily(
     name: family.name,
     timezone: family.timezone,
     owner_user_id: ownerUserId,
+    // L1/L2/L4 — sign-up acceptance/attestation audit timestamps (migrate_v20).
+    tos_accepted_at: family.tos_accepted_at ?? null,
+    privacy_accepted_at: family.privacy_accepted_at ?? null,
+    owner_attested_adult_at: family.owner_attested_adult_at ?? null,
     created_at: family.created_at,
   });
   if (fe) {

@@ -80,6 +80,18 @@ export function useVoiceIntake() {
         return;
       }
 
+      // L4 — children's data. Voice commands send a short transcript to our AI
+      // sub-processor (Anthropic). For a child profile we only do that once a
+      // parent has recorded explicit consent (voice_consent_at). Block here,
+      // before the transcript ever leaves the device.
+      if (activeMember?.role === 'child' && !activeMember.voice_consent_at) {
+        show({
+          message: 'Voice is off for kids’ profiles. A parent can turn it on in Settings.',
+          duration: 5000,
+        });
+        return;
+      }
+
       let action: VoiceAction;
       try {
         const res = await fetch(apiUrl('/api/voice-intake'), {

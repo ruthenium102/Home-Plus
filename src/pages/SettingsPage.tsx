@@ -23,6 +23,9 @@ import {
   Mail,
   Loader2,
   Copy,
+  Shield,
+  ScrollText,
+  ExternalLink,
 } from 'lucide-react';
 import { DragHandle } from '@/components/DragHandle';
 import { useListDragReorder } from '@/hooks/useListDragReorder';
@@ -570,6 +573,31 @@ export function SettingsPage() {
               <LogOut size={14} /> Sign out
             </button>
           )}
+        </div>
+      </section>
+
+      {/* Legal */}
+      <section className="card p-5">
+        <h2 className="font-display text-lg text-text mb-4">Legal</h2>
+        <div className="flex flex-col gap-2">
+          <a
+            href="/privacy"
+            target="_blank"
+            rel="noreferrer"
+            className="flex items-center gap-2 px-4 py-2 bg-surface-2 border border-border text-text-muted text-sm rounded-md hover:bg-surface"
+          >
+            <Shield size={14} /> Privacy Policy
+            <ExternalLink size={12} className="ml-auto text-text-faint" />
+          </a>
+          <a
+            href="/terms"
+            target="_blank"
+            rel="noreferrer"
+            className="flex items-center gap-2 px-4 py-2 bg-surface-2 border border-border text-text-muted text-sm rounded-md hover:bg-surface"
+          >
+            <ScrollText size={14} /> Terms of Service
+            <ExternalLink size={12} className="ml-auto text-text-faint" />
+          </a>
         </div>
       </section>
 

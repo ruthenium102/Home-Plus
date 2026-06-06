@@ -23,6 +23,10 @@ create table if not exists families (
   -- Single auth user (the family account email/password). Tablet uses PIN
   -- to switch between members within this auth session.
   owner_user_id uuid not null references auth.users(id) on delete cascade,
+  -- L1/L2/L4 — account-holder acceptance captured at sign-up (migrate_v20).
+  tos_accepted_at timestamptz,
+  privacy_accepted_at timestamptz,
+  owner_attested_adult_at timestamptz,
   created_at timestamptz not null default now()
 );
 
@@ -52,6 +56,10 @@ create table if not exists family_members (
   -- Server-authoritative: only the reward RPCs (redeem_reward etc.) may write
   -- this; direct client writes are blocked by trg_guard_reward_balances (S3).
   reward_balances jsonb not null default '{}'::jsonb,
+  -- L4 — per-child consent (migrate_v20). NULL until a parent grants it.
+  -- voice_consent_at NULL ⇒ voice intake is blocked for this child profile.
+  parental_consent_at timestamptz,
+  voice_consent_at timestamptz,
   created_at timestamptz not null default now()
 );
 

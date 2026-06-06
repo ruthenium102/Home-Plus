@@ -1,5 +1,16 @@
 import { useEffect, useState } from 'react';
-import { X, Mail, CheckCircle2, KeyRound, Loader2, Trash2, Eye, EyeOff } from 'lucide-react';
+import {
+  X,
+  Mail,
+  CheckCircle2,
+  KeyRound,
+  Loader2,
+  Trash2,
+  Eye,
+  EyeOff,
+  Mic,
+  ShieldCheck,
+} from 'lucide-react';
 import { useFamily } from '@/context/FamilyContext';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/context/ToastContext';
@@ -224,6 +235,57 @@ export function EditMemberModal({ open, member, onClose }: Props) {
               </button>
             )}
           </div>
+
+          {/* Children's-data consent (L4) — manage voice consent for a child.
+              Parents can grant/revoke; the audit timestamp lives on the row. */}
+          {member.role === 'child' && (
+            <div className="border border-border rounded-md p-3 space-y-3 bg-surface-2/40">
+              <div className="flex items-center gap-2 text-sm font-medium text-text">
+                <ShieldCheck size={15} className="text-accent" />
+                Privacy &amp; consent
+              </div>
+              <div className="flex items-center justify-between gap-3">
+                <div className="text-xs text-text-muted leading-snug flex-1">
+                  <span className="inline-flex items-center gap-1 font-medium text-text">
+                    <Mic size={12} /> Voice commands
+                  </span>
+                  <div className="text-text-faint mt-0.5">
+                    {member.voice_consent_at
+                      ? 'On — short voice transcripts may be sent to our AI provider.'
+                      : 'Off — voice is disabled for this child.'}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  disabled={!isParent}
+                  onClick={() =>
+                    updateMember(member.id, {
+                      voice_consent_at: member.voice_consent_at ? null : new Date().toISOString(),
+                    })
+                  }
+                  aria-pressed={!!member.voice_consent_at}
+                  className={
+                    'relative w-11 h-6 rounded-full transition-colors shrink-0 disabled:opacity-40 ' +
+                    (member.voice_consent_at ? 'bg-accent' : 'bg-border')
+                  }
+                  title={isParent ? 'Toggle voice for this child' : 'Only a parent can change this'}
+                >
+                  <span
+                    className={
+                      'absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ' +
+                      (member.voice_consent_at ? 'translate-x-5' : '')
+                    }
+                  />
+                </button>
+              </div>
+              {!member.parental_consent_at && (
+                <p className="text-[11px] text-text-faint border-t border-border pt-2">
+                  No parental-consent record on file for this profile (created before consent was
+                  captured).
+                </p>
+              )}
+            </div>
+          )}
 
           {isSupabaseConfigured && (
             <div>

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { X, Loader2 } from 'lucide-react';
+import { X, Loader2, ShieldCheck, Mic } from 'lucide-react';
 import { useFamily } from '@/context/FamilyContext';
 import { Avatar } from '@/components/Avatar';
 import { BirthdayPicker } from '@/components/BirthdayPicker';
@@ -40,6 +40,9 @@ export function AddMemberModal({ open, onClose }: Props) {
   const [birthday, setBirthday] = useState('');
   const [email, setEmail] = useState('');
   const [sendInvite, setSendInvite] = useState(false);
+  // L4 — children's-data consent, captured when a child profile is created.
+  const [childConsent, setChildConsent] = useState(false);
+  const [voiceConsent, setVoiceConsent] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -62,6 +65,8 @@ export function AddMemberModal({ open, onClose }: Props) {
     setBirthday('');
     setEmail('');
     setSendInvite(false);
+    setChildConsent(false);
+    setVoiceConsent(false);
     setError('');
     setLoading(false);
     onClose();
@@ -72,8 +77,23 @@ export function AddMemberModal({ open, onClose }: Props) {
       setError('Name is required.');
       return;
     }
+    // L4 — a child profile can't be created without the parent's explicit consent.
+    if (role === 'child' && !childConsent) {
+      setError('Please confirm you consent to creating this child’s profile.');
+      return;
+    }
     setError('');
     setLoading(true);
+
+    // Stamp consent timestamps for child profiles (parents don't need them).
+    const nowIso = new Date().toISOString();
+    const consentFields =
+      role === 'child'
+        ? {
+            parental_consent_at: childConsent ? nowIso : null,
+            voice_consent_at: voiceConsent ? nowIso : null,
+          }
+        : {};
 
     // When sending an invite, don't also create a local placeholder member —
     // accept_invitation() on the server creates / links the row when the
@@ -88,6 +108,7 @@ export function AddMemberModal({ open, onClose }: Props) {
         color,
         birthday: birthday || null,
         email: email.trim() || null,
+        ...consentFields,
       });
       setLoading(false);
       handleClose();
@@ -182,6 +203,53 @@ export function AddMemberModal({ open, onClose }: Props) {
               ))}
             </div>
           </div>
+
+          {/* Children's-data consent (L4) — only when adding a child profile */}
+          {role === 'child' && (
+            <div className="border border-border rounded-md p-3 space-y-3 bg-surface-2/40">
+              <div className="flex items-center gap-2 text-sm font-medium text-text">
+                <ShieldCheck size={15} className="text-accent" />
+                Parental consent
+              </div>
+              <label className="flex items-start gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={childConsent}
+                  onChange={(e) => setChildConsent(e.target.checked)}
+                  className="accent-accent w-4 h-4 mt-0.5 shrink-0"
+                />
+                <span className="text-xs text-text-muted leading-snug">
+                  I am this child’s parent or legal guardian and I consent to Home Plus storing
+                  their profile information as described in the{' '}
+                  <a
+                    href="/privacy"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-accent underline underline-offset-2"
+                  >
+                    Privacy Policy
+                  </a>
+                  .
+                </span>
+              </label>
+              <label className="flex items-start gap-2 cursor-pointer pt-1 border-t border-border">
+                <input
+                  type="checkbox"
+                  checked={voiceConsent}
+                  onChange={(e) => setVoiceConsent(e.target.checked)}
+                  className="accent-accent w-4 h-4 mt-0.5 shrink-0"
+                />
+                <span className="text-xs text-text-muted leading-snug">
+                  <span className="inline-flex items-center gap-1 font-medium text-text">
+                    <Mic size={12} /> Allow voice commands
+                  </span>{' '}
+                  <span className="text-text-faint">(optional)</span> — sends short voice
+                  transcripts to our AI provider to add events and reminders. Off by default; you
+                  can change this any time.
+                </span>
+              </label>
+            </div>
+          )}
 
           {/* Color */}
           <div>

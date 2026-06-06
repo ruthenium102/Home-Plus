@@ -30,6 +30,9 @@ export function AuthPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [resetSent, setResetSent] = useState(false);
+  // L2/L4 — affirmative acceptance of Terms + Privacy at sign-up. For a brand
+  // new family this also carries the 18+ parent/guardian attestation.
+  const [accepted, setAccepted] = useState(false);
 
   useEffect(() => {
     if (!pendingInvite || !supabase) return;
@@ -55,6 +58,7 @@ export function AuthPage() {
     setResetSent(false);
     setPassword('');
     setConfirmPassword('');
+    setAccepted(false);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -109,6 +113,14 @@ export function AuthPage() {
       setError("Passwords don't match.");
       return;
     }
+    if (!accepted) {
+      setError(
+        invitePreview
+          ? 'Please confirm you agree to the Terms and Privacy Policy.'
+          : 'Please confirm you are 18+ and agree to the Terms and Privacy Policy.',
+      );
+      return;
+    }
 
     setLoading(true);
     const { error } = await signUp(
@@ -116,6 +128,9 @@ export function AuthPage() {
       password,
       name.trim(),
       invitePreview ? invitePreview.family_name : familyName.trim(),
+      // New family ⇒ the account holder attests they are an adult parent/guardian.
+      // Invite accept ⇒ joining an existing household; just accept the terms.
+      { tos: accepted, attestAdult: !invitePreview },
     );
     setLoading(false);
     // On success with email confirmations disabled (recommended for family apps),
@@ -291,6 +306,41 @@ export function AuthPage() {
               Reset link sent — check your inbox.
             </div>
           )}
+          {/* Terms + Privacy acceptance — signup only (L2/L4) */}
+          {mode === 'signup' && (
+            <label className="flex items-start gap-2.5 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={accepted}
+                onChange={(e) => setAccepted(e.target.checked)}
+                className="accent-accent w-4 h-4 mt-0.5 shrink-0"
+              />
+              <span className="text-xs text-text-muted leading-snug">
+                {invitePreview
+                  ? 'I am 18 or older and agree to the '
+                  : 'I am 18 or older, the parent/guardian setting up this account, and I agree to the '}
+                <a
+                  href="/terms"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-accent underline underline-offset-2"
+                >
+                  Terms of Service
+                </a>{' '}
+                and{' '}
+                <a
+                  href="/privacy"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-accent underline underline-offset-2"
+                >
+                  Privacy Policy
+                </a>
+                .
+              </span>
+            </label>
+          )}
+
           {/* Submit */}
           <button
             type="submit"
@@ -339,8 +389,27 @@ export function AuthPage() {
         </form>
       </div>
 
-      <div className="mt-6 text-center text-xs text-text-faint/60">
-        v{__APP_VERSION__} · Home Plus
+      <div className="mt-6 text-center text-xs text-text-faint/60 space-y-1.5">
+        <div className="flex items-center justify-center gap-3">
+          <a
+            href="/privacy"
+            target="_blank"
+            rel="noreferrer"
+            className="hover:text-text underline underline-offset-2"
+          >
+            Privacy Policy
+          </a>
+          <span aria-hidden>·</span>
+          <a
+            href="/terms"
+            target="_blank"
+            rel="noreferrer"
+            className="hover:text-text underline underline-offset-2"
+          >
+            Terms
+          </a>
+        </div>
+        <div>v{__APP_VERSION__} · Home Plus</div>
       </div>
     </div>
   );
