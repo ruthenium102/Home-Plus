@@ -88,7 +88,7 @@ export function ListsPage() {
                 key={list.id}
                 {...rowHandlers}
                 className={
-                  'flex items-center gap-2 px-2 py-2 rounded-md transition-colors group ' +
+                  'flex items-center gap-2 px-2 py-2 rounded-md transition-colors group select-none ' +
                   (isActive ? 'bg-surface-2' : 'hover:bg-surface-2/60') +
                   ' ' +
                   (dropEdge === 'top' ? 'shadow-[0_-3px_0_0_rgb(var(--accent))] ' : '') +
@@ -365,7 +365,7 @@ const ListItemRow = memo(function ListItemRow({
       <div
         {...rowHandlers}
         className={
-          'flex items-center gap-2 p-3 bg-surface-2/40 hover:bg-surface-2/70 transition-colors ' +
+          'flex items-center gap-2 p-3 bg-surface-2/40 hover:bg-surface-2/70 transition-colors select-none ' +
           (dropEdge === 'top' ? 'shadow-[0_-3px_0_0_rgb(var(--accent))] ' : '') +
           (dropEdge === 'bottom' ? 'shadow-[0_3px_0_0_rgb(var(--accent))] ' : '')
         }

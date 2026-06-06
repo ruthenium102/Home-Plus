@@ -536,7 +536,7 @@ const ManageChoreRow = memo(function ManageChoreRow({
         {...rowHandlers}
         onClick={() => onEdit(c)}
         className={
-          'w-full flex items-center gap-3 p-3 bg-surface-2/40 hover:bg-surface-2/70 transition-colors cursor-pointer first:rounded-t-lg last:rounded-b-lg ' +
+          'w-full flex items-center gap-3 p-3 bg-surface-2/40 hover:bg-surface-2/70 transition-colors cursor-pointer select-none first:rounded-t-lg last:rounded-b-lg ' +
           (dropEdge === 'top' ? 'shadow-[0_-3px_0_0_rgb(var(--accent))] ' : '') +
           (dropEdge === 'bottom' ? 'shadow-[0_3px_0_0_rgb(var(--accent))] ' : '')
         }
