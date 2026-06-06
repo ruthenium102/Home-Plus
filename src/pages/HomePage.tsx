@@ -114,7 +114,7 @@ export function HomePage({ onNavigate }: Props) {
           count,
           target,
           checked: targetMet(count, target, h.target_op),
-          streak: computeHabitStreak(checkIns, h.id, activeMember.id),
+          streak: computeHabitStreak(h, checkIns, activeMember.id),
         };
       });
   }, [activeMember, habits, checkIns, today, todayISO]);

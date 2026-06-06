@@ -170,14 +170,14 @@ function HabitStatsCard({
     () =>
       isWeekly
         ? computeWeeklyStreak(checkIns, habit, memberId)
-        : computeHabitStreak(checkIns, habit.id, memberId),
+        : computeHabitStreak(habit, checkIns, memberId),
     [isWeekly, habit, checkIns, memberId],
   );
   const bestStreak = useMemo(
     () =>
       isWeekly
         ? longestWeeklyStreak(checkIns, habit, memberId)
-        : longestHabitStreak(checkIns, habit.id, memberId),
+        : longestHabitStreak(habit, checkIns, memberId),
     [isWeekly, habit, checkIns, memberId],
   );
   const cells = useMemo(

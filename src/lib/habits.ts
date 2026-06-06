@@ -27,27 +27,32 @@ export function isHabitDue(habit: Habit, date: Date): boolean {
 }
 
 /**
- * Number of consecutive days the habit has been checked in, ending today.
- * If today isn't checked yet, the streak counts back from yesterday.
+ * Number of consecutive days the habit's daily target was actually MET, ending
+ * today. A day only extends the streak when its total count satisfies the
+ * target for the habit's operator — so a day that goes over an ≤ N/day cap (or
+ * falls short of a ≥ N/day goal) breaks the streak, matching how the stats and
+ * heatmap score days. If today isn't satisfied yet, the streak counts back from
+ * yesterday (today's tally may still be in progress).
  */
 export function computeHabitStreak(
+  habit: Habit,
   checkIns: HabitCheckIn[],
-  habitId: string,
   memberId: string,
 ): number {
-  const dates = new Set(
-    checkIns
-      .filter((c) => c.habit_id === habitId && c.member_id === memberId)
-      .map((c) => c.for_date),
-  );
+  const counts = countsByDate(checkIns, habit.id, memberId);
+  const target = habit.daily_target ?? 1;
+  const satisfied = (iso: string) => {
+    const count = counts.get(iso) ?? 0;
+    return count > 0 && targetMet(count, target, habit.target_op);
+  };
   let streak = 0;
   const cursor = new Date();
   for (let i = 0; i < 365; i++) {
     const iso = localISO(cursor);
-    if (dates.has(iso)) {
+    if (satisfied(iso)) {
       streak++;
     } else if (i === 0) {
-      // Today not yet checked — that's fine, look at yesterday onwards
+      // Today not yet satisfied — that's fine, look at yesterday onwards.
     } else {
       break;
     }
@@ -252,21 +257,22 @@ export function habitRangeStats(
 }
 
 /**
- * Longest run of consecutive days with any check-in. Mirrors the existence-
- * based semantics of `computeHabitStreak` so "current" and "best" line up.
+ * Longest run of consecutive days whose daily target was MET. Mirrors the
+ * target-aware semantics of `computeHabitStreak` so "current" and "best" line up.
  */
 export function longestHabitStreak(
+  habit: Habit,
   checkIns: HabitCheckIn[],
-  habitId: string,
   memberId: string,
 ): number {
-  const dates = Array.from(
-    new Set(
-      checkIns
-        .filter((c) => c.habit_id === habitId && c.member_id === memberId)
-        .map((c) => c.for_date),
-    ),
-  ).sort();
+  const counts = countsByDate(checkIns, habit.id, memberId);
+  const target = habit.daily_target ?? 1;
+  const dates = Array.from(counts.keys())
+    .filter((iso) => {
+      const count = counts.get(iso) ?? 0;
+      return count > 0 && targetMet(count, target, habit.target_op);
+    })
+    .sort();
   if (dates.length === 0) return 0;
   let best = 1;
   let cur = 1;

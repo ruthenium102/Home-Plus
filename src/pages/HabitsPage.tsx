@@ -225,7 +225,7 @@ export function HabitsPage() {
                       streak={
                         isWeekly
                           ? computeWeeklyStreak(checkIns, habit, member.id)
-                          : computeHabitStreak(checkIns, habit.id, member.id)
+                          : computeHabitStreak(habit, checkIns, member.id)
                       }
                       weekly={wp ? { state: wp.state, count: wp.count, target: wp.target } : null}
                       last7={last7Data}
