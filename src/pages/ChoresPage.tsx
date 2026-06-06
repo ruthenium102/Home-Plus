@@ -529,7 +529,7 @@ const ManageChoreRow = memo(function ManageChoreRow({
   onEdit,
   onDelete,
 }: ManageChoreRowProps) {
-  const { dropEdge, ...rowHandlers } = dragProps;
+  const { dropEdge, handleProps, ...rowHandlers } = dragProps;
   return (
     <SwipeableRow mode={swipeMode} onDelete={() => onDelete(c)}>
       <div
@@ -541,7 +541,7 @@ const ManageChoreRow = memo(function ManageChoreRow({
           (dropEdge === 'bottom' ? 'shadow-[0_3px_0_0_rgb(var(--accent))] ' : '')
         }
       >
-        <DragHandle />
+        <DragHandle handleProps={handleProps} />
         <div className="flex-1 min-w-0">
           <div className="text-sm font-medium text-text">{c.title}</div>
           <div className="text-xs text-text-faint">

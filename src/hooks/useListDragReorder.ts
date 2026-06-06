@@ -4,10 +4,23 @@ import { createEdgeAutoScroller } from '@/lib/dragAutoScroll';
 
 type DropEdge = 'top' | 'bottom' | null;
 
+/**
+ * Props for the drag handle (the grip dots). The handle — not the whole row —
+ * initiates the pointer drag, so a press on the row body still scrolls/taps
+ * normally and never starts a text selection. `touch-action: none` keeps the
+ * browser from stealing the gesture for scrolling, and the select/callout
+ * suppressions stop the iOS long-press text selection + magnifier.
+ */
+export interface DragHandleProps {
+  onPointerDown: (e: React.PointerEvent) => void;
+  style: React.CSSProperties;
+}
+
 interface RowProps {
   /** Data attribute used by the pointer-move logic to identify hover targets. */
   'data-dnd-id': string;
-  onPointerDown: (e: React.PointerEvent) => void;
+  /** Spread onto the <DragHandle/> — this is what starts a pointer drag. */
+  handleProps: DragHandleProps;
   /** Keyboard reorder: space/enter to pick up, arrows to move, esc/space to drop. */
   onKeyDown: (e: React.KeyboardEvent) => void;
   /** Drops a keyboard "pick up" if focus leaves the row entirely. */
@@ -256,7 +269,18 @@ export function useListDragReorder<T extends { id: string }>(
   const getRowProps = useCallback(
     (id: string): RowProps => ({
       'data-dnd-id': id,
-      onPointerDown: onPointerDown(id),
+      handleProps: {
+        onPointerDown: onPointerDown(id),
+        style: {
+          // Don't let the browser claim the gesture for scrolling, and never
+          // let a press on the handle start a text selection / iOS callout.
+          touchAction: 'none',
+          userSelect: 'none',
+          WebkitUserSelect: 'none',
+          WebkitTouchCallout: 'none',
+          cursor: dragId === id ? 'grabbing' : 'grab',
+        },
+      },
       onKeyDown: onKeyDown(id),
       onBlur: (e: React.FocusEvent) => {
         // Only clear when focus truly leaves the row (not moving to a child).

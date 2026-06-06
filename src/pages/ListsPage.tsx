@@ -82,7 +82,7 @@ export function ListsPage() {
             const isActive = list.id === activeListId;
             const itemCount = listItems.filter((i) => i.list_id === list.id && !i.done).length;
 
-            const { dropEdge, ...rowHandlers } = listDnd.getRowProps(list.id);
+            const { dropEdge, handleProps, ...rowHandlers } = listDnd.getRowProps(list.id);
             return (
               <div
                 key={list.id}
@@ -95,7 +95,7 @@ export function ListsPage() {
                   (dropEdge === 'bottom' ? 'shadow-[0_3px_0_0_rgb(var(--accent))] ' : '')
                 }
               >
-                <DragHandle />
+                <DragHandle handleProps={handleProps} />
                 <button
                   onClick={() => setActiveListId(list.id)}
                   className="flex items-center gap-2.5 flex-1 min-w-0 text-left"
@@ -359,7 +359,7 @@ const ListItemRow = memo(function ListItemRow({
     });
   };
 
-  const { dropEdge, ...rowHandlers } = dragProps;
+  const { dropEdge, handleProps, ...rowHandlers } = dragProps;
   return (
     <SwipeableRow onDelete={handleDelete} mode={swipeMode}>
       <div
@@ -370,7 +370,7 @@ const ListItemRow = memo(function ListItemRow({
           (dropEdge === 'bottom' ? 'shadow-[0_3px_0_0_rgb(var(--accent))] ' : '')
         }
       >
-        <DragHandle />
+        <DragHandle handleProps={handleProps} />
         <button data-no-swipe onClick={() => toggleListItem(item.id)} className="shrink-0">
           {item.done ? (
             <CheckCircle2 size={20} className="text-accent" />

@@ -368,8 +368,14 @@ const HabitRow = memo(function HabitRow({
   const {
     isOver: _ignoredIsOver,
     dropEdge,
+    handleProps,
     ...rowHandlers
-  } = dragProps ?? { isDragging: false, isOver: false, dropEdge: null as 'top' | 'bottom' | null };
+  } = dragProps ?? {
+    isDragging: false,
+    isOver: false,
+    dropEdge: null as 'top' | 'bottom' | null,
+    handleProps: undefined,
+  };
   return (
     <div
       {...(dragProps ? rowHandlers : {})}
@@ -379,7 +385,7 @@ const HabitRow = memo(function HabitRow({
         (dropEdge === 'bottom' ? 'shadow-[0_3px_0_0_rgb(var(--accent))] ' : '')
       }
     >
-      {dragProps && <DragHandle />}
+      {dragProps && <DragHandle handleProps={handleProps} />}
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
           <div className="text-sm font-medium text-text truncate">{habit.title}</div>

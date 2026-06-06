@@ -661,8 +661,14 @@ function MemberRow({
   const {
     isOver: _ignoredIsOver,
     dropEdge,
+    handleProps,
     ...rowHandlers
-  } = dragProps ?? { isDragging: false, isOver: false, dropEdge: null as 'top' | 'bottom' | null };
+  } = dragProps ?? {
+    isDragging: false,
+    isOver: false,
+    dropEdge: null as 'top' | 'bottom' | null,
+    handleProps: undefined,
+  };
   return (
     <div
       {...(dragProps ? rowHandlers : {})}
@@ -672,7 +678,7 @@ function MemberRow({
         (dropEdge === 'bottom' ? 'shadow-[0_3px_0_0_rgb(var(--accent))] ' : '')
       }
     >
-      {dragProps && <DragHandle />}
+      {dragProps && <DragHandle handleProps={handleProps} />}
       <Avatar member={member} size={44} />
       <div className="flex-1 min-w-0">
         <div className="flex items-baseline gap-2 mb-0.5 flex-wrap">
