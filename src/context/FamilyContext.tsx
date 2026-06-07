@@ -182,6 +182,11 @@ interface FamilyContextValue {
   removeMealPlan: (id: string) => void;
   /** Move a placed meal to another day (in place: keeps ids, shifts its linked event). */
   moveMealPlan: (id: string, newDate: string) => void;
+  /** Edit a placed meal's type/servings/notes; re-times the linked event if the type changed. */
+  updateMealPlan: (
+    id: string,
+    patch: Partial<Pick<MealPlan, 'meal_type' | 'servings' | 'notes'>>,
+  ) => void;
   /**
    * Replicate an existing meal plan onto the given weekdays (0=Sun..6=Sat)
    * for the next `weeks` weeks (starting from the source plan's week).
@@ -2187,6 +2192,35 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
     [mealPlans, events, updateEvent],
   );
 
+  const updateMealPlan = useCallback(
+    (id: string, patch: Partial<Pick<MealPlan, 'meal_type' | 'servings' | 'notes'>>) => {
+      const mp = mealPlans.find((m) => m.id === id);
+      if (!mp) return;
+      const updated: MealPlan = { ...mp, ...patch };
+      setMealPlans((prev) => prev.map((m) => (m.id === id ? updated : m)));
+      dbUpsert('meal_plans', updated);
+      // Changing the meal type shifts the linked calendar event to that slot's time.
+      if (patch.meal_type && patch.meal_type !== mp.meal_type && mp.calendar_event_id) {
+        const evt = events.find((e) => e.id === mp.calendar_event_id);
+        if (evt) {
+          const times: Record<MealType, [string, string]> = {
+            breakfast: ['08:00', '09:00'],
+            lunch: ['12:30', '13:30'],
+            dinner: ['18:30', '20:00'],
+            snack: ['15:00', '15:30'],
+          };
+          const [startTime, endTime] = times[patch.meal_type] ?? times.dinner;
+          const datePart = evt.start_at.slice(0, 10);
+          updateEvent(evt.id, {
+            start_at: `${datePart}T${startTime}:00`,
+            end_at: `${datePart}T${endTime}:00`,
+          });
+        }
+      }
+    },
+    [mealPlans, events, updateEvent],
+  );
+
   const repeatMealPlan = useCallback(
     (sourceMealPlanId: string, weekdays: number[], weeks: number) => {
       const source = mealPlans.find((m) => m.id === sourceMealPlanId);
@@ -2533,6 +2567,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
       addMealPlan,
       removeMealPlan,
       moveMealPlan,
+      updateMealPlan,
       repeatMealPlan,
       updateKitchenSettings,
       pets,
@@ -2627,6 +2662,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
       addMealPlan,
       removeMealPlan,
       moveMealPlan,
+      updateMealPlan,
       repeatMealPlan,
       updateKitchenSettings,
       pets,

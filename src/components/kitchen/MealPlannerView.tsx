@@ -1,13 +1,42 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ChevronLeft, ChevronRight, X, Heart, Search, Repeat } from 'lucide-react';
-import { addDays, format, startOfWeek } from 'date-fns';
+import {
+  ChevronLeft,
+  ChevronRight,
+  Heart,
+  Search,
+  Repeat,
+  MoreHorizontal,
+  Pencil,
+  Trash2,
+} from 'lucide-react';
+import { addDays, format } from 'date-fns';
 import { useFamily } from '@/context/FamilyContext';
-import { getMonday, mealTypeLabel } from '@/lib/kitchen';
+import { mealTypeLabel } from '@/lib/kitchen';
 import { hapticLight, hapticMedium } from '@/lib/native';
 import { createEdgeAutoScroller } from '@/lib/dragAutoScroll';
 import type { MealPlan, MealType, Recipe } from '@/types';
 
 const MEAL_TYPES: MealType[] = ['breakfast', 'lunch', 'dinner', 'snack'];
+
+// How many days the planner shows at once: a full week on desktop, fewer on
+// tablet/phone so the cells stay tappable (the 7-across grid was cramped on iPad).
+function mealDayCount(): number {
+  if (typeof window === 'undefined') return 7;
+  const w = window.innerWidth;
+  if (w < 640) return 3; // phone
+  if (w < 1024) return 4; // tablet / iPad portrait
+  return 7; // desktop
+}
+
+function useMealDayCount(): number {
+  const [count, setCount] = useState(mealDayCount);
+  useEffect(() => {
+    const onResize = () => setCount(mealDayCount());
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
+  return count;
+}
 
 // A floating chip that follows the pointer during a drag, so a recipe / meal
 // physically moves with the finger to its target day (matches the Calendar).
@@ -24,10 +53,22 @@ function makeDragGhost(label: string): HTMLDivElement {
 }
 
 export function MealPlannerView() {
-  const { recipes, mealPlans, addMealPlan, removeMealPlan, moveMealPlan, repeatMealPlan, activeMember } =
-    useFamily();
+  const {
+    recipes,
+    mealPlans,
+    addMealPlan,
+    removeMealPlan,
+    moveMealPlan,
+    updateMealPlan,
+    repeatMealPlan,
+    activeMember,
+  } = useFamily();
   const [repeatTargetId, setRepeatTargetId] = useState<string | null>(null);
-  const [weekStart, setWeekStart] = useState(() => getMonday(new Date()));
+  const [editTargetId, setEditTargetId] = useState<string | null>(null);
+  const dayCount = useMealDayCount();
+  // First visible day of the window. Anchored to today so the current day is
+  // always in view; paging moves by a whole window (dayCount days).
+  const [weekStart, setWeekStart] = useState(() => format(new Date(), 'yyyy-MM-dd'));
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
   const [selectedMealType, setSelectedMealType] = useState<MealType>('dinner');
   const [query, setQuery] = useState('');
@@ -35,18 +76,29 @@ export function MealPlannerView() {
 
   const days = useMemo(
     () =>
-      Array.from({ length: 7 }, (_, i) => {
+      Array.from({ length: dayCount }, (_, i) => {
         const d = addDays(new Date(weekStart), i);
         return { date: format(d, 'yyyy-MM-dd'), label: format(d, 'EEE'), day: format(d, 'd') };
       }),
-    [weekStart],
+    [weekStart, dayCount],
   );
 
-  const weekEnd = days[6].date;
+  const weekEnd = days[days.length - 1].date;
+
+  // Compact range label, e.g. "6–8 Jun" (same month) or "30 Jun – 2 Jul".
+  const rangeLabel = (() => {
+    const s = new Date(weekStart);
+    const e = new Date(weekEnd);
+    return format(s, 'MMM') === format(e, 'MMM')
+      ? `${format(s, 'd')}–${format(e, 'd MMM')}`
+      : `${format(s, 'd MMM')} – ${format(e, 'd MMM')}`;
+  })();
 
   function shiftWeek(delta: number) {
-    const d = addDays(new Date(weekStart), delta * 7);
-    setWeekStart(format(startOfWeek(d, { weekStartsOn: 1 }), 'yyyy-MM-dd'));
+    setWeekStart(format(addDays(new Date(weekStart), delta * dayCount), 'yyyy-MM-dd'));
+  }
+  function goToday() {
+    setWeekStart(format(new Date(), 'yyyy-MM-dd'));
   }
 
   const plansThisWeek = useMemo(
@@ -281,28 +333,32 @@ export function MealPlannerView() {
   return (
     <div>
       {/* Week navigation */}
-      <div className="flex items-center justify-between mb-4 gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
         <h2 className="font-display text-xl text-text">Meal Plan</h2>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1">
           <button
             onClick={() => shiftWeek(-1)}
-            className="btn-ghost p-1.5 min-w-[44px] min-h-[44px] flex items-center justify-center"
-            aria-label="Previous week"
+            className="btn-ghost p-1.5 min-w-[40px] min-h-[40px] flex items-center justify-center"
+            aria-label="Previous"
           >
             <ChevronLeft size={18} />
           </button>
-          <span className="text-sm text-text-muted min-w-36 text-center">
-            {format(new Date(weekStart), 'MMM d')} – {format(new Date(weekEnd), 'MMM d, yyyy')}
-          </span>
+          <button
+            onClick={goToday}
+            className="px-2.5 min-h-[40px] rounded-md text-sm text-text-muted hover:bg-surface-2"
+          >
+            Today
+          </button>
           <button
             onClick={() => shiftWeek(1)}
-            className="btn-ghost p-1.5 min-w-[44px] min-h-[44px] flex items-center justify-center"
-            aria-label="Next week"
+            className="btn-ghost p-1.5 min-w-[40px] min-h-[40px] flex items-center justify-center"
+            aria-label="Next"
           >
             <ChevronRight size={18} />
           </button>
+          <span className="text-sm text-text-muted text-center px-1">{rangeLabel}</span>
         </div>
-        <div className="flex items-center gap-1 text-xs">
+        <div className="flex flex-wrap items-center justify-start gap-1 text-xs w-full sm:w-auto">
           {MEAL_TYPES.map((mt) => (
             <button
               key={mt}
@@ -369,7 +425,10 @@ export function MealPlannerView() {
               <p>Add a recipe on the Recipes tab, then drag it onto a day here.</p>
             </div>
           )}
-          <div className="grid grid-cols-7 gap-1">
+          <div
+            className="grid gap-1"
+            style={{ gridTemplateColumns: `repeat(${dayCount}, minmax(0, 1fr))` }}
+          >
             {days.map(({ date, label, day }) => {
               const dayPlans = plansForDay(date);
               const isToday = date === format(new Date(), 'yyyy-MM-dd');
@@ -396,6 +455,7 @@ export function MealPlannerView() {
                           recipe={recipe}
                           onRemove={() => removeMealPlan(mp.id)}
                           onRepeat={() => setRepeatTargetId(mp.id)}
+                          onEdit={() => setEditTargetId(mp.id)}
                           onMoveStart={(e) => startMealMove(mp.id, e)}
                         />
                       );
@@ -441,6 +501,21 @@ export function MealPlannerView() {
           onApply={(weekdays, weeks) => {
             repeatMealPlan(repeatTargetId, weekdays, weeks);
             setRepeatTargetId(null);
+          }}
+        />
+      )}
+
+      {editTargetId && (
+        <MealEditModal
+          mealPlan={mealPlans.find((m) => m.id === editTargetId) ?? null}
+          recipe={(() => {
+            const mp = mealPlans.find((m) => m.id === editTargetId);
+            return mp ? recipes.find((r) => r.id === mp.recipe_id) : undefined;
+          })()}
+          onClose={() => setEditTargetId(null)}
+          onSave={(patch) => {
+            updateMealPlan(editTargetId, patch);
+            setEditTargetId(null);
           }}
         />
       )}
@@ -586,24 +661,128 @@ function RepeatMealModal({
   );
 }
 
+// Modal — change a placed meal's slot (type) and servings.
+function MealEditModal({
+  mealPlan,
+  recipe,
+  onClose,
+  onSave,
+}: {
+  mealPlan: MealPlan | null;
+  recipe?: Recipe;
+  onClose: () => void;
+  onSave: (patch: { meal_type: MealType; servings: number }) => void;
+}) {
+  const [mealType, setMealType] = useState<MealType>(mealPlan?.meal_type ?? 'dinner');
+  const [servings, setServings] = useState(mealPlan?.servings ?? 1);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
+  if (!mealPlan) return null;
+
+  return (
+    <div
+      className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4"
+      onClick={onClose}
+    >
+      <div className="card max-w-sm w-full p-5 space-y-4" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between">
+          <h3 className="font-display text-lg text-text">Edit meal</h3>
+          <button
+            onClick={onClose}
+            className="text-text-muted hover:text-text text-xl leading-none"
+            aria-label="Close"
+          >
+            ×
+          </button>
+        </div>
+        <p className="text-sm text-text-muted">
+          <strong>
+            {recipe?.icon || '🍽️'} {recipe?.title ?? 'this meal'}
+          </strong>
+        </p>
+        <div className="space-y-2">
+          <span className="text-xs font-medium text-text-muted">Meal</span>
+          <div className="grid grid-cols-4 gap-1">
+            {MEAL_TYPES.map((mt) => (
+              <button
+                key={mt}
+                onClick={() => setMealType(mt)}
+                className={
+                  'py-2 rounded-md text-xs font-medium border-2 transition active:scale-95 ' +
+                  (mealType === mt
+                    ? 'border-accent bg-accent-soft text-text'
+                    : 'border-border text-text-muted hover:border-border-strong')
+                }
+              >
+                {mealTypeLabel(mt)}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="space-y-2">
+          <label className="text-xs font-medium text-text-muted flex items-center justify-between">
+            <span>Servings</span>
+            <span className="tabular-nums">{servings}</span>
+          </label>
+          <input
+            type="range"
+            min="1"
+            max="12"
+            step="1"
+            value={servings}
+            onChange={(e) => setServings(Number(e.target.value))}
+            className="w-full"
+          />
+        </div>
+        <div className="flex gap-2 pt-1">
+          <button onClick={onClose} className="btn-secondary flex-1 py-2.5 rounded-xl">
+            Cancel
+          </button>
+          <button
+            onClick={() => onSave({ meal_type: mealType, servings })}
+            className="btn-primary flex-1 py-2.5 rounded-xl"
+          >
+            Save
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function MealChip({
   mealPlan,
   recipe,
   onRemove,
   onRepeat,
+  onEdit,
   onMoveStart,
 }: {
   mealPlan: MealPlan;
   recipe?: Recipe;
   onRemove: () => void;
   onRepeat: () => void;
+  onEdit: () => void;
   onMoveStart: (e: React.PointerEvent) => void;
 }) {
+  // A "⋯" menu (Edit / Repeat / Delete) instead of hover-only buttons, so the
+  // actions are reachable on touch (iOS has no hover). Drag still works on the
+  // chip body; the buttons are skipped by startMealMove's button guard.
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  const item = 'flex w-full items-center gap-2 px-4 py-3 text-sm hover:bg-surface-2';
   return (
     <div
       style={{ touchAction: 'none' }}
       onPointerDown={onMoveStart}
-      className="group relative bg-accent-soft rounded px-1.5 py-0.5 flex items-center gap-1 text-xs cursor-grab active:cursor-grabbing select-none"
+      className="relative bg-accent-soft rounded px-1.5 py-0.5 flex items-center gap-1 text-xs cursor-grab active:cursor-grabbing select-none"
     >
       <span>{recipe?.icon || '🍽️'}</span>
       <span className="truncate text-text flex-1 leading-tight">
@@ -611,21 +790,72 @@ function MealChip({
         <span className="text-text-faint ml-0.5">· {mealTypeLabel(mealPlan.meal_type)}</span>
       </span>
       <button
-        onClick={onRepeat}
-        className="opacity-0 group-hover:opacity-100 text-text-faint hover:text-accent flex-shrink-0 transition"
-        title="Repeat this meal"
-        aria-label="Repeat this meal"
+        data-no-swipe
+        onClick={(e) => {
+          e.stopPropagation();
+          setMenuOpen((v) => !v);
+        }}
+        className="shrink-0 -mr-0.5 p-0.5 text-text-faint hover:text-text"
+        title="Meal actions"
+        aria-label="Meal actions"
       >
-        <Repeat size={11} />
+        <MoreHorizontal size={13} />
       </button>
-      <button
-        onClick={onRemove}
-        className="opacity-0 group-hover:opacity-100 text-text-faint hover:text-red-500 flex-shrink-0 transition"
-        title="Remove"
-        aria-label="Remove meal"
-      >
-        <X size={11} />
-      </button>
+      {/* Action sheet rendered as a fixed overlay so it isn't clipped by the
+          day cell's `overflow:hidden` (which broke the old inline dropdown). */}
+      {menuOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={(e) => {
+            e.stopPropagation();
+            setMenuOpen(false);
+          }}
+        >
+          <div
+            className="card w-full max-w-xs cursor-default overflow-hidden py-1"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center gap-2 border-b border-border px-4 py-2.5 text-sm text-text">
+              <span>{recipe?.icon || '🍽️'}</span>
+              <span className="truncate font-medium">{recipe?.title ?? 'Meal'}</span>
+            </div>
+            <button
+              data-no-swipe
+              onClick={(e) => {
+                e.stopPropagation();
+                setMenuOpen(false);
+                onEdit();
+              }}
+              className={item + ' text-text'}
+            >
+              <Pencil size={15} /> Edit
+            </button>
+            <button
+              data-no-swipe
+              onClick={(e) => {
+                e.stopPropagation();
+                setMenuOpen(false);
+                onRepeat();
+              }}
+              className={item + ' text-text'}
+            >
+              <Repeat size={15} /> Repeat
+            </button>
+            <button
+              data-no-swipe
+              onClick={(e) => {
+                e.stopPropagation();
+                setMenuOpen(false);
+                onRemove();
+              }}
+              className={item + ' text-red-500'}
+            >
+              <Trash2 size={15} /> Delete
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

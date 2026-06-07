@@ -838,7 +838,12 @@ export function MyDayPage() {
             </div>
 
             <div className="font-display text-lg text-text flex-1 min-w-0 truncate">
-              {format(new Date(`${date}T00:00:00`), 'EEEE, d MMM yyyy')}
+              <span className="sm:hidden">
+                {format(new Date(`${date}T00:00:00`), 'EEE d MMM')}
+              </span>
+              <span className="hidden sm:inline">
+                {format(new Date(`${date}T00:00:00`), 'EEEE, d MMM yyyy')}
+              </span>
               {total > 0 && (
                 <span className="ml-2 text-xs text-text-faint font-sans">
                   · {totalDone}/{total} done
@@ -848,16 +853,20 @@ export function MyDayPage() {
 
             <button
               onClick={() => setModalState({ mode: 'add' })}
-              className="lg:hidden flex items-center gap-1.5 px-3 py-2 border border-border text-text-muted text-sm rounded-md hover:bg-surface-2"
+              className="lg:hidden flex items-center gap-1.5 px-2.5 sm:px-3 py-2 border border-border text-text-muted text-sm rounded-md hover:bg-surface-2 shrink-0"
+              aria-label="Add activity"
             >
-              <Plus size={14} /> Activity
+              <Plus size={14} />
+              <span className="hidden md:inline">Activity</span>
             </button>
 
             <button
               onClick={() => setFocusMode(true)}
-              className="flex items-center gap-1.5 px-3 py-2 bg-accent text-white text-sm font-medium rounded-md hover:opacity-90"
+              className="flex items-center gap-1.5 px-2.5 sm:px-3 py-2 bg-accent text-white text-sm font-medium rounded-md hover:opacity-90 shrink-0"
+              aria-label="Focus mode"
             >
-              <Maximize2 size={16} /> Focus
+              <Maximize2 size={16} />
+              <span className="hidden md:inline">Focus</span>
             </button>
           </div>
 

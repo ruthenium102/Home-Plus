@@ -348,63 +348,78 @@ export function CalendarPage() {
         ? `${format(range.start, 'd MMM')} – ${format(range.end, 'd MMM yyyy')}`
         : format(cursor, 'MMMM yyyy');
 
+  // Compact date for the single-row phone toolbar.
+  const shortLabel =
+    view === 'day'
+      ? format(cursor, 'EEE d MMM')
+      : view === 'week'
+        ? `${format(range.start, 'd')}–${format(range.end, 'd MMM')}`
+        : format(cursor, 'MMM yyyy');
+
   return (
     <div className="space-y-4">
-      {/* Toolbar — date label on its own line so it never truncates, then a
-          single controls row that wraps on phone. */}
-      <div className="card p-3 space-y-3">
-        <div className="font-display text-base sm:text-lg text-text">{headerLabel}</div>
-
-        <div className="flex items-center gap-2 flex-wrap">
-          <div className="flex items-center gap-1">
+      {/* Toolbar — one balanced row: nav + Today on the left, date centred, view
+          switcher + add on the right. Compact on phone (short date, icon-only
+          Event); full labels return at sm+. */}
+      <div className="card p-3">
+        <div className="flex items-center gap-2">
+          {/* Left: navigation */}
+          <div className="flex items-center shrink-0">
             <button
               onClick={goPrev}
-              className="w-9 h-9 min-w-[44px] min-h-[44px] rounded-md hover:bg-surface-2 flex items-center justify-center text-text-muted"
+              className="w-8 sm:w-9 min-h-[40px] rounded-md hover:bg-surface-2 flex items-center justify-center text-text-muted"
               aria-label="Previous"
             >
               <ChevronLeft size={18} />
             </button>
             <button
               onClick={goToday}
-              className="px-3 min-h-[44px] rounded-md text-sm text-text-muted hover:bg-surface-2"
+              className="px-2 sm:px-3 min-h-[40px] rounded-md text-xs sm:text-sm text-text-muted hover:bg-surface-2"
             >
               Today
             </button>
             <button
               onClick={goNext}
-              className="w-9 h-9 min-w-[44px] min-h-[44px] rounded-md hover:bg-surface-2 flex items-center justify-center text-text-muted"
+              className="w-8 sm:w-9 min-h-[40px] rounded-md hover:bg-surface-2 flex items-center justify-center text-text-muted"
               aria-label="Next"
             >
               <ChevronRight size={18} />
             </button>
           </div>
 
-          {/* View toggle */}
-          <div className="flex bg-surface-2 rounded-md p-0.5">
-            {(['day', 'week', 'month'] as ViewMode[]).map((v) => (
-              <button
-                key={v}
-                onClick={() => setView(v)}
-                className={
-                  'px-3 py-1.5 rounded-sm text-sm capitalize transition-colors ' +
-                  (view === v ? 'bg-surface text-text shadow-sm' : 'text-text-muted')
-                }
-              >
-                {v}
-              </button>
-            ))}
+          {/* Centre: date */}
+          <div className="flex-1 min-w-0 truncate text-center font-display text-sm sm:text-lg text-text">
+            <span className="sm:hidden">{shortLabel}</span>
+            <span className="hidden sm:inline">{headerLabel}</span>
           </div>
 
-          <div className="flex items-center gap-2 ml-auto">
+          {/* Right: view switcher + add */}
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+            <div className="flex bg-surface-2 rounded-md p-0.5">
+              {(['day', 'week', 'month'] as ViewMode[]).map((v) => (
+                <button
+                  key={v}
+                  onClick={() => setView(v)}
+                  className={
+                    'px-2 sm:px-3 py-1.5 rounded-sm text-xs sm:text-sm capitalize transition-colors ' +
+                    (view === v ? 'bg-surface text-text shadow-sm' : 'text-text-muted')
+                  }
+                >
+                  {v}
+                </button>
+              ))}
+            </div>
             <button
               onClick={() => handleNew(cursor)}
-              className="flex items-center gap-1.5 px-3 py-2 bg-accent text-white text-sm font-medium rounded-md hover:opacity-90"
+              className="flex items-center gap-1.5 px-2.5 sm:px-3 py-2 bg-accent text-white text-sm font-medium rounded-md hover:opacity-90"
+              aria-label="New event"
             >
-              <Plus size={16} /> Event
+              <Plus size={16} />
+              <span className="hidden sm:inline">Event</span>
             </button>
             <button
               onClick={() => setImportOpen(true)}
-              className="flex items-center gap-1.5 px-3 py-2 border border-border text-text-muted text-sm rounded-md hover:bg-surface-2"
+              className="hidden sm:flex items-center gap-1.5 px-3 py-2 border border-border text-text-muted text-sm rounded-md hover:bg-surface-2"
               title="Import events from holidays, paste, or iCal feed"
             >
               <Sparkles size={14} /> Import

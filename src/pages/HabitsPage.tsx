@@ -379,11 +379,12 @@ const HabitRow = memo(function HabitRow({
   return (
     <div
       {...(dragProps ? rowHandlers : {})}
-      className="relative flex items-center gap-3 p-3 rounded-md bg-surface-2/40 hover:bg-surface-2/70 transition-colors select-none"
+      className="relative flex flex-col gap-2 p-3 rounded-md bg-surface-2/40 hover:bg-surface-2/70 transition-colors select-none sm:flex-row sm:items-center sm:gap-3"
     >
-      {dragProps && <DragHandle handleProps={handleProps} />}
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2">
+      <div className="flex items-center gap-3 min-w-0 sm:flex-1">
+        {dragProps && <DragHandle handleProps={handleProps} />}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
           <div className="text-sm font-medium text-text truncate">{habit.title}</div>
           {habit.visibility === 'shared' ? (
             <Users size={11} className="text-text-faint shrink-0" />
@@ -431,12 +432,23 @@ const HabitRow = memo(function HabitRow({
           )}
         </div>
       </div>
+        {canEdit && (
+          <button
+            onClick={onEdit}
+            className="sm:hidden w-7 h-7 min-w-[44px] min-h-[44px] rounded-md hover:bg-surface-2 flex items-center justify-center text-text-faint hover:text-text shrink-0"
+            title="Edit"
+            aria-label="Edit habit"
+          >
+            <Pencil size={12} />
+          </button>
+        )}
+      </div>
 
       {/* 7-day heatmap. Each tap adds another entry for that day (works for
           any date, not just today) and shows a light-coloured count overlay
           once the user has logged more than once. Corrections live in the
           habit editor. */}
-      <div className="flex items-end gap-1 shrink-0">
+      <div className="flex items-end gap-1 shrink-0 self-start sm:self-auto">
         {last7.map((d) => {
           const isToday = d.date === todayISO;
           const date = new Date(d.date);
@@ -512,7 +524,7 @@ const HabitRow = memo(function HabitRow({
       {canEdit && (
         <button
           onClick={onEdit}
-          className="w-7 h-7 min-w-[44px] min-h-[44px] rounded-md hover:bg-surface-2 flex items-center justify-center text-text-faint hover:text-text shrink-0"
+          className="hidden sm:flex w-7 h-7 min-w-[44px] min-h-[44px] rounded-md hover:bg-surface-2 items-center justify-center text-text-faint hover:text-text shrink-0"
           title="Edit"
           aria-label="Edit habit"
         >

@@ -196,7 +196,7 @@ export function HomePage({ onNavigate }: Props) {
                         (checked && count > 0
                           ? 'bg-accent text-white'
                           : count > 0
-                            ? 'bg-accent/30 text-text border-2 border-accent/40'
+                            ? 'bg-surface-3 text-text border-2 border-border'
                             : 'border-2 border-text-faint text-text-faint hover:border-accent/60')
                       }
                       aria-label={`Log ${habit.title} — currently ${count} of ${target} today`}

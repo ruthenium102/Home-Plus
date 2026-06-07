@@ -114,6 +114,7 @@ export function EventEditor({ open, onClose, editing, initialStart }: Props) {
     'none',
   );
   const [byweekday, setByweekday] = useState<number[]>([]);
+  const [recurInterval, setRecurInterval] = useState(1);
   const [reminderMin, setReminderMin] = useState<number | null>(null);
   const [showCustomEnd, setShowCustomEnd] = useState(false);
 
@@ -147,6 +148,7 @@ export function EventEditor({ open, onClose, editing, initialStart }: Props) {
         (editing.recurrence?.freq as 'daily' | 'weekly' | 'monthly' | 'yearly') ?? 'none',
       );
       setByweekday((editing.recurrence?.byweekday as number[]) ?? []);
+      setRecurInterval(editing.recurrence?.interval ?? 1);
       setReminderMin(editing.reminder_offsets[0] ?? null);
       setSyncToGoogle(editing.sync_to_google !== false);
     } else {
@@ -169,6 +171,7 @@ export function EventEditor({ open, onClose, editing, initialStart }: Props) {
       setColor(null);
       setRecurFreq('none');
       setByweekday([]);
+      setRecurInterval(1);
       setReminderMin(null);
       setSyncToGoogle(true);
     }
@@ -277,7 +280,7 @@ export function EventEditor({ open, onClose, editing, initialStart }: Props) {
         ? null
         : {
             freq: recurFreq,
-            interval: 1,
+            interval: Math.max(1, recurInterval),
             ...(recurFreq === 'weekly' && byweekday.length > 0 ? { byweekday } : {}),
           };
 
@@ -620,6 +623,40 @@ export function EventEditor({ open, onClose, editing, initialStart }: Props) {
                 </button>
               ))}
             </div>
+            {recurFreq !== 'none' && (
+              <div className="flex items-center gap-2 mt-2 text-xs text-text-muted">
+                <span>Every</span>
+                <div className="flex items-center rounded-full border border-border">
+                  <button
+                    type="button"
+                    onClick={() => setRecurInterval((n) => Math.max(1, n - 1))}
+                    disabled={recurInterval <= 1}
+                    className="w-7 h-7 flex items-center justify-center hover:text-text disabled:opacity-40"
+                    aria-label="Fewer"
+                  >
+                    −
+                  </button>
+                  <span className="w-6 text-center tabular-nums text-text">{recurInterval}</span>
+                  <button
+                    type="button"
+                    onClick={() => setRecurInterval((n) => Math.min(99, n + 1))}
+                    className="w-7 h-7 flex items-center justify-center hover:text-text"
+                    aria-label="More"
+                  >
+                    +
+                  </button>
+                </div>
+                <span>
+                  {(recurFreq === 'daily'
+                    ? 'day'
+                    : recurFreq === 'weekly'
+                      ? 'week'
+                      : recurFreq === 'monthly'
+                        ? 'month'
+                        : 'year') + (recurInterval > 1 ? 's' : '')}
+                </span>
+              </div>
+            )}
             {recurFreq === 'weekly' && (
               <div className="flex flex-wrap gap-1.5 mt-2">
                 {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day, i) => (
