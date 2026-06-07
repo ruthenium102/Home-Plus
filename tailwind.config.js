@@ -14,7 +14,7 @@ export default {
     extend: {
       fontFamily: {
         sans: ['"Inter"', 'system-ui', 'sans-serif'],
-        display: ['"Fraunces"', 'Georgia', 'serif']
+        display: ['"Lora"', 'Georgia', 'serif']
       },
       colors: {
         // Semantic theme colors driven by CSS variables
