@@ -375,6 +375,9 @@ export function MealPlannerView() {
         {/* Recipe sidebar — LHS to match the rest of the create-flows. */}
         <aside className="lg:w-[270px] flex-shrink-0 order-2 lg:order-1">
           <div className="card p-3 lg:sticky lg:top-20 overflow-hidden">
+            <div className="flex items-center justify-between p-2 mb-1">
+              <h2 className="font-display text-base text-text">Recipes</h2>
+            </div>
             <div className="flex items-center gap-2 mb-2 px-2 py-1.5 rounded-md bg-surface-2 border border-border focus-within:border-accent min-w-0">
               <Search size={13} className="text-text-faint shrink-0" />
               <input

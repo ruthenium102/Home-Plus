@@ -179,7 +179,7 @@ export function habitCellClass(state: HabitCellState, hasActivity: boolean): str
   if (state === 'violated') {
     return hasActivity ? 'bg-red-500' : 'bg-red-500/15 border border-red-500/25';
   }
-  return hasActivity ? 'bg-text-faint/30' : 'bg-surface-3 border border-border/60';
+  return hasActivity ? 'bg-text-faint/60' : 'bg-surface-3 border border-border/60';
 }
 
 // ----------------------------------------------------------------------------

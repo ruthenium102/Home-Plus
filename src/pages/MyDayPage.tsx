@@ -746,13 +746,11 @@ export function MyDayPage() {
       <div className="flex gap-4 max-w-5xl">
         {/* Activity pool sidebar — desktop only */}
         <aside className="hidden lg:flex flex-col w-[270px] shrink-0 self-start card p-2 gap-2">
-          <div className="flex items-center justify-between mb-1">
-            <span className="text-xs font-medium text-text-muted uppercase tracking-wider">
-              Activities
-            </span>
+          <div className="flex items-center justify-between p-2 mb-1">
+            <h2 className="font-display text-base text-text">Activities</h2>
             <button
               onClick={() => setModalState({ mode: 'add' })}
-              className="w-6 h-6 rounded flex items-center justify-center text-text-faint hover:text-accent hover:bg-accent/10 transition-colors"
+              className="w-7 h-7 rounded-md bg-accent text-white flex items-center justify-center hover:opacity-90"
               title="Add activity"
             >
               <Plus size={14} />
@@ -883,12 +881,11 @@ export function MyDayPage() {
           {/* Mobile pool — collapsed list under the timeline */}
           <div className="lg:hidden card p-3">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-medium text-text-muted uppercase tracking-wider">
-                Activities
-              </span>
+              <h2 className="font-display text-base text-text">Activities</h2>
               <button
                 onClick={() => setModalState({ mode: 'add' })}
-                className="w-6 h-6 rounded flex items-center justify-center text-text-faint hover:text-accent hover:bg-accent/10 transition-colors"
+                className="w-7 h-7 rounded-md bg-accent text-white flex items-center justify-center hover:opacity-90"
+                title="Add activity"
               >
                 <Plus size={14} />
               </button>
