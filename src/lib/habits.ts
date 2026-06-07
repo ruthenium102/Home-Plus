@@ -164,6 +164,24 @@ export function habitCellState(
   return targetMet(count, target, op) ? 'met' : 'violated';
 }
 
+/**
+ * Background classes for one heatmap cell, shared by the Habits list and Stats.
+ * `state` is the day's state (daily) or the week's state (weekly), `hasActivity`
+ * is whether that day had any entry. Days with an entry get a solid fill; days
+ * in a met/missed week with NO entry get a faint green/red tint (so the week
+ * outcome reads without falsely "ticking" empty days); in-progress logged days
+ * are a slightly darker grey than un-logged ones.
+ */
+export function habitCellClass(state: HabitCellState, hasActivity: boolean): string {
+  if (state === 'met') {
+    return hasActivity ? 'bg-emerald-400' : 'bg-emerald-400/20 border border-emerald-400/30';
+  }
+  if (state === 'violated') {
+    return hasActivity ? 'bg-red-500' : 'bg-red-500/15 border border-red-500/25';
+  }
+  return hasActivity ? 'bg-text-faint/30' : 'bg-surface-3 border border-border/60';
+}
+
 // ----------------------------------------------------------------------------
 // History / analytics
 // ----------------------------------------------------------------------------

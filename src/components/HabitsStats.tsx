@@ -9,6 +9,7 @@ import {
   computeHabitStreak,
   computeWeeklyStreak,
   dailyCells,
+  habitCellClass,
   habitRangeStats,
   habitStartISO,
   habitWeekStart,
@@ -362,8 +363,8 @@ function HeatmapLegend() {
         Missed
       </span>
       <span className="flex items-center gap-1">
-        <span className="w-3 h-3 rounded-[2px] bg-accent/70 dark:bg-accent/55" />
-        Logged / not yet due
+        <span className="w-3 h-3 rounded-[2px] bg-text-faint/30" />
+        Logged / in progress
       </span>
     </div>
   );
@@ -422,11 +423,7 @@ function MonthSection({
               // neutral — zero is ambiguous between success and no-log.
               const base = !c.inRange
                 ? 'bg-surface-3 border border-text-faint/20'
-                : c.state === 'met'
-                  ? 'bg-emerald-400'
-                  : c.state === 'violated'
-                    ? 'bg-red-500'
-                    : 'bg-accent/70 dark:bg-accent/55';
+                : habitCellClass(c.state, c.count > 0);
               // Colour-independent cue for colour-blind users: violated cells
               // get a diagonal hatch so red vs green is never the only signal.
               // Cells are too small (12px) for a glyph, so texture carries it.

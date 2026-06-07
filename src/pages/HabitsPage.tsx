@@ -1,6 +1,6 @@
 import { memo, useMemo, useState } from 'react';
 import { localISO } from '@/lib/dates';
-import { Plus, Pencil, Lock, Users, Flame, Sparkles, Check } from 'lucide-react';
+import { Plus, Pencil, Lock, Users, Flame, Sparkles } from 'lucide-react';
 import { useFamily } from '@/context/FamilyContext';
 import { useTheme } from '@/context/ThemeContext';
 import { useToast } from '@/context/ToastContext';
@@ -24,6 +24,7 @@ import {
   targetMet,
   targetLabel,
   habitCellState,
+  habitCellClass,
   type HabitCellState,
 } from '@/lib/habits';
 import type { Habit } from '@/types';
@@ -486,20 +487,13 @@ const HabitRow = memo(function HabitRow({
                   (canCheck ? 'group-hover:scale-110' : '') +
                   (isToday ? ' ring-1 ring-text/30' : '') +
                   ' ' +
-                  // Unified states: achieved = green, missed = red, in-progress
-                  // (logged but not yet met) = light grey, un-logged = faint grey.
-                  (state === 'met'
-                    ? 'bg-emerald-400'
-                    : state === 'violated'
-                      ? 'bg-red-500'
-                      : dayHasActivity
-                        ? 'bg-surface-3 border border-border'
-                        : 'bg-surface-3 border border-border/60')
+                  habitCellClass(state, dayHasActivity)
                 }
               >
-                {/* Logged days show their count. On green/red fills the count is
-                    white; on the grey in-progress fill it's dark. Un-logged days
-                    stay blank (forgiving). */}
+                {/* Only logged days show a number (white on solid green/red,
+                    dark on the grey in-progress fill). Empty days — including
+                    un-logged days in a met/missed week — stay a faint tint with
+                    no tick. */}
                 {showCount ? (
                   <span
                     className={
@@ -509,8 +503,6 @@ const HabitRow = memo(function HabitRow({
                   >
                     {d.count}
                   </span>
-                ) : state === 'met' ? (
-                  <Check size={11} strokeWidth={3} className="text-white/90" />
                 ) : null}
               </div>
               <span

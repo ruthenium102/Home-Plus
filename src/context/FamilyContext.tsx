@@ -2149,22 +2149,22 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
 
   const removeMealPlan = useCallback(
     (id: string) => {
-      setMealPlans((prev) => {
-        const target = prev.find((m) => m.id === id);
-        const eid = target?.calendar_event_id;
-        if (eid) {
-          setEvents((ev) => {
-            const evt = ev.find((e) => e.id === eid);
-            unsyncEventFromGoogle(eid, evt?.google_event_id ?? null, family.id);
-            return ev.filter((e) => e.id !== eid);
-          });
-          dbDelete('events', eid);
-        }
-        dbDelete('meal_plans', id);
-        return prev.filter((m) => m.id !== id);
-      });
+      // Resolve the linked event id BEFORE updating state, then do clean,
+      // separate setState calls. (Nesting setEvents inside the setMealPlans
+      // updater could skip the event removal, leaving it on the calendar.)
+      const eid = mealPlans.find((m) => m.id === id)?.calendar_event_id ?? null;
+      setMealPlans((prev) => prev.filter((m) => m.id !== id));
+      dbDelete('meal_plans', id);
+      if (eid) {
+        setEvents((ev) => {
+          const evt = ev.find((e) => e.id === eid);
+          unsyncEventFromGoogle(eid, evt?.google_event_id ?? null, family.id);
+          return ev.filter((e) => e.id !== eid);
+        });
+        dbDelete('events', eid);
+      }
     },
-    [family.id],
+    [mealPlans, family.id],
   );
 
   // Move a placed meal to a new day IN PLACE — update the meal_plans row's date
