@@ -461,7 +461,6 @@ const HabitRow = memo(function HabitRow({
           const state = isWeekly
             ? weekly?.state ?? 'empty'
             : habitCellState(d.count, target, habit.target_op);
-          const weeklyEmptyDay = isWeekly && !dayHasActivity;
           const showCount = dayHasActivity;
           void onToggleDate;
           void color;
@@ -487,24 +486,30 @@ const HabitRow = memo(function HabitRow({
                   (canCheck ? 'group-hover:scale-110' : '') +
                   (isToday ? ' ring-1 ring-text/30' : '') +
                   ' ' +
-                  (weeklyEmptyDay
-                    ? 'bg-surface-3 border border-border/60'
-                    : state === 'met'
-                      ? 'bg-emerald-400'
-                      : state === 'violated'
-                        ? 'bg-red-500'
-                        : 'bg-accent/70 dark:bg-accent/55')
+                  // Unified states: achieved = green, missed = red, in-progress
+                  // (logged but not yet met) = light grey, un-logged = faint grey.
+                  (state === 'met'
+                    ? 'bg-emerald-400'
+                    : state === 'violated'
+                      ? 'bg-red-500'
+                      : dayHasActivity
+                        ? 'bg-surface-3 border border-border'
+                        : 'bg-surface-3 border border-border/60')
                 }
               >
-                {/* Met/over-target days show their count (or a check when the
-                    target is 1). Missed days carry their red fill + count;
-                    the corner ✕ glyph was removed per design. Neutral/un-logged
-                    days stay blank per the forgiving rule. */}
+                {/* Logged days show their count. On green/red fills the count is
+                    white; on the grey in-progress fill it's dark. Un-logged days
+                    stay blank (forgiving). */}
                 {showCount ? (
-                  <span className="text-[9px] font-bold leading-none text-white/90 tabular-nums">
+                  <span
+                    className={
+                      'text-[9px] font-bold leading-none tabular-nums ' +
+                      (state === 'met' || state === 'violated' ? 'text-white/90' : 'text-text')
+                    }
+                  >
                     {d.count}
                   </span>
-                ) : !weeklyEmptyDay && state === 'met' ? (
+                ) : state === 'met' ? (
                   <Check size={11} strokeWidth={3} className="text-white/90" />
                 ) : null}
               </div>

@@ -13,7 +13,13 @@ import { useSwipeMode } from '@/hooks/useSwipeMode';
 import { getColorTokens } from '@/lib/colors';
 import { isParent, formatBalance } from '@/lib/chores';
 import { isDueSoon, isOverdue, formatDue, visibleLists } from '@/lib/lists';
-import { computeHabitStreak, visibleHabits, isHabitDue, targetMet } from '@/lib/habits';
+import {
+  computeHabitStreak,
+  visibleHabits,
+  isHabitDue,
+  targetMet,
+  weeklyProgress,
+} from '@/lib/habits';
 import type { TabKey } from '@/components/TabBar';
 
 interface Props {
@@ -104,16 +110,40 @@ export function HomePage({ onNavigate }: Props) {
     return visibleHabits(habits, activeMember.id)
       .filter((h) => h.member_id === activeMember.id && isHabitDue(h, today))
       .map((h) => {
+        const isWeekly = h.cadence === 'weekly';
         const ci = checkIns.find(
           (c) => c.habit_id === h.id && c.member_id === activeMember.id && c.for_date === todayISO,
         );
-        const count = ci ? (ci.count ?? 1) : 0;
-        const target = h.daily_target ?? 1;
+        const todayCount = ci ? (ci.count ?? 1) : 0;
+        // Weekly habits track a weekly total; show "x/N this week" not "today".
+        const wp = isWeekly ? weeklyProgress(checkIns, h, activeMember.id, today) : null;
+        const displayCount = wp ? wp.count : todayCount;
+        const displayTarget = wp ? wp.target : (h.daily_target ?? 1);
+        // Unified state for the badge colour (matches the Habits heatmap):
+        // met=green, missed=red, progress=grey, empty=outline.
+        let badge: 'met' | 'missed' | 'progress' | 'empty';
+        if (wp) {
+          badge =
+            wp.state === 'met'
+              ? 'met'
+              : wp.state === 'violated'
+                ? 'missed'
+                : wp.count > 0
+                  ? 'progress'
+                  : 'empty';
+        } else if (todayCount === 0) {
+          badge = 'empty';
+        } else if (targetMet(todayCount, displayTarget, h.target_op)) {
+          badge = 'met';
+        } else {
+          badge = h.target_op === 'lte' ? 'missed' : 'progress';
+        }
         return {
           habit: h,
-          count,
-          target,
-          checked: targetMet(count, target, h.target_op),
+          isWeekly,
+          displayCount,
+          displayTarget,
+          badge,
           streak: computeHabitStreak(h, checkIns, activeMember.id),
         };
       });
@@ -177,7 +207,7 @@ export function HomePage({ onNavigate }: Props) {
                 </button>
               </div>
               <div className="space-y-2">
-                {myHabitsToday.map(({ habit, count, target, checked, streak }) => (
+                {myHabitsToday.map(({ habit, isWeekly, displayCount, displayTarget, badge, streak }) => (
                   <div
                     key={habit.id}
                     className="flex items-center gap-2.5 p-2 rounded-md hover:bg-surface-2/50 transition-colors"
@@ -193,16 +223,18 @@ export function HomePage({ onNavigate }: Props) {
                       }}
                       className={
                         'w-8 h-8 rounded-full flex items-center justify-center shrink-0 text-[11px] font-bold tabular-nums transition-transform active:scale-95 cursor-pointer ' +
-                        (checked && count > 0
-                          ? 'bg-accent text-white'
-                          : count > 0
-                            ? 'bg-surface-3 text-text border-2 border-border'
-                            : 'border-2 border-text-faint text-text-faint hover:border-accent/60')
+                        (badge === 'met'
+                          ? 'bg-emerald-500 text-white'
+                          : badge === 'missed'
+                            ? 'bg-red-500 text-white'
+                            : badge === 'progress'
+                              ? 'bg-surface-3 text-text border-2 border-border'
+                              : 'border-2 border-text-faint text-text-faint hover:border-accent/60')
                       }
-                      aria-label={`Log ${habit.title} — currently ${count} of ${target} today`}
-                      title={`Tap to log another (${count}/${target})`}
+                      aria-label={`Log ${habit.title} — ${displayCount} of ${displayTarget} ${isWeekly ? 'this week' : 'today'}`}
+                      title={`Tap to log another (${displayCount}/${displayTarget})`}
                     >
-                      {count > 0 ? count : '+'}
+                      {displayCount > 0 ? displayCount : '+'}
                     </button>
                     <button
                       onClick={() => onNavigate('habits')}
@@ -210,15 +242,12 @@ export function HomePage({ onNavigate }: Props) {
                     >
                       <div className="flex-1 min-w-0">
                         <div
-                          className={
-                            'text-sm truncate ' +
-                            (checked && count > 0 ? 'text-text-muted' : 'text-text')
-                          }
+                          className={'text-sm truncate ' + (badge === 'met' ? 'text-text-muted' : 'text-text')}
                         >
                           {habit.title}
                         </div>
                         <div className="text-[10px] text-text-faint tabular-nums">
-                          {count}/{target} today
+                          {displayCount}/{displayTarget} {isWeekly ? 'this week' : 'today'}
                         </div>
                       </div>
                       {streak > 0 && (
