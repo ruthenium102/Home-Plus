@@ -234,6 +234,12 @@ interface FamilyContextValue {
 
 const FamilyContext = createContext<FamilyContextValue | null>(null);
 
+// Description marker stamped on calendar events auto-created from a member's
+// "Away til..." travel status. Lets setMemberLocation find + replace/remove the
+// event when the status changes, without clobbering travel events a user added
+// by hand (which never carry this exact string).
+const TRAVEL_STATUS_TAG = 'Added from travel status';
+
 // Persists a slice to localStorage whenever it changes.
 //
 // Debounced (400ms trailing) so a burst of edits — typing in a field, ticking
@@ -406,6 +412,11 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
   // Latest members, readable from stable callbacks without re-subscribing.
   const membersRef = useRef<FamilyMember[]>([]);
   membersRef.current = members;
+  // Latest events snapshot for callbacks with stable identities (e.g.
+  // setMemberLocation mirroring a travel status onto the calendar) so they can
+  // find the auto-created travel event to replace/remove without going stale.
+  const eventsRef = useRef<CalendarEvent[]>([]);
+  eventsRef.current = events;
   // Persist a pet to the cloud ONLY if its member belongs to the current
   // family. Pets carried over from demo mode (or any orphaned local pet) have a
   // member_id that isn't in family_members, which would violate the FK and
@@ -1385,8 +1396,51 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
           return updated;
         }),
       );
+
+      // Mirror an "Away til..." status onto the shared family calendar as an
+      // all-day, multi-day travel event for this member. Any previous
+      // auto-created travel event for the member is removed first, so changing
+      // or clearing the status keeps the calendar in lockstep and never leaves
+      // a stale trip behind.
+      eventsRef.current
+        .filter(
+          (e) =>
+            e.category === 'travel' &&
+            e.description === TRAVEL_STATUS_TAG &&
+            e.member_ids.length === 1 &&
+            e.member_ids[0] === id,
+        )
+        .forEach((e) => deleteEvent(e.id));
+
+      if (until) {
+        const member = membersRef.current.find((m) => m.id === id);
+        const dest = (location ?? '').split(' til ')[0].trim();
+        const startISO = new Date(`${localISO()}T00:00:00`).toISOString();
+        // The status auto-resets to "Home" on `until`, so the away period runs
+        // up to (but not including) that return date.
+        const lastDay = new Date(new Date(until).getTime() - 24 * 60 * 60 * 1000);
+        const endISO = new Date(`${localISO(lastDay)}T23:59:00`).toISOString();
+        if (new Date(endISO) >= new Date(startISO)) {
+          addEvent({
+            title: `✈️ ${member?.name ?? 'Away'}${dest ? ` — ${dest}` : ''}`,
+            description: TRAVEL_STATUS_TAG,
+            location: dest || null,
+            category: 'travel',
+            color: member?.color ?? null,
+            all_day: true,
+            start_at: startISO,
+            end_at: endISO,
+            member_ids: [id],
+            recurrence: null,
+            exdates: [],
+            reminder_offsets: [],
+            sync_to_google: true,
+            created_by: id,
+          });
+        }
+      }
     },
-    [],
+    [addEvent, deleteEvent],
   );
 
   // ---- Chores --------------------------------------------------------------
