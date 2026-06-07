@@ -35,6 +35,7 @@ export function HabitsPage() {
     checkIns,
     members,
     activeMember,
+    isFamilyMode,
     toggleCheckIn,
     incrementCheckIn,
     decrementCheckIn,
@@ -80,8 +81,15 @@ export function HabitsPage() {
   };
 
   const habitsToShow = useMemo(
-    () => (activeMember ? visibleHabits(habits, activeMember.id) : []),
-    [habits, activeMember],
+    // Family/benchtop mode shows every member's habits; otherwise just what the
+    // active member is allowed to see.
+    () =>
+      isFamilyMode
+        ? habits
+        : activeMember
+          ? visibleHabits(habits, activeMember.id)
+          : [],
+    [habits, activeMember, isFamilyMode],
   );
 
   // Group by member for cleaner display

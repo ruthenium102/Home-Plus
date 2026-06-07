@@ -53,6 +53,9 @@ export function CalendarPage() {
   const [showWfh, setShowWfh] = useState(true);
   const [editorOpen, setEditorOpen] = useState(false);
   const [editing, setEditing] = useState<CalendarEvent | null>(null);
+  // The ISO occurrence start the user tapped, so the editor can delete a single
+  // instance of a recurring event rather than the whole series.
+  const [editingOccurrence, setEditingOccurrence] = useState<string | null>(null);
   const [createInitial, setCreateInitial] = useState<Date | undefined>();
   const [importOpen, setImportOpen] = useState(false);
   const draggingRef = useRef<ExpandedEvent | null>(null);
@@ -109,6 +112,7 @@ export function CalendarPage() {
   const handleEditEvent = (e: ExpandedEvent) => {
     const source = events.find((x) => x.id === e.id) || null;
     setEditing(source);
+    setEditingOccurrence(e.occurrence_start);
     setCreateInitial(undefined);
     setEditorOpen(true);
   };
@@ -308,6 +312,7 @@ export function CalendarPage() {
 
   const handleNew = (date?: Date) => {
     setEditing(null);
+    setEditingOccurrence(null);
     setCreateInitial(date);
     setEditorOpen(true);
   };
@@ -514,6 +519,7 @@ export function CalendarPage() {
         open={editorOpen}
         onClose={() => setEditorOpen(false)}
         editing={editing}
+        occurrenceStart={editingOccurrence}
         initialStart={createInitial}
       />
       <ImportEventsModal open={importOpen} onClose={() => setImportOpen(false)} />

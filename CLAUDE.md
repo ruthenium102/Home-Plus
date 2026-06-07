@@ -44,11 +44,6 @@ Recently shipped to prod:
   with `select-none` rows, handle `stopPropagation` so `SwipeableRow` doesn't fight it, and a
   visible `DropIndicator` insertion line (the old box-shadow line was clipped by `overflow-hidden`).
 
-## ⏸ Paused while the owner is travelling (no Mac access)
-- **iOS native rebuilds are paused** — can't run Xcode from an iPad. Web/Supabase work continues
-  normally via push→Vercel. When back at the Mac, run `npm run ios` to re-sync the iPhone app to
-  the latest version.
-
 ## Conventions
 - Match surrounding code style; keep comment density similar.
 - Verify with `npm run build` (and `npm run lint`) before pushing.

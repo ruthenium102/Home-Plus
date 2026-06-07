@@ -19,5 +19,20 @@ export default defineConfig({
   server: {
     port: 5173,
     host: true
+  },
+  build: {
+    rollupOptions: {
+      output: {
+        // Pull the heavy, rarely-changing vendor libs out of the main `index`
+        // chunk into separately-cached files. Keeps the entry bundle under the
+        // 500 kB warning and lets returning web users re-download less when the
+        // app code (but not React/Supabase) changes. No effect on iOS, where
+        // assets load from the local bundle.
+        manualChunks: {
+          'react-vendor': ['react', 'react-dom'],
+          supabase: ['@supabase/supabase-js']
+        }
+      }
+    }
   }
 });

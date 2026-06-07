@@ -645,6 +645,7 @@ function ActivityModal({ initial, onSave, onClose }: ActivityModalProps) {
 export function MyDayPage() {
   const {
     activeMember,
+    isFamilyMode,
     dayPlanBlocks,
     activityPool,
     addDayPlanBlock,
@@ -715,6 +716,19 @@ export function MyDayPage() {
   };
 
   if (!activeMember) return null;
+
+  // My Day is a personal planner — there's no shared "everyone" version. In the
+  // benchtop Family profile, prompt to pick a person instead.
+  if (isFamilyMode) {
+    return (
+      <div className="max-w-md mx-auto mt-16 text-center space-y-2">
+        <h1 className="font-display text-2xl text-text">My Day is personal</h1>
+        <p className="text-sm text-text-muted">
+          Switch from the shared Family profile to a person to plan their day.
+        </p>
+      </div>
+    );
+  }
 
   const memberBlocks = blocksForMemberDate(dayPlanBlocks, activeMember.id, date);
   const allPool = activityPool

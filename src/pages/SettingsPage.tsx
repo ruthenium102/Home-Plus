@@ -63,6 +63,7 @@ export function SettingsPage() {
     updateMember,
     signOut,
     activeMember,
+    isFamilyMode,
     kitchenSettings,
     updateKitchenSettings,
     reorderMembers,
@@ -78,7 +79,10 @@ export function SettingsPage() {
   const [inviteOpen, setInviteOpen] = useState(false);
   const [addMemberOpen, setAddMemberOpen] = useState(false);
   const [deleteAccountOpen, setDeleteAccountOpen] = useState(false);
-  const isParent = activeMember?.role === 'parent';
+  // The shared "Family" benchtop profile is parent-role for visibility, but must
+  // NOT get admin powers (managing members, PINs, consent) without a real parent
+  // signing in — so it's treated as non-parent for all the gated controls below.
+  const isParent = activeMember?.role === 'parent' && !isFamilyMode;
   const [cityQuery, setCityQuery] = useState('');
   const [cityResults, setCityResults] = useState<GeoResult[]>([]);
   const [citySearching, setCitySearching] = useState(false);

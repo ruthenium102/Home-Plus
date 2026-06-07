@@ -1,42 +1,29 @@
 import UIKit
-import WebKit
 import Capacitor
 
 @UIApplicationMain
 class AppDelegate: UIResponder, UIApplicationDelegate {
 
-    var window: UIWindow?
-
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
-        // Override point for customization after application launch.
-        // Match the native host + WKWebView background to the current system
-        // appearance so the rubber-band overscroll area (which iOS paints, not
-        // the web layer) isn't a cream flash for dark-mode users. Re-applied on
-        // trait changes via applicationDidBecomeActive + the appearance check.
-        applyHostBackground()
+        // Override point for customization after application launch. Window setup
+        // and the dark-mode overscroll background now live in SceneDelegate (the
+        // window moved to the scene under the UIScene lifecycle).
         return true
     }
 
-    /// Cream in light, deep cocoa in dark — kept in sync with the web --bg
-    /// token. Applied to the window + the Capacitor bridge's WKWebView scroll
-    /// view so overscroll never shows the wrong colour.
-    private func applyHostBackground() {
-        let dark = window?.traitCollection.userInterfaceStyle == .dark
-            || UITraitCollection.current.userInterfaceStyle == .dark
-        let color = dark
-            ? UIColor(red: 0x1a/255.0, green: 0x18/255.0, blue: 0x15/255.0, alpha: 1)
-            : UIColor(red: 0xf8/255.0, green: 0xf4/255.0, blue: 0xed/255.0, alpha: 1)
-        window?.backgroundColor = color
-        if let root = window?.rootViewController {
-            root.view.backgroundColor = color
-            for sub in root.view.subviews {
-                if let wk = sub as? WKWebView {
-                    wk.backgroundColor = color
-                    wk.scrollView.backgroundColor = color
-                    wk.isOpaque = true
-                }
-            }
-        }
+    // MARK: - UISceneSession lifecycle
+
+    func application(
+        _ application: UIApplication,
+        configurationForConnecting connectingSceneSession: UISceneSession,
+        options: UIScene.ConnectionOptions
+    ) -> UISceneConfiguration {
+        let config = UISceneConfiguration(
+            name: "Default Configuration",
+            sessionRole: connectingSceneSession.role
+        )
+        config.delegateClass = SceneDelegate.self
+        return config
     }
 
     func applicationWillResignActive(_ application: UIApplication) {
@@ -55,7 +42,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
     func applicationDidBecomeActive(_ application: UIApplication) {
         // Restart any tasks that were paused (or not yet started) while the application was inactive. If the application was previously in the background, optionally refresh the user interface.
-        applyHostBackground()
+        // (The overscroll background is re-applied in SceneDelegate.sceneDidBecomeActive.)
     }
 
     func applicationWillTerminate(_ application: UIApplication) {

@@ -90,6 +90,8 @@ interface FamilyContextValue {
   checkIns: HabitCheckIn[];
   activeMember: FamilyMember | null;
   isDemoMode: boolean;
+  /** True when the shared, no-PIN "Family" benchtop profile is active. */
+  isFamilyMode: boolean;
 
   // Auth
   signInAs: (memberId: string, pin: string | null) => Promise<{ ok: boolean; error?: string }>;
@@ -272,6 +274,13 @@ function usePersisted<T>(key: string, value: T) {
 }
 
 const SESSION_KEY = 'session';
+
+// Sentinel session for the shared "Family" profile (kitchen-benchtop mode). It
+// is NOT a real family_members row — it never exists in the DB — so this id must
+// never be written to any member-FK column. Identity-dependent writes are
+// guarded in the context (see isFamilyWrite) and resolve to null / no-op.
+export const FAMILY_PROFILE_ID = '__family__';
+
 const FAMILY_KEY = 'demo:family';
 const EVENTS_KEY = 'demo:events';
 const MEMBERS_KEY = 'demo:members';
@@ -864,9 +873,43 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
     else storage.remove(SESSION_KEY);
   }, [session]);
 
+  // Shared "Family" profile — a parent-level pseudo-member used on the kitchen
+  // benchtop so the device can see everyone's shared content without a child
+  // PIN. Client-only: never persisted to the DB.
+  const isFamilyMode = session?.member_id === FAMILY_PROFILE_ID;
+  const familyProfile = useMemo<FamilyMember>(
+    () => ({
+      id: FAMILY_PROFILE_ID,
+      family_id: family.id,
+      name: 'Family',
+      role: 'parent',
+      color: 'slate',
+      avatar_url: null,
+      has_pin: false,
+      birthday: null,
+      current_location: null,
+      location_until: null,
+      reward_balances: {},
+      my_day_enabled: false,
+      chores_enabled: true,
+      habits_enabled: true,
+      kitchen_enabled: true,
+      pet_enabled: false,
+      email: null,
+      auth_user_id: null,
+      created_at: '1970-01-01T00:00:00.000Z',
+    }),
+    [family.id],
+  );
+
   const activeMember = useMemo(
-    () => (session ? (members.find((m) => m.id === session.member_id) ?? null) : null),
-    [session, members],
+    () =>
+      isFamilyMode
+        ? familyProfile
+        : session
+          ? (members.find((m) => m.id === session.member_id) ?? null)
+          : null,
+    [isFamilyMode, familyProfile, session, members],
   );
 
   // Auto-select the member linked to the signed-in auth user. Someone who
@@ -974,6 +1017,11 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
 
   const signInAs = useCallback(
     async (memberId: string, pin: string | null): Promise<{ ok: boolean; error?: string }> => {
+      // Shared "Family" profile: no PIN, no DB lookup — just start the session.
+      if (memberId === FAMILY_PROFILE_ID) {
+        setSession({ member_id: FAMILY_PROFILE_ID, authenticated_at: Date.now() });
+        return { ok: true };
+      }
       const m = members.find((x) => x.id === memberId);
       if (!m) return { ok: false, error: 'Member not found' };
       if (m.has_pin) {
@@ -1552,6 +1600,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const approveCompletion = useCallback((completionId: string, approverId: string) => {
+    if (approverId === FAMILY_PROFILE_ID) return; // approver must be a real parent
     const cloud = isCloud();
     setCompletions((prev) => {
       const target = prev.find((c) => c.id === completionId);
@@ -1578,6 +1627,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const rejectCompletion = useCallback((completionId: string, approverId: string) => {
+    if (approverId === FAMILY_PROFILE_ID) return; // approver must be a real parent
     const cloud = isCloud();
     if (cloud) void rpcSetCompletionStatus(completionId, 'rejected');
     setCompletions((prev) =>
@@ -1646,6 +1696,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
   );
 
   const approveRedemption = useCallback((id: string, approverId: string) => {
+    if (approverId === FAMILY_PROFILE_ID) return; // approver must be a real parent
     const cloud = isCloud();
     setRedemptions((prev) => {
       const r = prev.find((x) => x.id === id);
@@ -1672,6 +1723,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const rejectRedemption = useCallback((id: string, approverId: string) => {
+    if (approverId === FAMILY_PROFILE_ID) return; // approver must be a real parent
     const cloud = isCloud();
     if (cloud) void rpcSetRedemptionStatus(id, 'rejected');
     setRedemptions((prev) =>
@@ -1869,6 +1921,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
 
   const toggleCheckIn = useCallback(
     (habitId: string, memberId: string, forDate: string) => {
+      if (memberId === FAMILY_PROFILE_ID) return; // shared profile has no own habits
       const habit = habits.find((h) => h.id === habitId);
       if (!habit) return;
       void hapticLight();
@@ -1928,6 +1981,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
 
   const incrementCheckIn = useCallback(
     (habitId: string, memberId: string, forDate: string) => {
+      if (memberId === FAMILY_PROFILE_ID) return; // shared profile has no own habits
       void hapticLight();
       setCheckIns((prev) => {
         const existing = prev.find(
@@ -1955,6 +2009,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
   );
 
   const decrementCheckIn = useCallback((habitId: string, memberId: string, forDate: string) => {
+    if (memberId === FAMILY_PROFILE_ID) return; // shared profile has no own habits
     setCheckIns((prev) => {
       const existing = prev.find(
         (c) => c.habit_id === habitId && c.member_id === memberId && c.for_date === forDate,
@@ -2179,7 +2234,8 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
         member_ids: [],
         recurrence: null,
         reminder_offsets: [],
-        created_by: activeMember?.id ?? null,
+        created_by:
+          activeMember && activeMember.id !== FAMILY_PROFILE_ID ? activeMember.id : null,
         created_at: new Date().toISOString(),
       };
 
@@ -2321,7 +2377,8 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
           member_ids: [],
           recurrence: null,
           reminder_offsets: [],
-          created_by: activeMember?.id ?? null,
+          created_by:
+          activeMember && activeMember.id !== FAMILY_PROFILE_ID ? activeMember.id : null,
           created_at: new Date().toISOString(),
         });
         newPlans.push({
@@ -2333,7 +2390,8 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
           servings: source.servings,
           calendar_event_id: eventId,
           notes: null,
-          created_by: activeMember?.id ?? null,
+          created_by:
+          activeMember && activeMember.id !== FAMILY_PROFILE_ID ? activeMember.id : null,
           created_at: new Date().toISOString(),
         });
       }
@@ -2560,6 +2618,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
       checkIns,
       activeMember,
       isDemoMode: !isSupabaseConfigured,
+      isFamilyMode,
       signInAs,
       signOut,
       addEvent,
@@ -2655,6 +2714,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
       sortedHabits,
       checkIns,
       activeMember,
+      isFamilyMode,
       signInAs,
       signOut,
       addEvent,

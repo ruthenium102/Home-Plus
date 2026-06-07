@@ -576,6 +576,7 @@ function ParentApprovals() {
     chores,
     members,
     activeMember,
+    isFamilyMode,
     approveCompletion,
     rejectCompletion,
     approveRedemption,
@@ -634,6 +635,17 @@ function ParentApprovals() {
           <Check size={36} className="mx-auto mb-3 text-text-faint opacity-50" />
           <div className="font-display text-lg text-text mb-1">All caught up</div>
           <div className="text-sm text-text-faint">No approvals waiting.</div>
+        </div>
+      ) : isFamilyMode ? (
+        // Approving/rejecting must be done by a real parent (the approver id is
+        // recorded), so the shared Family profile sees the queue read-only.
+        <div className="card p-12 text-center">
+          <div className="font-display text-lg text-text mb-1">
+            {pendingCompletions.length + pendingRedemptions.length} waiting for a parent
+          </div>
+          <div className="text-sm text-text-faint">
+            Switch from the shared Family profile to a parent to approve or reject.
+          </div>
         </div>
       ) : (
         <PendingView

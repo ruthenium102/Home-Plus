@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { useFamily } from '@/context/FamilyContext';
+import { Users } from 'lucide-react';
+import { useFamily, FAMILY_PROFILE_ID } from '@/context/FamilyContext';
 import { Avatar } from './Avatar';
 import { PinPad } from './PinPad';
 import type { FamilyMember } from '@/types';
@@ -69,6 +70,22 @@ export function UserSwitcher({ onClose, fullscreen = false }: Props) {
                   <div className="text-xs text-text-faint capitalize">{m.role}</div>
                 </button>
               ))}
+
+              {/* Shared "Family" profile for the kitchen benchtop — no PIN, sees
+                  everyone's shared content. */}
+              <button
+                onClick={() => signInAs(FAMILY_PROFILE_ID, null).then((r) => r.ok && onClose?.())}
+                className="flex flex-col items-center gap-3 p-4 rounded-lg hover:bg-surface-2 transition-colors active:scale-95"
+              >
+                <div
+                  className="flex items-center justify-center rounded-full bg-surface-2 text-text-muted"
+                  style={{ width: 88, height: 88 }}
+                >
+                  <Users size={40} />
+                </div>
+                <div className="text-base font-medium text-text">Family</div>
+                <div className="text-xs text-text-faint">Shared</div>
+              </button>
             </div>
 
             {onClose && (

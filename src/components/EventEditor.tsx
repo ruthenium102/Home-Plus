@@ -13,6 +13,11 @@ interface Props {
   open: boolean;
   onClose: () => void;
   editing?: CalendarEvent | null;
+  // The ISO occurrence start the user actually tapped. For a recurring event
+  // this identifies WHICH instance is open, so Delete can drop just that one
+  // (via exdates) rather than the whole series. Null for non-recurring events
+  // and new events.
+  occurrenceStart?: string | null;
   initialStart?: Date;
 }
 
@@ -94,7 +99,7 @@ function applyMins(
   return { date: format(e, 'yyyy-MM-dd'), time: format(e, 'HH:mm') };
 }
 
-export function EventEditor({ open, onClose, editing, initialStart }: Props) {
+export function EventEditor({ open, onClose, editing, occurrenceStart, initialStart }: Props) {
   const { members, events, addEvent, updateEvent, deleteEvent, activeMember, family } = useFamily();
   const [hasGoogleIntegration, setHasGoogleIntegration] = useState(false);
   const [syncToGoogle, setSyncToGoogle] = useState(true);
@@ -117,6 +122,9 @@ export function EventEditor({ open, onClose, editing, initialStart }: Props) {
   const [recurInterval, setRecurInterval] = useState(1);
   const [reminderMin, setReminderMin] = useState<number | null>(null);
   const [showCustomEnd, setShowCustomEnd] = useState(false);
+  // When deleting a recurring event, swap the footer to a "this one vs the whole
+  // series" choice (Outlook-style) instead of a single confirm.
+  const [deleteScope, setDeleteScope] = useState(false);
 
   // True once the user has manually picked an end time — stops smart-duration overwriting it.
   const userChangedEndRef = useRef(false);
@@ -129,6 +137,7 @@ export function EventEditor({ open, onClose, editing, initialStart }: Props) {
   useEffect(() => {
     if (!open) return;
     userChangedEndRef.current = false;
+    setDeleteScope(false);
     if (editing) {
       setShowCustomEnd(true);
       const s = new Date(editing.start_at);
@@ -310,10 +319,34 @@ export function EventEditor({ open, onClose, editing, initialStart }: Props) {
 
   const handleDelete = () => {
     if (!editing) return;
+    // Repeating event with a known occurrence: let the user choose this one or
+    // the whole series. Without an occurrence we can only delete the series.
+    if (editing.recurrence && occurrenceStart) {
+      setDeleteScope(true);
+      return;
+    }
     if (confirm(`Delete "${editing.title}"?`)) {
       deleteEvent(editing.id);
       onClose();
     }
+  };
+
+  // Drop just the tapped occurrence by adding its start to the series' exdates;
+  // expandEvents() then skips it. Leaves the rest of the series intact.
+  const deleteThisOccurrence = () => {
+    if (!editing || !occurrenceStart) return;
+    updateEvent(editing.id, {
+      exdates: [...(editing.exdates ?? []), occurrenceStart],
+    });
+    setDeleteScope(false);
+    onClose();
+  };
+
+  const deleteSeries = () => {
+    if (!editing) return;
+    deleteEvent(editing.id);
+    setDeleteScope(false);
+    onClose();
   };
 
   const toggleMember = (id: string) =>
@@ -331,30 +364,58 @@ export function EventEditor({ open, onClose, editing, initialStart }: Props) {
       title={editing ? 'Edit event' : 'New event'}
       maxWidth="2xl"
       footer={
-        <>
-          {editing ? (
-            <button
-              onClick={handleDelete}
-              className="flex items-center gap-1.5 text-text-muted hover:text-accent text-sm transition-colors"
-            >
-              <Trash2 size={15} /> Delete
-            </button>
-          ) : (
-            <span />
-          )}
-          <div className="flex gap-2">
-            <button onClick={onClose} className="px-4 py-2 text-sm text-text-muted hover:text-text">
-              Cancel
-            </button>
-            <button
-              onClick={handleSave}
-              disabled={!title.trim()}
-              className="px-5 py-2 bg-accent text-white text-sm font-medium rounded-md hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed"
-            >
-              Save
-            </button>
-          </div>
-        </>
+        deleteScope ? (
+          <>
+            <span className="flex items-center gap-1.5 text-text-muted text-sm">
+              <Repeat size={15} /> Delete repeating event
+            </span>
+            <div className="flex flex-wrap gap-2 justify-end">
+              <button
+                onClick={() => setDeleteScope(false)}
+                className="px-4 py-2 text-sm text-text-muted hover:text-text"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={deleteThisOccurrence}
+                className="px-4 py-2 text-sm font-medium rounded-md border border-border text-text hover:border-accent"
+              >
+                This event
+              </button>
+              <button
+                onClick={deleteSeries}
+                className="px-4 py-2 text-sm font-medium rounded-md bg-accent text-white hover:opacity-90"
+              >
+                All events
+              </button>
+            </div>
+          </>
+        ) : (
+          <>
+            {editing ? (
+              <button
+                onClick={handleDelete}
+                className="flex items-center gap-1.5 text-text-muted hover:text-accent text-sm transition-colors"
+              >
+                <Trash2 size={15} /> Delete
+              </button>
+            ) : (
+              <span />
+            )}
+            <div className="flex gap-2">
+              <button onClick={onClose} className="px-4 py-2 text-sm text-text-muted hover:text-text">
+                Cancel
+              </button>
+              <button
+                onClick={handleSave}
+                disabled={!title.trim()}
+                className="px-5 py-2 bg-accent text-white text-sm font-medium rounded-md hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                Save
+              </button>
+            </div>
+          </>
+        )
       }
     >
       {/* Title */}
