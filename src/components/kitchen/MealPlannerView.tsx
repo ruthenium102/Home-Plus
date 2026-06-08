@@ -85,14 +85,8 @@ export function MealPlannerView() {
 
   const weekEnd = days[days.length - 1].date;
 
-  // Compact range label, e.g. "6–8 Jun" (same month) or "30 Jun – 2 Jul".
-  const rangeLabel = (() => {
-    const s = new Date(weekStart);
-    const e = new Date(weekEnd);
-    return format(s, 'MMM') === format(e, 'MMM')
-      ? `${format(s, 'd')}–${format(e, 'd MMM')}`
-      : `${format(s, 'd MMM')} – ${format(e, 'd MMM')}`;
-  })();
+  // Match the Calendar week header format exactly, e.g. "8 Jun – 14 Jun".
+  const rangeLabel = `${format(new Date(weekStart), 'd MMM')} – ${format(new Date(weekEnd), 'd MMM')}`;
 
   function shiftWeek(delta: number) {
     setWeekStart(format(addDays(new Date(weekStart), delta * dayCount), 'yyyy-MM-dd'));
@@ -361,8 +355,9 @@ export function MealPlannerView() {
             </button>
           </div>
 
-          {/* Centre: date range */}
-          <div className="flex-1 min-w-[7rem] truncate text-center font-display text-sm sm:text-lg text-text">
+          {/* Date range — kept on the left, just after the nav; mr-auto pushes
+              the meal-type filter to the far right. */}
+          <div className="min-w-0 truncate mr-auto px-1 font-display text-sm sm:text-lg text-text">
             {rangeLabel}
           </div>
 

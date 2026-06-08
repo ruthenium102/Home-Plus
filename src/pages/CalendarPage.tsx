@@ -392,8 +392,9 @@ export function CalendarPage() {
             </button>
           </div>
 
-          {/* Centre: date */}
-          <div className="flex-1 min-w-0 truncate text-center font-display text-sm sm:text-lg text-text">
+          {/* Date — kept on the left, just after the nav; mr-auto pushes the
+              controls to the far right. */}
+          <div className="min-w-0 truncate mr-auto px-1 font-display text-sm sm:text-lg text-text">
             <span className="sm:hidden">{shortLabel}</span>
             <span className="hidden sm:inline">{headerLabel}</span>
           </div>
