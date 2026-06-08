@@ -348,9 +348,9 @@ export function CalendarPage() {
 
   const headerLabel =
     view === 'day'
-      ? format(cursor, 'EEEE, d MMMM yyyy')
+      ? format(cursor, 'EEEE, d MMMM')
       : view === 'week'
-        ? `${format(range.start, 'd MMM')} – ${format(range.end, 'd MMM yyyy')}`
+        ? `${format(range.start, 'd MMM')} – ${format(range.end, 'd MMM')}`
         : format(cursor, 'MMMM yyyy');
 
   // Compact date for the single-row phone toolbar.

@@ -332,42 +332,52 @@ export function MealPlannerView() {
 
   return (
     <div>
-      {/* Week navigation */}
-      <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
-        <h2 className="font-display text-xl text-text">Meal Plan</h2>
-        <div className="flex items-center gap-1">
-          <button
-            onClick={() => shiftWeek(-1)}
-            className="btn-ghost p-1.5 min-w-[40px] min-h-[40px] flex items-center justify-center"
-            aria-label="Previous"
-          >
-            <ChevronLeft size={18} />
-          </button>
-          <button
-            onClick={goToday}
-            className="px-2.5 min-h-[40px] rounded-md text-sm text-text-muted hover:bg-surface-2"
-          >
-            Today
-          </button>
-          <button
-            onClick={() => shiftWeek(1)}
-            className="btn-ghost p-1.5 min-w-[40px] min-h-[40px] flex items-center justify-center"
-            aria-label="Next"
-          >
-            <ChevronRight size={18} />
-          </button>
-          <span className="text-sm text-text-muted text-center px-1">{rangeLabel}</span>
-        </div>
-        <div className="flex flex-wrap items-center justify-start gap-1 text-xs w-full sm:w-auto">
-          {MEAL_TYPES.map((mt) => (
+      {/* Week navigation — mirrors the Calendar toolbar: a self-contained card
+          with one balanced row (grouped nav left, prominent centred date range,
+          meal-type filter right). Chips wrap below on narrow phones. */}
+      <div className="card p-3 mb-4">
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Left: navigation */}
+          <div className="flex items-center shrink-0">
             <button
-              key={mt}
-              onClick={() => setSelectedMealType(mt)}
-              className={`px-2 py-1 rounded-md transition ${selectedMealType === mt ? 'bg-accent text-white' : 'bg-surface-2 text-text-muted hover:bg-surface-3'}`}
+              onClick={() => shiftWeek(-1)}
+              className="w-8 sm:w-9 min-h-[40px] rounded-md hover:bg-surface-2 flex items-center justify-center text-text-muted"
+              aria-label="Previous"
             >
-              {mealTypeLabel(mt)}
+              <ChevronLeft size={18} />
             </button>
-          ))}
+            <button
+              onClick={goToday}
+              className="px-2 sm:px-3 min-h-[40px] rounded-md text-xs sm:text-sm text-text-muted hover:bg-surface-2"
+            >
+              Today
+            </button>
+            <button
+              onClick={() => shiftWeek(1)}
+              className="w-8 sm:w-9 min-h-[40px] rounded-md hover:bg-surface-2 flex items-center justify-center text-text-muted"
+              aria-label="Next"
+            >
+              <ChevronRight size={18} />
+            </button>
+          </div>
+
+          {/* Centre: date range */}
+          <div className="flex-1 min-w-[7rem] truncate text-center font-display text-sm sm:text-lg text-text">
+            {rangeLabel}
+          </div>
+
+          {/* Right: meal-type filter */}
+          <div className="flex items-center gap-1 text-xs shrink-0">
+            {MEAL_TYPES.map((mt) => (
+              <button
+                key={mt}
+                onClick={() => setSelectedMealType(mt)}
+                className={`px-2 py-1.5 rounded-md transition ${selectedMealType === mt ? 'bg-accent text-white' : 'bg-surface-2 text-text-muted hover:bg-surface-3'}`}
+              >
+                {mealTypeLabel(mt)}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 

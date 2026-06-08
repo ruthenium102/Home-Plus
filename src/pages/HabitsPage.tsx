@@ -35,7 +35,6 @@ export function HabitsPage() {
     checkIns,
     members,
     activeMember,
-    isFamilyMode,
     toggleCheckIn,
     incrementCheckIn,
     decrementCheckIn,
@@ -80,16 +79,12 @@ export function HabitsPage() {
     });
   };
 
+  // visibleHabits = own habits + any SHARED habits. In Family/benchtop mode the
+  // active member is the synthetic '__family__' (owns nothing), so this naturally
+  // resolves to every member's *shared* habits — private habits stay hidden.
   const habitsToShow = useMemo(
-    // Family/benchtop mode shows every member's habits; otherwise just what the
-    // active member is allowed to see.
-    () =>
-      isFamilyMode
-        ? habits
-        : activeMember
-          ? visibleHabits(habits, activeMember.id)
-          : [],
-    [habits, activeMember, isFamilyMode],
+    () => (activeMember ? visibleHabits(habits, activeMember.id) : []),
+    [habits, activeMember],
   );
 
   // Group by member for cleaner display
