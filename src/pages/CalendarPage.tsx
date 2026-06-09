@@ -417,7 +417,7 @@ export function CalendarPage() {
             </div>
             <button
               onClick={() => handleNew(cursor)}
-              className="flex items-center gap-1.5 px-2.5 sm:px-3 py-2 bg-accent text-white text-sm font-medium rounded-md hover:opacity-90"
+              className="flex items-center gap-1.5 px-2.5 sm:px-3 py-2 bg-accent-strong text-white text-sm font-medium rounded-md hover:opacity-90"
               aria-label="New event"
             >
               <Plus size={16} />
@@ -441,7 +441,7 @@ export function CalendarPage() {
           className={
             'px-3 py-1.5 rounded-full text-xs font-medium border whitespace-nowrap transition-colors ' +
             (memberFilter === null
-              ? 'bg-accent text-white border-accent'
+              ? 'bg-accent-strong text-white border-accent'
               : 'bg-surface border-border text-text-muted')
           }
         >

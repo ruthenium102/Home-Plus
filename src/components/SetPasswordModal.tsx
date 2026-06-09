@@ -103,7 +103,7 @@ export function SetPasswordModal({ onDone, mode = 'invite' }: Props) {
             <button
               type="submit"
               disabled={loading || !password || !confirm}
-              className="w-full py-3 bg-accent text-white text-sm font-semibold rounded-md hover:opacity-90 disabled:opacity-50 flex items-center justify-center gap-2 mt-2"
+              className="w-full py-3 bg-accent-strong text-white text-sm font-semibold rounded-md hover:opacity-90 disabled:opacity-50 flex items-center justify-center gap-2 mt-2"
             >
               {loading && <Loader2 size={16} className="animate-spin" />}
               Set password & continue

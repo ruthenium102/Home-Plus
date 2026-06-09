@@ -195,7 +195,7 @@ export function ChoreEditor({ open, onClose, editing }: Props) {
             <button
               onClick={handleSave}
               disabled={!title.trim() || assigned.length === 0}
-              className="px-5 py-2 bg-accent text-white text-sm font-medium rounded-md hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed"
+              className="px-5 py-2 bg-accent-strong text-white text-sm font-medium rounded-md hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed"
             >
               Save
             </button>
@@ -265,7 +265,7 @@ export function ChoreEditor({ open, onClose, editing }: Props) {
                   className={
                     'px-3 py-1.5 rounded-full text-xs border transition-colors ' +
                     (freq === opt.v
-                      ? 'bg-accent text-white border-accent'
+                      ? 'bg-accent-strong text-white border-accent'
                       : 'border-border text-text-muted hover:border-border-strong')
                   }
                 >
@@ -288,7 +288,7 @@ export function ChoreEditor({ open, onClose, editing }: Props) {
                       className={
                         'w-9 h-9 rounded-full text-xs font-medium transition-colors ' +
                         (selected
-                          ? 'bg-accent text-white'
+                          ? 'bg-accent-strong text-white'
                           : 'bg-surface-2 border border-border text-text-muted hover:border-border-strong')
                       }
                     >
@@ -318,7 +318,7 @@ export function ChoreEditor({ open, onClose, editing }: Props) {
                     className={
                       'flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs border transition-colors ' +
                       (mode === v
-                        ? 'bg-accent text-white border-accent'
+                        ? 'bg-accent-strong text-white border-accent'
                         : 'border-border text-text-muted hover:border-border-strong')
                     }
                   >
@@ -422,7 +422,7 @@ function SegmentedToggle({
             onClick={() => onChange(opt.v)}
             className={
               'px-3 py-1 rounded text-xs font-semibold transition-colors ' +
-              (value === opt.v ? 'bg-accent text-white' : 'text-text-muted hover:text-text')
+              (value === opt.v ? 'bg-accent-strong text-white' : 'text-text-muted hover:text-text')
             }
             aria-pressed={value === opt.v}
           >
@@ -573,7 +573,7 @@ function RosterDragList({
               className={
                 'px-2.5 py-1 rounded-full text-xs font-medium border transition-colors ' +
                 (rotationWeekday === i
-                  ? 'bg-accent text-white border-accent'
+                  ? 'bg-accent-strong text-white border-accent'
                   : 'bg-surface border-border text-text-muted hover:border-border-strong')
               }
               aria-pressed={rotationWeekday === i}

@@ -154,7 +154,7 @@ export function LocationPicker({ open, member, onClose }: Props) {
                 <button
                   onClick={handleTravelSubmit}
                   disabled={!travelDest.trim() || !travelUntil}
-                  className="flex-1 px-3 py-2 bg-accent text-white text-sm font-medium rounded-md hover:opacity-90 disabled:opacity-40"
+                  className="flex-1 px-3 py-2 bg-accent-strong text-white text-sm font-medium rounded-md hover:opacity-90 disabled:opacity-40"
                 >
                   Set status
                 </button>

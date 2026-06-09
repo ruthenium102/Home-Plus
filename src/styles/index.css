@@ -18,7 +18,10 @@
   --text: 32 28 24; /* near-black warm */
   --text-muted: 110 100 88;
   --text-faint: 150 140 126;
-  --accent: 196 77 46; /* terracotta */
+  --accent: 188 73 43; /* terracotta — darkened slightly so accent text hits WCAG AA 4.5:1 on bg/surface */
+  /* Filled-button background. In light it equals --accent (white text already
+     passes AA there); dark overrides it darker so white button text passes. */
+  --accent-strong: 188 73 43;
   --accent-soft: 250 232 222;
 
   --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.04);
@@ -33,9 +36,10 @@
   --border: 58 52 45;
   --border-strong: 74 68 56;
   --text: 245 241 234;
-  --text-muted: 138 131 119;
+  --text-muted: 152 145 133; /* lightened so muted text hits WCAG AA 4.5:1 on cards (surface) */
   --text-faint: 100 94 84;
-  --accent: 224 116 80; /* lifted terracotta for dark */
+  --accent: 224 116 80; /* lifted terracotta for dark — vivid for accent text/icons */
+  --accent-strong: 188 86 52; /* darker terracotta for filled buttons so white label text hits AA 4.5:1 */
   --accent-soft: 58 38 30;
 }
 
@@ -156,7 +160,7 @@ textarea {
 
 /* Kitchen / shared utility classes */
 .btn-primary {
-  @apply px-4 py-2 bg-accent text-white text-sm font-medium rounded-lg hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed transition;
+  @apply px-4 py-2 bg-accent-strong text-white text-sm font-medium rounded-lg hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed transition;
 }
 .btn-ghost {
   @apply px-3 py-1.5 text-text-muted text-sm rounded-lg hover:bg-surface-2 disabled:opacity-40 transition;

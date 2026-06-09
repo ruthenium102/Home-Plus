@@ -100,7 +100,7 @@ function KidView({ member }: { member: FamilyMember }) {
           </div>
           <button
             onClick={() => setRedeemOpen(true)}
-            className="px-4 py-2.5 bg-accent text-white text-sm font-medium rounded-md hover:opacity-90 whitespace-nowrap"
+            className="px-4 py-2.5 bg-accent-strong text-white text-sm font-medium rounded-md hover:opacity-90 whitespace-nowrap"
           >
             Spend points
           </button>
@@ -468,7 +468,7 @@ function ParentManage() {
         <h2 className="font-display text-lg text-text">All chores</h2>
         <button
           onClick={handleNew}
-          className="flex items-center gap-1.5 px-3 py-2 bg-accent text-white text-sm font-medium rounded-md hover:opacity-90"
+          className="flex items-center gap-1.5 px-3 py-2 bg-accent-strong text-white text-sm font-medium rounded-md hover:opacity-90"
         >
           <Plus size={16} /> New chore
         </button>
@@ -717,7 +717,7 @@ function PendingView({
                     </button>
                     <button
                       onClick={() => approveCompletion(c.id, activeMemberId)}
-                      className="w-9 h-9 rounded-md bg-accent text-white hover:opacity-90 flex items-center justify-center"
+                      className="w-9 h-9 rounded-md bg-accent-strong text-white hover:opacity-90 flex items-center justify-center"
                       title="Approve"
                     >
                       <Check size={16} />
@@ -760,7 +760,7 @@ function PendingView({
                     </button>
                     <button
                       onClick={() => approveRedemption(r.id, activeMemberId)}
-                      className="w-9 h-9 rounded-md bg-accent text-white hover:opacity-90 flex items-center justify-center"
+                      className="w-9 h-9 rounded-md bg-accent-strong text-white hover:opacity-90 flex items-center justify-center"
                       title="Approve"
                     >
                       <Check size={16} />

@@ -86,7 +86,7 @@ export const TabBar = memo(function TabBar({ active, onChange, ...visibility }: 
             className={
               'flex-1 min-w-0 min-h-[48px] flex flex-col items-center gap-1 px-1 py-2 rounded-md transition-[transform,background-color,color,box-shadow] active:scale-95 ' +
               (isActive
-                ? 'bg-accent text-white shadow-sm'
+                ? 'bg-accent-strong text-white shadow-sm'
                 : 'text-text-muted hover:bg-surface-2 hover:text-text')
             }
           >

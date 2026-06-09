@@ -261,7 +261,7 @@ export function GoogleIntegrationsSection() {
         <button
           onClick={() => void handleConnect()}
           disabled={busy === 'connect'}
-          className="flex items-center gap-1.5 px-4 py-2 text-sm text-white bg-accent rounded-md disabled:opacity-50"
+          className="flex items-center gap-1.5 px-4 py-2 text-sm text-white bg-accent-strong rounded-md disabled:opacity-50"
         >
           {busy === 'connect' ? (
             <Loader2 size={14} className="animate-spin" />

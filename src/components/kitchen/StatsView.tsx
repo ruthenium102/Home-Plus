@@ -61,7 +61,7 @@ export function StatsView() {
               onClick={() => setRange(r.id)}
               className={`px-3 py-1.5 rounded-md text-sm transition ${
                 range === r.id
-                  ? 'bg-accent text-white'
+                  ? 'bg-accent-strong text-white'
                   : 'bg-surface-2 text-text-muted hover:bg-surface-3'
               }`}
             >

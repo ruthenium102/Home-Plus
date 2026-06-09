@@ -324,7 +324,7 @@ export function AddMemberModal({ open, onClose }: Props) {
           <button
             onClick={handleSave}
             disabled={loading}
-            className="flex-1 py-2.5 bg-accent text-white rounded-md text-sm font-semibold hover:opacity-90 disabled:opacity-50 flex items-center justify-center gap-2"
+            className="flex-1 py-2.5 bg-accent-strong text-white rounded-md text-sm font-semibold hover:opacity-90 disabled:opacity-50 flex items-center justify-center gap-2"
           >
             {loading && <Loader2 size={14} className="animate-spin" />}
             {sendInvite ? 'Send invite' : 'Add member'}

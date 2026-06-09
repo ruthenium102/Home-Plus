@@ -495,7 +495,7 @@ export function SettingsPage() {
                 onClick={() => setUnit(u)}
                 className={
                   'px-3 py-1 rounded text-xs font-semibold transition-colors ' +
-                  (unit === u ? 'bg-accent text-white' : 'text-text-muted hover:text-text')
+                  (unit === u ? 'bg-accent-strong text-white' : 'text-text-muted hover:text-text')
                 }
                 aria-pressed={unit === u}
               >
@@ -767,7 +767,7 @@ function CupboardEditor() {
         />
         <button
           onClick={add}
-          className="px-3 py-2 bg-accent text-white text-sm font-medium rounded-md hover:opacity-90 shrink-0"
+          className="px-3 py-2 bg-accent-strong text-white text-sm font-medium rounded-md hover:opacity-90 shrink-0"
         >
           Add
         </button>

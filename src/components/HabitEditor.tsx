@@ -181,7 +181,7 @@ export function HabitEditor({ open, editing, onClose }: Props) {
             <button
               onClick={handleSave}
               disabled={!title.trim() || (editing ? !memberId : selectedMemberIds.length === 0)}
-              className="px-5 py-2 bg-accent text-white text-sm font-medium rounded-md hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed"
+              className="px-5 py-2 bg-accent-strong text-white text-sm font-medium rounded-md hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed"
             >
               Save
             </button>
@@ -261,7 +261,7 @@ export function HabitEditor({ open, editing, onClose }: Props) {
                   className={
                     'px-3 py-1.5 rounded-full text-xs border transition-colors ' +
                     (cadence === opt.v
-                      ? 'bg-accent text-white border-accent'
+                      ? 'bg-accent-strong text-white border-accent'
                       : 'border-border text-text-muted hover:border-border-strong')
                   }
                 >
@@ -285,7 +285,7 @@ export function HabitEditor({ open, editing, onClose }: Props) {
                       className={
                         'w-9 h-9 rounded-full text-xs font-medium transition-colors ' +
                         (selected
-                          ? 'bg-accent text-white'
+                          ? 'bg-accent-strong text-white'
                           : 'bg-surface-2 border border-border text-text-muted hover:border-border-strong')
                       }
                     >
@@ -307,7 +307,7 @@ export function HabitEditor({ open, editing, onClose }: Props) {
                       className={
                         'px-2.5 py-1 rounded-full text-xs font-medium border transition-colors ' +
                         (weekStart === i
-                          ? 'bg-accent text-white border-accent'
+                          ? 'bg-accent-strong text-white border-accent'
                           : 'bg-surface-2 border-border text-text-muted hover:border-border-strong')
                       }
                       aria-pressed={weekStart === i}
@@ -426,7 +426,7 @@ export function HabitEditor({ open, editing, onClose }: Props) {
                   className={
                     'flex-1 px-3 py-1.5 rounded-md text-sm font-medium border transition-colors ' +
                     (targetOp === opt.v
-                      ? 'bg-accent text-white border-accent'
+                      ? 'bg-accent-strong text-white border-accent'
                       : 'border-border text-text-muted hover:border-border-strong')
                   }
                 >

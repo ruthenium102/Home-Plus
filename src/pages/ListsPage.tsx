@@ -70,7 +70,7 @@ export function ListsPage() {
               setEditingList(null);
               setListEditorOpen(true);
             }}
-            className="w-7 h-7 rounded-md bg-accent text-white flex items-center justify-center hover:opacity-90"
+            className="w-7 h-7 rounded-md bg-accent-strong text-white flex items-center justify-center hover:opacity-90"
             title="New list"
           >
             <Plus size={14} />
@@ -174,7 +174,7 @@ export function ListsPage() {
                   setEditingItem(null);
                   setItemEditorOpen(true);
                 }}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-accent text-white text-sm font-medium rounded-md hover:opacity-90"
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-accent-strong text-white text-sm font-medium rounded-md hover:opacity-90"
               >
                 <Plus size={14} /> Item
               </button>

@@ -199,7 +199,7 @@ export function RedemptionModal({ open, member, onClose }: Props) {
           <button
             onClick={handleSubmit}
             disabled={insufficient || amount <= 0 || !reason.trim()}
-            className="px-5 py-2 bg-accent text-white text-sm font-medium rounded-md hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed"
+            className="px-5 py-2 bg-accent-strong text-white text-sm font-medium rounded-md hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed"
           >
             {willAutoApprove ? 'Spend' : 'Request'}
           </button>

@@ -722,7 +722,7 @@ function StageChip({ label, active, hint }: { label: string; active: boolean; hi
       className={
         'text-center rounded-xl py-2 border ' +
         (active
-          ? 'bg-accent text-white border-accent shadow-sm'
+          ? 'bg-accent-strong text-white border-accent shadow-sm'
           : 'bg-surface-2/60 text-text-muted border-border')
       }
     >

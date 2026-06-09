@@ -273,7 +273,7 @@ export function ImportEventsModal({ open, onClose }: Props) {
                 <button
                   onClick={handlePasteAnalyse}
                   disabled={!pasteText.trim() || pasteLoading}
-                  className="px-3 py-1.5 bg-accent text-white text-sm font-medium rounded-md hover:opacity-90 disabled:opacity-40 flex items-center gap-1.5"
+                  className="px-3 py-1.5 bg-accent-strong text-white text-sm font-medium rounded-md hover:opacity-90 disabled:opacity-40 flex items-center gap-1.5"
                 >
                   {pasteLoading ? (
                     <>
@@ -311,7 +311,7 @@ export function ImportEventsModal({ open, onClose }: Props) {
                 <button
                   onClick={handleIcalFetch}
                   disabled={!icalUrl.trim() || icalLoading}
-                  className="px-3 py-1.5 bg-accent text-white text-sm font-medium rounded-md hover:opacity-90 disabled:opacity-40 flex items-center gap-1.5"
+                  className="px-3 py-1.5 bg-accent-strong text-white text-sm font-medium rounded-md hover:opacity-90 disabled:opacity-40 flex items-center gap-1.5"
                 >
                   {icalLoading ? (
                     <>
@@ -437,7 +437,7 @@ export function ImportEventsModal({ open, onClose }: Props) {
           <button
             onClick={handleImport}
             disabled={selectedCount === 0}
-            className="px-5 py-2 bg-accent text-white text-sm font-medium rounded-md hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed"
+            className="px-5 py-2 bg-accent-strong text-white text-sm font-medium rounded-md hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed"
           >
             Import {selectedCount > 0 ? `${selectedCount} ` : ''}event
             {selectedCount === 1 ? '' : 's'}

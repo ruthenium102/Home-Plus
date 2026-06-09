@@ -367,7 +367,7 @@ export function MealPlannerView() {
               <button
                 key={mt}
                 onClick={() => setSelectedMealType(mt)}
-                className={`px-2 py-1.5 rounded-md transition ${selectedMealType === mt ? 'bg-accent text-white' : 'bg-surface-2 text-text-muted hover:bg-surface-3'}`}
+                className={`px-2 py-1.5 rounded-md transition ${selectedMealType === mt ? 'bg-accent-strong text-white' : 'bg-surface-2 text-text-muted hover:bg-surface-3'}`}
               >
                 {mealTypeLabel(mt)}
               </button>

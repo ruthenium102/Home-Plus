@@ -94,9 +94,14 @@ export function PinPad({
             {n}
           </PinButton>
         ))}
-        <PinButton onPress={onCancel || (() => {})} variant="muted">
-          {onCancel ? 'Cancel' : ''}
-        </PinButton>
+        {onCancel ? (
+          <PinButton onPress={onCancel} variant="muted">
+            Cancel
+          </PinButton>
+        ) : (
+          // Keep the 3-col grid aligned without a focusable, unlabeled button.
+          <div aria-hidden="true" className="w-20 h-20" />
+        )}
         <PinButton onPress={() => press('0')}>0</PinButton>
         <PinButton onPress={back} variant="muted" aria-label="Delete">
           <Delete size={22} />
@@ -111,7 +116,7 @@ export function PinPad({
           className={
             'w-full max-w-[260px] py-3 rounded-xl text-base font-semibold transition-[transform,opacity,background-color,border-color,color,box-shadow] ' +
             (canSave
-              ? 'bg-accent text-white shadow-sm active:scale-[0.98]'
+              ? 'bg-accent-strong text-white shadow-sm active:scale-[0.98]'
               : 'bg-surface-2 text-text-faint cursor-not-allowed')
           }
         >

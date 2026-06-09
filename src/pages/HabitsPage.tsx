@@ -122,7 +122,7 @@ export function HabitsPage() {
         {view === 'list' && (
           <button
             onClick={handleNew}
-            className="flex items-center gap-1.5 px-3 py-2 bg-accent text-white text-sm font-medium rounded-md hover:opacity-90"
+            className="flex items-center gap-1.5 px-3 py-2 bg-accent-strong text-white text-sm font-medium rounded-md hover:opacity-90"
           >
             <Plus size={16} /> New habit
           </button>

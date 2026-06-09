@@ -384,7 +384,7 @@ export function EventEditor({ open, onClose, editing, occurrenceStart, initialSt
               </button>
               <button
                 onClick={deleteSeries}
-                className="px-4 py-2 text-sm font-medium rounded-md bg-accent text-white hover:opacity-90"
+                className="px-4 py-2 text-sm font-medium rounded-md bg-accent-strong text-white hover:opacity-90"
               >
                 All events
               </button>
@@ -409,7 +409,7 @@ export function EventEditor({ open, onClose, editing, occurrenceStart, initialSt
               <button
                 onClick={handleSave}
                 disabled={!title.trim()}
-                className="px-5 py-2 bg-accent text-white text-sm font-medium rounded-md hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed"
+                className="px-5 py-2 bg-accent-strong text-white text-sm font-medium rounded-md hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 Save
               </button>
@@ -612,7 +612,7 @@ export function EventEditor({ open, onClose, editing, occurrenceStart, initialSt
                   className={
                     'px-3 py-1.5 rounded-full text-xs border transition-colors ' +
                     (category === c
-                      ? 'bg-accent text-white border-accent'
+                      ? 'bg-accent-strong text-white border-accent'
                       : 'border-border text-text-muted hover:border-border-strong')
                   }
                 >
@@ -635,7 +635,7 @@ export function EventEditor({ open, onClose, editing, occurrenceStart, initialSt
                 className={
                   'px-3 h-8 rounded-full text-xs border transition-colors ' +
                   (color === null
-                    ? 'bg-accent text-white border-accent'
+                    ? 'bg-accent-strong text-white border-accent'
                     : 'border-border text-text-muted hover:border-border-strong')
                 }
               >
@@ -676,7 +676,7 @@ export function EventEditor({ open, onClose, editing, occurrenceStart, initialSt
                   className={
                     'px-3 py-1.5 rounded-full text-xs capitalize border transition-colors ' +
                     (recurFreq === f
-                      ? 'bg-accent text-white border-accent'
+                      ? 'bg-accent-strong text-white border-accent'
                       : 'border-border text-text-muted hover:border-border-strong')
                   }
                 >
@@ -728,7 +728,7 @@ export function EventEditor({ open, onClose, editing, occurrenceStart, initialSt
                     className={
                       'w-10 py-1.5 rounded-full text-xs border transition-colors ' +
                       (byweekday.includes(i)
-                        ? 'bg-accent text-white border-accent'
+                        ? 'bg-accent-strong text-white border-accent'
                         : 'border-border text-text-muted hover:border-border-strong')
                     }
                   >
@@ -761,7 +761,7 @@ export function EventEditor({ open, onClose, editing, occurrenceStart, initialSt
                   className={
                     'px-3 py-1.5 rounded-full text-xs border transition-colors ' +
                     (reminderMin === opt.v
-                      ? 'bg-accent text-white border-accent'
+                      ? 'bg-accent-strong text-white border-accent'
                       : 'border-border text-text-muted hover:border-border-strong')
                   }
                 >

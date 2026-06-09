@@ -114,7 +114,7 @@ export function ListEditor({ open, onClose, editing }: Props) {
             <button
               onClick={handleSave}
               disabled={!name.trim()}
-              className="px-5 py-2 bg-accent text-white text-sm font-medium rounded-md hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed"
+              className="px-5 py-2 bg-accent-strong text-white text-sm font-medium rounded-md hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed"
             >
               Save
             </button>

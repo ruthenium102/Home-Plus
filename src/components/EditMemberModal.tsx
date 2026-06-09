@@ -366,7 +366,7 @@ export function EditMemberModal({ open, member, onClose }: Props) {
                               type="button"
                               disabled={savingEmail || !newEmail.trim()}
                               onClick={handleChangeEmail}
-                              className="flex-1 py-2 bg-accent text-white rounded-md text-sm font-semibold hover:opacity-90 disabled:opacity-50 flex items-center justify-center gap-1.5"
+                              className="flex-1 py-2 bg-accent-strong text-white rounded-md text-sm font-semibold hover:opacity-90 disabled:opacity-50 flex items-center justify-center gap-1.5"
                             >
                               {savingEmail && <Loader2 size={14} className="animate-spin" />}
                               Save email
@@ -469,7 +469,7 @@ export function EditMemberModal({ open, member, onClose }: Props) {
                                 type="button"
                                 disabled={savingPw || !newPw || !confirmPw}
                                 onClick={handleChangePassword}
-                                className="flex-1 py-2 bg-accent text-white rounded-md text-sm font-semibold hover:opacity-90 disabled:opacity-50 flex items-center justify-center gap-1.5"
+                                className="flex-1 py-2 bg-accent-strong text-white rounded-md text-sm font-semibold hover:opacity-90 disabled:opacity-50 flex items-center justify-center gap-1.5"
                               >
                                 {savingPw && <Loader2 size={14} className="animate-spin" />}
                                 Save password
@@ -519,7 +519,7 @@ export function EditMemberModal({ open, member, onClose }: Props) {
           <button
             onClick={handleSave}
             disabled={!name.trim()}
-            className="flex-1 py-2.5 bg-accent text-white rounded-md text-sm font-semibold hover:opacity-90 disabled:opacity-50"
+            className="flex-1 py-2.5 bg-accent-strong text-white rounded-md text-sm font-semibold hover:opacity-90 disabled:opacity-50"
           >
             Save
           </button>

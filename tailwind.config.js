@@ -28,6 +28,7 @@ export default {
         'text-muted': 'rgb(var(--text-muted) / <alpha-value>)',
         'text-faint': 'rgb(var(--text-faint) / <alpha-value>)',
         accent: 'rgb(var(--accent) / <alpha-value>)',
+        'accent-strong': 'rgb(var(--accent-strong) / <alpha-value>)',
         'accent-soft': 'rgb(var(--accent-soft) / <alpha-value>)'
       },
       borderRadius: {

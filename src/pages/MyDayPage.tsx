@@ -135,7 +135,7 @@ function FocusMode({ blocks, onClose, onToggleDone }: FocusModeProps) {
                 'flex items-center gap-3 px-8 py-4 rounded-2xl text-xl font-semibold transition-[transform,opacity,background-color,border-color,color,box-shadow] ' +
                 (current.done
                   ? 'bg-surface-2 text-text-muted border-2 border-border'
-                  : 'bg-accent text-white shadow-lg active:scale-95')
+                  : 'bg-accent-strong text-white shadow-lg active:scale-95')
               }
             >
               <Check size={24} />
@@ -305,7 +305,7 @@ function BlockOnTimeline({ block, onCommit, onToggleDone, onRemove }: BlockOnTim
           className={
             'mt-0.5 shrink-0 rounded-full border-2 w-4 h-4 flex items-center justify-center transition-colors ' +
             (block.done
-              ? 'bg-accent border-accent text-white'
+              ? 'bg-accent-strong border-accent text-white'
               : 'border-border hover:border-accent bg-bg')
           }
           aria-label={block.done ? 'Mark undone' : 'Mark done'}
@@ -612,7 +612,7 @@ function ActivityModal({ initial, onSave, onClose }: ActivityModalProps) {
                     className={
                       'w-8 h-8 rounded flex items-center justify-center transition-colors ' +
                       (icon === name
-                        ? 'bg-accent text-white'
+                        ? 'bg-accent-strong text-white'
                         : 'bg-surface-2 text-text-muted hover:bg-surface')
                     }
                   >
@@ -630,7 +630,7 @@ function ActivityModal({ initial, onSave, onClose }: ActivityModalProps) {
           <button
             onClick={handleSave}
             disabled={!title.trim()}
-            className="px-5 py-2 bg-accent text-white text-sm font-medium rounded-md hover:opacity-90 disabled:opacity-40"
+            className="px-5 py-2 bg-accent-strong text-white text-sm font-medium rounded-md hover:opacity-90 disabled:opacity-40"
           >
             {initial ? 'Save' : 'Add'}
           </button>
@@ -764,7 +764,7 @@ export function MyDayPage() {
             <h2 className="font-display text-base text-text">Activities</h2>
             <button
               onClick={() => setModalState({ mode: 'add' })}
-              className="w-7 h-7 rounded-md bg-accent text-white flex items-center justify-center hover:opacity-90"
+              className="w-7 h-7 rounded-md bg-accent-strong text-white flex items-center justify-center hover:opacity-90"
               title="Add activity"
             >
               <Plus size={14} />
@@ -874,7 +874,7 @@ export function MyDayPage() {
 
             <button
               onClick={() => setFocusMode(true)}
-              className="flex items-center gap-1.5 px-2.5 sm:px-3 py-2 bg-accent text-white text-sm font-medium rounded-md hover:opacity-90 shrink-0"
+              className="flex items-center gap-1.5 px-2.5 sm:px-3 py-2 bg-accent-strong text-white text-sm font-medium rounded-md hover:opacity-90 shrink-0"
               aria-label="Focus mode"
             >
               <Maximize2 size={16} />
@@ -898,7 +898,7 @@ export function MyDayPage() {
               <h2 className="font-display text-base text-text">Activities</h2>
               <button
                 onClick={() => setModalState({ mode: 'add' })}
-                className="w-7 h-7 rounded-md bg-accent text-white flex items-center justify-center hover:opacity-90"
+                className="w-7 h-7 rounded-md bg-accent-strong text-white flex items-center justify-center hover:opacity-90"
                 title="Add activity"
               >
                 <Plus size={14} />

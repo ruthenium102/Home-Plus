@@ -156,7 +156,7 @@ export function AuthPage() {
         {/* Invite banner */}
         {invitePreview && !invitePreview.accepted && (
           <div className="px-5 py-4 border-b border-border bg-accent-soft/40 flex items-start gap-3">
-            <div className="w-9 h-9 rounded-full bg-accent text-white flex items-center justify-center shrink-0">
+            <div className="w-9 h-9 rounded-full bg-accent-strong text-white flex items-center justify-center shrink-0">
               <Users size={16} />
             </div>
             <div className="text-sm">
@@ -345,7 +345,7 @@ export function AuthPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-3 bg-accent text-white text-sm font-semibold rounded-md hover:opacity-90 active:scale-[0.98] transition-[transform,opacity,background-color,border-color,color,box-shadow] disabled:opacity-50 flex items-center justify-center gap-2"
+            className="w-full py-3 bg-accent-strong text-white text-sm font-semibold rounded-md hover:opacity-90 active:scale-[0.98] transition-[transform,opacity,background-color,border-color,color,box-shadow] disabled:opacity-50 flex items-center justify-center gap-2"
           >
             {loading && <Loader2 size={16} className="animate-spin" />}
             {mode === 'signin' && 'Sign in'}

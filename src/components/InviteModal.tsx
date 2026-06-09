@@ -145,7 +145,7 @@ export function InviteModal({ open, onClose, defaultName, defaultRole = 'child' 
               <div>
                 <button
                   onClick={handleClose}
-                  className="mt-5 px-6 py-2.5 bg-accent text-white text-sm font-medium rounded-md hover:opacity-90"
+                  className="mt-5 px-6 py-2.5 bg-accent-strong text-white text-sm font-medium rounded-md hover:opacity-90"
                 >
                   Done
                 </button>
@@ -241,7 +241,7 @@ export function InviteModal({ open, onClose, defaultName, defaultRole = 'child' 
                   <button
                     onClick={handleSend}
                     disabled={state === 'loading' || !email.trim()}
-                    className="flex items-center gap-2 px-5 py-2 bg-accent text-white text-sm font-medium rounded-md hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed transition-opacity"
+                    className="flex items-center gap-2 px-5 py-2 bg-accent-strong text-white text-sm font-medium rounded-md hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed transition-opacity"
                   >
                     {state === 'loading' && <Loader2 size={14} className="animate-spin" />}
                     Send invitation

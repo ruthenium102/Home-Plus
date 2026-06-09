@@ -65,7 +65,7 @@ export const SideRail = memo(function SideRail({
             className={
               'flex items-center gap-3 px-3 py-2.5 rounded-md transition-[transform,background-color,color,box-shadow] min-h-[44px] text-left ' +
               (isActive
-                ? 'bg-accent text-white shadow-sm'
+                ? 'bg-accent-strong text-white shadow-sm'
                 : 'text-text-muted hover:bg-surface-2 hover:text-text')
             }
           >
