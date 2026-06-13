@@ -3,7 +3,6 @@ import {
   useCallback,
   useEffect,
   useImperativeHandle,
-  useMemo,
   useRef,
   useState,
 } from 'react';
@@ -174,16 +173,11 @@ export const PetCanvas = forwardRef<PetCanvasHandle, Props>(function PetCanvas(
     return () => clearTimeout(t);
   }, [attentionTrigger]);
 
-  // ---- Compute mood class for breathe/bounce ----
-
-  const moodCls = useMemo(() => {
-    if (mood === 'idle') return 'pet-idle';
-    if (mood === 'happy') return 'pet-happy';
-    if (mood === 'eating') return 'pet-eating';
-    if (mood === 'drinking') return 'pet-drinking';
-    if (mood === 'sleeping') return 'pet-sleeping';
-    return 'pet-sad';
-  }, [mood]);
+  // ---- Mood class — drives the nested bob/breathe motion via CSS ----
+  // The wrapper itself no longer animates continuously; it only hosts one-shot
+  // reactions (squash/squish/attention). Continuous, organic motion lives in the
+  // nested .pet-bob / .pet-breathe-l groups inside the SVG.
+  const moodCls = `mood-${mood}`;
 
   // Tail wag speed scales with mood
   const tailWagCls =
@@ -310,6 +304,13 @@ export const PetCanvas = forwardRef<PetCanvasHandle, Props>(function PetCanvas(
               transition: 'transform 600ms cubic-bezier(0.34, 1.56, 0.64, 1)',
             }}
           >
+           {/* Nested motion layers: outer float/sway + inner breathe, on
+               independent phases so the pet reads as alive. */}
+           <g className="pet-bob" style={{ transformBox: 'view-box', transformOrigin: '100px 172px' }}>
+            <g
+              className="pet-breathe-l"
+              style={{ transformBox: 'view-box', transformOrigin: '100px 172px' }}
+            >
             {isCustom ? (
               customImage ? (
                 <image
@@ -337,7 +338,11 @@ export const PetCanvas = forwardRef<PetCanvasHandle, Props>(function PetCanvas(
                 </g>
               )
             ) : (
-              <AnimalLayers animal={animal} mood={mood} tailWagCls={tailWagCls} />
+              <>
+                <Paws animal={animal} fill={animal === 'dragon' ? 'url(#green-grad)' : 'url(#body-grad)'} />
+                <AnimalLayers animal={animal} mood={mood} tailWagCls={tailWagCls} />
+                <HeadGloss />
+              </>
             )}
 
             {/* Eyes — independent layer with iris tracking. For custom pets we
@@ -423,6 +428,8 @@ export const PetCanvas = forwardRef<PetCanvasHandle, Props>(function PetCanvas(
                 💤
               </text>
             )}
+            </g>
+           </g>
           </g>
         </svg>
       </div>
@@ -498,7 +505,51 @@ interface LayerProps {
 }
 
 function Body({ fill = 'url(#body-grad)' }: { fill?: string }) {
-  return <ellipse cx={CX} cy={CY + R * 0.72} rx={R * 0.6} ry={R * 0.45} fill={fill} />;
+  return (
+    <g>
+      <ellipse cx={CX} cy={CY + R * 0.72} rx={R * 0.6} ry={R * 0.45} fill={fill} />
+      {/* Soft belly highlight for a rounder, lit look */}
+      <ellipse cx={CX} cy={CY + R * 0.62} rx={R * 0.4} ry={R * 0.3} fill="#fff" opacity={0.16} />
+    </g>
+  );
+}
+
+/**
+ * Two little feet at the body's base, each gently lifting on an offset phase so
+ * the pet looks restless rather than glued to the floor. Hidden for the axolotl
+ * (it has fins instead).
+ */
+function Paws({ animal, fill = 'url(#body-grad)' }: { animal: PetAnimal; fill?: string }) {
+  if (animal === 'axolotl') return null;
+  const baseY = CY + R * 1.08;
+  const dx = R * 0.32;
+  return (
+    <>
+      <g className="paw-step">
+        <ellipse cx={CX - dx} cy={baseY} rx={R * 0.21} ry={R * 0.13} fill={fill} />
+        <ellipse cx={CX - dx} cy={baseY + R * 0.02} rx={R * 0.12} ry={R * 0.07} fill="#000" opacity={0.05} />
+      </g>
+      <g className="paw-step-alt">
+        <ellipse cx={CX + dx} cy={baseY} rx={R * 0.21} ry={R * 0.13} fill={fill} />
+        <ellipse cx={CX + dx} cy={baseY + R * 0.02} rx={R * 0.12} ry={R * 0.07} fill="#000" opacity={0.05} />
+      </g>
+    </>
+  );
+}
+
+/**
+ * Lighting pass drawn over the head (under the eyes): a faint ambient shadow
+ * where head meets body, plus a soft specular highlight up top-left. Cheap depth
+ * that makes the flat shapes read as rounded.
+ */
+function HeadGloss() {
+  return (
+    <>
+      <ellipse cx={CX} cy={CY + R * 0.6} rx={R * 0.52} ry={R * 0.2} fill="#000" opacity={0.06} />
+      <ellipse cx={CX - R * 0.32} cy={CY - R * 0.38} rx={R * 0.3} ry={R * 0.22} fill="#fff" opacity={0.26} />
+      <ellipse cx={CX - R * 0.16} cy={CY - R * 0.5} rx={R * 0.11} ry={R * 0.08} fill="#fff" opacity={0.42} />
+    </>
+  );
 }
 
 function Head({ fill = 'url(#head-grad)' }: { fill?: string }) {

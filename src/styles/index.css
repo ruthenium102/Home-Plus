@@ -170,22 +170,68 @@ textarea {
 }
 
 /* ---- Virtual Pet animations ---- */
+/* Layered idle motion. Two nested SVG groups animate on *independent* phases so
+   the pet never looks robotic: an outer "bob" (gentle float + sway) and an inner
+   "breathe" (subtle squash/stretch from the feet). The .mood-* class on the
+   figure wrapper retunes their speed and feel. */
+@keyframes pet-bob {
+  0%,
+  100% {
+    transform: translateY(0) rotate(0deg);
+  }
+  25% {
+    transform: translateY(-2.5px) rotate(-1deg);
+  }
+  50% {
+    transform: translateY(-4.5px) rotate(0deg);
+  }
+  75% {
+    transform: translateY(-2.5px) rotate(1deg);
+  }
+}
+@keyframes pet-hop {
+  0%,
+  100% {
+    transform: translateY(0) rotate(0deg);
+  }
+  18% {
+    transform: translateY(-14px) rotate(-2.5deg);
+  }
+  38% {
+    transform: translateY(0) rotate(0deg);
+  }
+  54% {
+    transform: translateY(-7px) rotate(2.5deg);
+  }
+  72% {
+    transform: translateY(0) rotate(0deg);
+  }
+}
 @keyframes pet-breathe {
   0%,
   100% {
-    transform: translateY(0);
+    transform: scaleX(1) scaleY(1);
   }
   50% {
-    transform: translateY(-4px);
+    transform: scaleX(0.985) scaleY(1.028);
   }
 }
-@keyframes pet-bounce {
+@keyframes pet-breathe-deep {
   0%,
   100% {
-    transform: translateY(0);
+    transform: scaleX(1) scaleY(1) translateY(0);
   }
-  40% {
-    transform: translateY(-12px);
+  50% {
+    transform: scaleX(0.965) scaleY(1.055) translateY(-2px);
+  }
+}
+@keyframes pet-chomp {
+  0%,
+  100% {
+    transform: scaleX(1) scaleY(1);
+  }
+  50% {
+    transform: scaleX(1.055) scaleY(0.92);
   }
 }
 @keyframes pet-sparkle {
@@ -199,23 +245,54 @@ textarea {
     transform: scale(1);
   }
 }
-.pet-idle {
-  animation: pet-breathe 3s ease-in-out infinite;
+
+.pet-bob {
+  animation: pet-bob 3.6s ease-in-out infinite;
 }
-.pet-happy {
-  animation: pet-bounce 0.8s ease-in-out infinite;
+.pet-breathe-l {
+  animation: pet-breathe 2.7s ease-in-out infinite;
 }
-.pet-eating {
-  animation: pet-breathe 1.5s ease-in-out infinite;
+
+/* Mood retuning (class lives on the figure wrapper, targets nested groups) */
+.mood-happy .pet-bob {
+  animation: pet-hop 1.3s ease-in-out infinite;
 }
-.pet-drinking {
-  animation: pet-breathe 1.5s ease-in-out infinite;
+.mood-happy .pet-breathe-l {
+  animation-duration: 1.1s;
 }
-.pet-sleeping {
-  animation: pet-breathe 5s ease-in-out infinite;
+.mood-eating .pet-breathe-l,
+.mood-drinking .pet-breathe-l {
+  animation: pet-chomp 0.55s ease-in-out infinite;
 }
-.pet-sad {
-  animation: pet-breathe 4s ease-in-out infinite;
+.mood-eating .pet-bob,
+.mood-drinking .pet-bob {
+  animation-duration: 4.2s;
+}
+.mood-sleeping .pet-bob {
+  animation: none;
+  transform: translateY(3px);
+}
+.mood-sleeping .pet-breathe-l {
+  animation: pet-breathe-deep 4.8s ease-in-out infinite;
+}
+.mood-sad .pet-bob {
+  animation: none;
+  transform: translateY(2px);
+}
+.mood-sad .pet-breathe-l {
+  animation-duration: 4.4s;
+}
+
+/* Respect reduced-motion for the continuous loops (one-shot reactions stay). */
+@media (prefers-reduced-motion: reduce) {
+  .pet-bob,
+  .pet-breathe-l,
+  .tail-wag-slow,
+  .tail-wag-fast,
+  .ear-twitch,
+  .paw-step {
+    animation: none !important;
+  }
 }
 
 /* Pause every pet animation when the page is hidden — saves CPU */
@@ -447,6 +524,28 @@ textarea {
 }
 .ear-twitch {
   animation: ear-twitch 10s ease-in-out infinite;
+  transform-box: fill-box;
+  transform-origin: bottom center;
+}
+
+/* Subtle alternating paw lift — a restless, can't-sit-still idle. */
+@keyframes paw-step {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-1.6px);
+  }
+}
+.paw-step {
+  animation: paw-step 1.9s ease-in-out infinite;
+  transform-box: fill-box;
+  transform-origin: bottom center;
+}
+.paw-step-alt {
+  animation: paw-step 1.9s ease-in-out infinite;
+  animation-delay: -0.95s;
   transform-box: fill-box;
   transform-origin: bottom center;
 }
