@@ -1,109 +1,18 @@
-import { useEffect, useState } from 'react';
-import {
-  Trash2,
-  Wrench,
-  Hammer,
-  GraduationCap,
-  CircleUserRound,
-  ShoppingBag,
-  Briefcase,
-  Heart,
-  Plane,
-  ChefHat,
-  ListChecks,
-  Home,
-  Car,
-  Gift,
-  Dumbbell,
-  BookOpen,
-  Gamepad2,
-  Music,
-  Palette,
-  Sparkles,
-  PawPrint,
-  Baby,
-  Flower2,
-  TreePine,
-  Pill,
-  Shirt,
-  Salad,
-  Carrot,
-  Apple,
-  Banana,
-  Beef,
-  Drumstick,
-  Fish,
-  Soup,
-  Pizza,
-  Sandwich,
-  Egg,
-  Cake,
-  IceCream,
-  Coffee,
-  Wine,
-  Milk,
-  Utensils,
-  Croissant,
-} from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { Trash2, Search, X } from 'lucide-react';
 import { useFamily } from '@/context/FamilyContext';
 import { COLOR_OPTIONS, MEMBER_COLORS } from '@/lib/colors';
+import { ICON_OPTIONS, ICON_CATEGORIES, getListIcon } from '@/lib/listIcons';
 import { Modal } from './Modal';
 import type { TodoList, MemberColor } from '@/types';
+
+export { getListIcon };
 
 interface Props {
   open: boolean;
   onClose: () => void;
   editing?: TodoList | null;
 }
-
-const ICON_OPTIONS = [
-  // Tasks & household
-  { name: 'ListChecks', Icon: ListChecks },
-  { name: 'Home', Icon: Home },
-  { name: 'ShoppingBag', Icon: ShoppingBag },
-  { name: 'Wrench', Icon: Wrench },
-  { name: 'Hammer', Icon: Hammer },
-  { name: 'Briefcase', Icon: Briefcase },
-  { name: 'GraduationCap', Icon: GraduationCap },
-  { name: 'Car', Icon: Car },
-  { name: 'Plane', Icon: Plane },
-  { name: 'CircleUserRound', Icon: CircleUserRound },
-  // Food & kitchen
-  { name: 'ChefHat', Icon: ChefHat },
-  { name: 'Utensils', Icon: Utensils },
-  { name: 'Salad', Icon: Salad },
-  { name: 'Carrot', Icon: Carrot },
-  { name: 'Apple', Icon: Apple },
-  { name: 'Banana', Icon: Banana },
-  { name: 'Beef', Icon: Beef },
-  { name: 'Drumstick', Icon: Drumstick },
-  { name: 'Fish', Icon: Fish },
-  { name: 'Soup', Icon: Soup },
-  { name: 'Pizza', Icon: Pizza },
-  { name: 'Sandwich', Icon: Sandwich },
-  { name: 'Egg', Icon: Egg },
-  { name: 'Croissant', Icon: Croissant },
-  { name: 'Cake', Icon: Cake },
-  { name: 'IceCream', Icon: IceCream },
-  { name: 'Coffee', Icon: Coffee },
-  { name: 'Milk', Icon: Milk },
-  { name: 'Wine', Icon: Wine },
-  // Family & life
-  { name: 'Heart', Icon: Heart },
-  { name: 'Baby', Icon: Baby },
-  { name: 'PawPrint', Icon: PawPrint },
-  { name: 'Gift', Icon: Gift },
-  { name: 'Dumbbell', Icon: Dumbbell },
-  { name: 'BookOpen', Icon: BookOpen },
-  { name: 'Gamepad2', Icon: Gamepad2 },
-  { name: 'Music', Icon: Music },
-  { name: 'Palette', Icon: Palette },
-  { name: 'Shirt', Icon: Shirt },
-  { name: 'Pill', Icon: Pill },
-  { name: 'Flower2', Icon: Flower2 },
-  { name: 'TreePine', Icon: TreePine },
-  { name: 'Sparkles', Icon: Sparkles },
-];
 
 export function ListEditor({ open, onClose, editing }: Props) {
   const { activeMember, members, addList, updateList, deleteList } = useFamily();
@@ -112,6 +21,7 @@ export function ListEditor({ open, onClose, editing }: Props) {
   const [icon, setIcon] = useState<string>('ListChecks');
   const [color, setColor] = useState<MemberColor | null>(null);
   const [ownerId, setOwnerId] = useState<string | null>(null);
+  const [iconQuery, setIconQuery] = useState('');
 
   // Only re-init when the editor opens or the target list changes.
   // activeMember is intentionally excluded — its reference flips on every
@@ -119,6 +29,7 @@ export function ListEditor({ open, onClose, editing }: Props) {
    
   useEffect(() => {
     if (!open) return;
+    setIconQuery('');
     if (editing) {
       setName(editing.name);
       setIcon(editing.icon || 'ListChecks');
@@ -131,6 +42,21 @@ export function ListEditor({ open, onClose, editing }: Props) {
       setOwnerId(null); // shared by default
     }
   }, [open, editing?.id]);
+
+  // Group icons by category, or flatten to a single filtered set when searching.
+  const iconGroups = useMemo(() => {
+    const q = iconQuery.trim().toLowerCase();
+    if (q) {
+      const matches = ICON_OPTIONS.filter(
+        (o) => o.keywords.includes(q) || o.category.toLowerCase().includes(q),
+      );
+      return matches.length ? [{ category: 'Results', icons: matches }] : [];
+    }
+    return ICON_CATEGORIES.map((category) => ({
+      category,
+      icons: ICON_OPTIONS.filter((o) => o.category === category),
+    }));
+  }, [iconQuery]);
 
 
   const handleSave = () => {
@@ -247,21 +173,59 @@ export function ListEditor({ open, onClose, editing }: Props) {
           {/* Icon */}
           <div>
             <div className="text-sm text-text-muted mb-2">Icon</div>
-            <div className="grid grid-cols-5 gap-1.5 max-h-52 overflow-y-auto pr-1">
-              {ICON_OPTIONS.map((opt) => (
+            <div className="relative mb-2">
+              <Search
+                size={15}
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-text-faint pointer-events-none"
+              />
+              <input
+                type="text"
+                value={iconQuery}
+                onChange={(e) => setIconQuery(e.target.value)}
+                placeholder="Search icons…"
+                className="w-full pl-9 pr-9 py-2 bg-surface-2 border border-border rounded-md text-text text-sm placeholder:text-text-faint focus:outline-none focus:border-accent"
+              />
+              {iconQuery && (
                 <button
-                  key={opt.name}
-                  onClick={() => setIcon(opt.name)}
-                  className={
-                    'aspect-square flex items-center justify-center rounded-md border-2 transition-colors ' +
-                    (icon === opt.name
-                      ? 'border-accent bg-accent-soft text-accent'
-                      : 'border-border hover:border-border-strong text-text-muted')
-                  }
+                  onClick={() => setIconQuery('')}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 w-6 h-6 rounded-md flex items-center justify-center text-text-faint hover:text-text"
+                  title="Clear"
                 >
-                  <opt.Icon size={18} />
+                  <X size={14} />
                 </button>
-              ))}
+              )}
+            </div>
+            <div className="max-h-64 overflow-y-auto pr-1 -mr-1">
+              {iconGroups.length === 0 ? (
+                <div className="text-xs text-text-faint text-center py-8">
+                  No icons match “{iconQuery}”.
+                </div>
+              ) : (
+                iconGroups.map((group) => (
+                  <div key={group.category} className="mb-3 last:mb-0">
+                    <div className="text-[11px] uppercase tracking-wider text-text-faint px-0.5 mb-1.5">
+                      {group.category}
+                    </div>
+                    <div className="grid grid-cols-6 gap-1.5">
+                      {group.icons.map((opt) => (
+                        <button
+                          key={opt.name}
+                          onClick={() => setIcon(opt.name)}
+                          title={opt.name}
+                          className={
+                            'aspect-square flex items-center justify-center rounded-md border-2 transition-colors ' +
+                            (icon === opt.name
+                              ? 'border-accent bg-accent-soft text-accent'
+                              : 'border-border hover:border-border-strong text-text-muted')
+                          }
+                        >
+                          <opt.Icon size={18} />
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
           </div>
 
@@ -286,14 +250,3 @@ export function ListEditor({ open, onClose, editing }: Props) {
     </Modal>
   );
 }
-
-/**
- * Resolve a list's icon name to its Lucide component.
- * Used by ListsPage and HomePage.
- */
-export function getListIcon(iconName: string | null): LucideIconType {
-  const found = ICON_OPTIONS.find((o) => o.name === iconName);
-  return found?.Icon ?? ListChecks;
-}
-
-type LucideIconType = typeof ListChecks;
