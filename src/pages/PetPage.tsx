@@ -14,7 +14,7 @@ import { HeartBurst } from '@/components/pet/HeartBurst';
 import { MiniGame } from '@/components/pet/MiniGame';
 import {
   ACCESSORIES,
-  nextUnlock,
+  findAccessory,
   wornForSlot,
   type Accessory,
 } from '@/components/pet/petAccessories';
@@ -237,6 +237,8 @@ function PetView({ pet, memberId, onNewPet }: PetViewProps) {
     playWithPet,
     wearAccessory,
     removeAccessory,
+    buyAccessory,
+    awardPetCoins,
     gainXp,
   } = useFamily();
   const { resolved } = useTheme();
@@ -331,6 +333,12 @@ function PetView({ pet, memberId, onNewPet }: PetViewProps) {
   const stageLabel = stage === 'baby' ? 'Baby' : stage === 'child' ? 'Junior' : 'Adult';
 
   const accessoriesWorn = Array.isArray(pet.accessories) ? pet.accessories : [];
+  const owned = Array.isArray(pet.owned_accessories) ? pet.owned_accessories : [];
+  const coins = pet.coins ?? 0;
+  const careStreak = pet.care_streak ?? 0;
+  const wornChips = accessoriesWorn
+    .map(findAccessory)
+    .filter((a): a is Accessory => Boolean(a));
 
   // ---- Click-to-pat ----
 
@@ -416,23 +424,31 @@ function PetView({ pet, memberId, onNewPet }: PetViewProps) {
     }
   }, [mood, speak]);
 
-  // ---- Accessory wear/remove ----
+  // ---- Shop: buy / equip ----
 
-  const onToggleAccessory = useCallback(
+  // Tap a shop item: buy it if not owned (and affordable), otherwise toggle it
+  // on/off — equipping replaces any item already worn in the same slot.
+  const onTapAccessory = useCallback(
     (a: Accessory) => {
+      if (!owned.includes(a.id)) {
+        if (coins < a.price) {
+          speak('Not enough coins!');
+          return;
+        }
+        buyAccessory(memberId, a.id, a.price);
+        speak(`Got the ${a.label}!`);
+        return;
+      }
       if (accessoriesWorn.includes(a.id)) {
         removeAccessory(memberId, a.id);
         return;
       }
-      // Replace any currently-worn item in the same slot
       const sameSlot = wornForSlot(accessoriesWorn, a.slot);
       if (sameSlot) removeAccessory(memberId, sameSlot.id);
       wearAccessory(memberId, a.id);
     },
-    [accessoriesWorn, memberId, removeAccessory, wearAccessory],
+    [owned, coins, accessoriesWorn, memberId, buyAccessory, removeAccessory, wearAccessory, speak],
   );
-
-  const upcoming = useMemo(() => nextUnlock(pet.xp), [pet.xp]);
 
   return (
     <div className="max-w-lg mx-auto space-y-5">
@@ -445,6 +461,19 @@ function PetView({ pet, memberId, onNewPet }: PetViewProps) {
             <p className="text-xs text-text-muted capitalize">
               {animalMeta.label} · {stageLabel}
             </p>
+            <div className="mt-1 flex items-center gap-2.5 text-xs">
+              <span className="inline-flex items-center gap-1 font-semibold text-text" title="Coins">
+                🪙 {coins}
+              </span>
+              {careStreak > 1 && (
+                <span
+                  className="inline-flex items-center gap-1 text-text-muted"
+                  title="Daily care streak"
+                >
+                  🔥 {careStreak}-day
+                </span>
+              )}
+            </div>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -484,7 +513,6 @@ function PetView({ pet, memberId, onNewPet }: PetViewProps) {
             mood={mood}
             size={200}
             xp={pet.xp}
-            accessories={accessoriesWorn}
             interactive
             onPetClick={handlePetClick}
             attentionTrigger={attentionTrigger}
@@ -498,6 +526,24 @@ function PetView({ pet, memberId, onNewPet }: PetViewProps) {
             <div className="absolute top-2 left-1/2 -translate-x-1/2 text-lg opacity-70">😢</div>
           )}
         </div>
+
+        {/* Currently wearing — shown as tidy chips rather than overlaid on the
+            illustration (which can't align across species). */}
+        {wornChips.length > 0 && (
+          <div className="flex items-center gap-1.5 flex-wrap justify-center">
+            <span className="text-[11px] text-text-faint">Wearing</span>
+            {wornChips.map((a) => (
+              <span
+                key={a.id}
+                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-surface-2 border border-border text-xs"
+                title={a.label}
+              >
+                <span>{a.emoji}</span>
+                <span className="text-text-muted">{a.label}</span>
+              </span>
+            ))}
+          </div>
+        )}
         <p className="text-xs text-text-faint italic mt-1">
           {mood === 'happy'
             ? `${pet.name} is absolutely thriving!`
@@ -577,8 +623,8 @@ function PetView({ pet, memberId, onNewPet }: PetViewProps) {
             onClick={() => setShowMiniGame((v) => !v)}
           />
           <ActionButton
-            emoji="👒"
-            label="Wardrobe"
+            emoji="🛍️"
+            label="Shop"
             color={actionColors.wardrobe}
             onClick={() => setShowAccessories((v) => !v)}
           />
@@ -593,57 +639,56 @@ function PetView({ pet, memberId, onNewPet }: PetViewProps) {
           onEnd={(score) => {
             if (score > 0) {
               gainXp(memberId, score * 2);
-              speak(`+${score * 2} XP!`);
+              awardPetCoins(memberId, score);
+              speak(`+${score * 2} XP · +${score} 🪙`);
               noteInteraction();
             }
           }}
         />
       )}
 
-      {/* Accessories */}
+      {/* Shop — buy accessories with coins, then tap to wear */}
       {showAccessories && (
         <div className="card p-5 space-y-3">
           <div className="flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-text-muted uppercase tracking-wider">
-              Wardrobe
-            </h3>
-            {upcoming && (
-              <p className="text-xs text-text-faint">
-                Next:{' '}
-                <span className="font-medium">
-                  {upcoming.emoji} {upcoming.label}
-                </span>{' '}
-                at {upcoming.unlockXp} XP
-              </p>
-            )}
+            <h3 className="text-sm font-semibold text-text-muted uppercase tracking-wider">Shop</h3>
+            <span className="text-sm font-bold text-text">🪙 {coins}</span>
           </div>
+          <p className="text-xs text-text-faint">
+            Earn coins by feeding, watering &amp; playing. Tap to buy, then tap again to wear.
+          </p>
           <div className="grid grid-cols-3 gap-2">
             {ACCESSORIES.map((a) => {
-              const locked = pet.xp < a.unlockXp;
+              const isOwned = owned.includes(a.id);
               const worn = accessoriesWorn.includes(a.id);
+              const affordable = coins >= a.price;
               return (
                 <button
                   key={a.id}
-                  disabled={locked}
-                  onClick={() => onToggleAccessory(a)}
+                  disabled={!isOwned && !affordable}
+                  onClick={() => onTapAccessory(a)}
                   className={
                     'p-3 rounded-2xl border-2 text-center transition-[transform,opacity,background-color,border-color,color,box-shadow] active:scale-95 ' +
                     (worn
                       ? 'border-accent bg-accent-soft shadow-md'
-                      : locked
-                        ? 'border-border bg-surface-2/40 opacity-50 cursor-not-allowed'
-                        : 'border-border hover:border-border-strong bg-surface-2/50')
+                      : isOwned
+                        ? 'border-border hover:border-border-strong bg-surface-2/50'
+                        : affordable
+                          ? 'border-border hover:border-border-strong bg-surface-2/50'
+                          : 'border-border bg-surface-2/40 opacity-50 cursor-not-allowed')
                   }
-                  title={locked ? `Unlocks at ${a.unlockXp} XP` : a.hint}
+                  title={a.hint}
                 >
-                  <div className="text-2xl mb-1">{locked ? '🔒' : a.emoji}</div>
+                  <div className="text-2xl mb-1">{a.emoji}</div>
                   <div className="text-xs font-medium text-text">{a.label}</div>
-                  <div className="text-[10px] text-text-faint capitalize">{a.slot}</div>
-                  {locked && (
-                    <div className="text-[10px] text-text-faint mt-0.5">{a.unlockXp} XP</div>
-                  )}
-                  {worn && (
+                  {worn ? (
                     <div className="text-[10px] text-accent font-semibold mt-0.5">Wearing</div>
+                  ) : isOwned ? (
+                    <div className="text-[10px] text-text-faint mt-0.5">Tap to wear</div>
+                  ) : (
+                    <div className="text-[10px] text-text-muted font-semibold mt-0.5">
+                      🪙 {a.price}
+                    </div>
                   )}
                 </button>
               );

@@ -1,7 +1,6 @@
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import type { PetAnimal } from '@/types';
 import { petImage } from './petSpecies';
-import { wornForSlot } from './petAccessories';
 
 export type PetMood = 'idle' | 'eating' | 'drinking' | 'happy' | 'sad' | 'sleeping';
 export type PetStage = 'baby' | 'child' | 'adult';
@@ -19,8 +18,6 @@ interface Props {
   size?: number;
   /** Pet xp; controls growth stage. */
   xp?: number;
-  /** Currently-worn accessory ids. */
-  accessories?: string[];
   /** When true, the pet is interactive (click-to-pat). */
   interactive?: boolean;
   /** Called when the SVG itself is clicked. */
@@ -55,7 +52,6 @@ export const PetCanvas = forwardRef<PetCanvasHandle, Props>(function PetCanvas(
     mood,
     size = 160,
     xp = 0,
-    accessories = [],
     interactive = false,
     onPetClick,
     attentionTrigger = 0,
@@ -208,9 +204,6 @@ export const PetCanvas = forwardRef<PetCanvasHandle, Props>(function PetCanvas(
                   style={{ pointerEvents: 'none' }}
                 />
 
-                {/* Wardrobe — worn accessories as emoji overlays, by slot. */}
-                <EmojiAccessories accessories={accessories} />
-
                 {/* Mood overlays */}
                 {mood === 'eating' && (
                   <text x={cx + r * 0.85} y={cy + r * 0.25} fontSize={r * 0.4} textAnchor="middle">
@@ -257,41 +250,3 @@ export const PetCanvas = forwardRef<PetCanvasHandle, Props>(function PetCanvas(
     </div>
   );
 });
-
-// ---- Wardrobe overlay ----
-
-/**
- * Worn accessories drawn as emoji over the illustrated pet, positioned by slot.
- * One item per slot (hat / face / neck). Coordinates are tuned to the inset
- * Fluent artwork box.
- */
-function EmojiAccessories({ accessories }: { accessories: string[] }) {
-  const list = Array.isArray(accessories) ? accessories : [];
-  const hat = wornForSlot(list, 'hat');
-  const face = wornForSlot(list, 'face');
-  const neck = wornForSlot(list, 'neck');
-  const common = {
-    textAnchor: 'middle' as const,
-    dominantBaseline: 'central' as const,
-    style: { pointerEvents: 'none' as const },
-  };
-  return (
-    <>
-      {hat && (
-        <text x={100} y={40} fontSize={42} {...common}>
-          {hat.emoji}
-        </text>
-      )}
-      {face && (
-        <text x={100} y={82} fontSize={36} {...common}>
-          {face.emoji}
-        </text>
-      )}
-      {neck && (
-        <text x={100} y={126} fontSize={30} {...common}>
-          {neck.emoji}
-        </text>
-      )}
-    </>
-  );
-}

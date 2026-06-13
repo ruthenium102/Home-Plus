@@ -1,89 +1,35 @@
-// Accessory catalog for the virtual pet.
-// Accessories are unlocked at XP milestones, rendered as additional SVG layers
-// on top of the base pet, and persisted on the VirtualPet record.
+// Accessory catalog for the virtual pet shop (phase 3).
+// Accessories are bought with coins (earned by caring for the pet), then can be
+// equipped. One item per slot can be worn at a time.
 
 export type AccessorySlot = 'hat' | 'face' | 'neck';
 
 export interface Accessory {
   id: string;
   label: string;
-  emoji: string; // shown in shop / picker
+  emoji: string; // shown in shop / picker / worn chips
   slot: AccessorySlot; // only one item per slot can be worn at a time
-  unlockXp: number; // pet xp threshold
+  price: number; // coin cost in the shop
   hint: string; // short description
 }
 
 export const ACCESSORIES: Accessory[] = [
   // Hats
-  {
-    id: 'beanie',
-    label: 'Beanie',
-    emoji: '🧢',
-    slot: 'hat',
-    unlockXp: 20,
-    hint: 'A cozy little beanie.',
-  },
-  {
-    id: 'top_hat',
-    label: 'Top Hat',
-    emoji: '🎩',
-    slot: 'hat',
-    unlockXp: 80,
-    hint: 'For the dapper pet about town.',
-  },
-  {
-    id: 'crown',
-    label: 'Crown',
-    emoji: '👑',
-    slot: 'hat',
-    unlockXp: 250,
-    hint: 'Royalty earns it.',
-  },
-  {
-    id: 'party',
-    label: 'Party Hat',
-    emoji: '🥳',
-    slot: 'hat',
-    unlockXp: 400,
-    hint: 'Time to celebrate!',
-  },
+  { id: 'beanie', label: 'Beanie', emoji: '🧢', slot: 'hat', price: 25, hint: 'A cozy little beanie.' },
+  { id: 'flower', label: 'Flower', emoji: '🌸', slot: 'hat', price: 55, hint: 'Pretty in bloom.' },
+  { id: 'top_hat', label: 'Top Hat', emoji: '🎩', slot: 'hat', price: 80, hint: 'For the dapper pet about town.' },
+  { id: 'party', label: 'Party Hat', emoji: '🥳', slot: 'hat', price: 120, hint: 'Time to celebrate!' },
+  { id: 'crown', label: 'Crown', emoji: '👑', slot: 'hat', price: 200, hint: 'Royalty earns it.' },
   // Face
-  {
-    id: 'glasses',
-    label: 'Glasses',
-    emoji: '🤓',
-    slot: 'face',
-    unlockXp: 40,
-    hint: 'Smart-looking spectacles.',
-  },
-  { id: 'shades', label: 'Shades', emoji: '😎', slot: 'face', unlockXp: 150, hint: 'Too cool.' },
+  { id: 'glasses', label: 'Glasses', emoji: '🤓', slot: 'face', price: 35, hint: 'Smart-looking spectacles.' },
+  { id: 'goggles', label: 'Goggles', emoji: '🥽', slot: 'face', price: 50, hint: 'Ready for adventure.' },
+  { id: 'shades', label: 'Shades', emoji: '😎', slot: 'face', price: 90, hint: 'Too cool.' },
   // Neck
-  {
-    id: 'red_collar',
-    label: 'Red Collar',
-    emoji: '❤️',
-    slot: 'neck',
-    unlockXp: 10,
-    hint: 'A classic.',
-  },
-  { id: 'bow_tie', label: 'Bow Tie', emoji: '🎀', slot: 'neck', unlockXp: 60, hint: 'Fancy!' },
-  {
-    id: 'scarf',
-    label: 'Scarf',
-    emoji: '🧣',
-    slot: 'neck',
-    unlockXp: 180,
-    hint: 'Stylish and warm.',
-  },
+  { id: 'red_collar', label: 'Collar', emoji: '❤️', slot: 'neck', price: 15, hint: 'A classic.' },
+  { id: 'bell', label: 'Bell', emoji: '🔔', slot: 'neck', price: 30, hint: 'Jingle jingle.' },
+  { id: 'bow_tie', label: 'Bow Tie', emoji: '🎀', slot: 'neck', price: 45, hint: 'Fancy!' },
+  { id: 'scarf', label: 'Scarf', emoji: '🧣', slot: 'neck', price: 100, hint: 'Stylish and warm.' },
 ];
-
-export function unlockedAccessories(xp: number): Accessory[] {
-  return ACCESSORIES.filter((a) => xp >= a.unlockXp);
-}
-
-export function nextUnlock(xp: number): Accessory | null {
-  return ACCESSORIES.find((a) => xp < a.unlockXp) ?? null;
-}
 
 export function findAccessory(id: string): Accessory | undefined {
   return ACCESSORIES.find((a) => a.id === id);

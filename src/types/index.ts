@@ -493,10 +493,16 @@ export interface VirtualPet {
   last_interacted_at: string | null;
   created_at: string;
   // Currently-worn accessory ids (e.g. 'top_hat', 'red_collar'). Defaults to [].
-  // Stored in-memory + localStorage only; not synced to Supabase schema.
   accessories: string[];
-  // Custom pet data — only set when animal === 'custom'. Same localStorage-only
-  // storage pattern as accessories.
-  custom_image_data?: string | null; // data: URL of processed PNG
+  // Gameplay economy (phase 3). Coins are earned by caring for the pet and
+  // spent in the shop; owned_accessories is the purchased inventory.
+  coins: number;
+  owned_accessories: string[];
+  // Daily care streak: consecutive days the pet was cared for. last_care_date is
+  // the local YYYY-MM-DD the most recent daily bonus was claimed.
+  care_streak: number;
+  last_care_date?: string | null;
+  // Legacy custom-drawing data (feature retired). Kept so old rows still parse.
+  custom_image_data?: string | null;
   custom_eyes?: CustomPetEyes | null;
 }

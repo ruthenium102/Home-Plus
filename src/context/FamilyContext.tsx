@@ -213,6 +213,8 @@ interface FamilyContextValue {
   playWithPet: (memberId: string) => void;
   wearAccessory: (memberId: string, accessoryId: string) => void;
   removeAccessory: (memberId: string, accessoryId: string) => void;
+  buyAccessory: (memberId: string, accessoryId: string, price: number) => void;
+  awardPetCoins: (memberId: string, amount: number) => void;
   gainXp: (memberId: string, amount: number) => void;
 
   // Invite flow
@@ -302,6 +304,32 @@ const RECIPES_KEY = 'demo:recipes';
 const MEAL_PLANS_KEY = 'demo:meal_plans';
 const KITCHEN_SETTINGS_KEY = 'kitchen:settings';
 const PETS_KEY = 'demo:pets';
+
+// ---- Virtual pet economy (phase 3) ----------------------------------------
+const DAILY_CARE_BONUS = 6; // base coins for the first care of the day
+
+function localDateStr(d = new Date()): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+// Apply a care reward to a pet: award `baseCoins`, and — once per local day —
+// advance the care streak and grant a daily bonus that scales with the streak.
+function applyCare(pet: VirtualPet, baseCoins: number): VirtualPet {
+  const today = localDateStr();
+  let coins = (pet.coins ?? 0) + baseCoins;
+  let streak = pet.care_streak ?? 0;
+  let lastCareDate = pet.last_care_date ?? null;
+  if (lastCareDate !== today) {
+    const yesterday = localDateStr(new Date(Date.now() - 86_400_000));
+    streak = lastCareDate === yesterday ? streak + 1 : 1;
+    lastCareDate = today;
+    coins += DAILY_CARE_BONUS + Math.min(streak, 7) * 2;
+  }
+  return { ...pet, coins, care_streak: streak, last_care_date: lastCareDate };
+}
 
 const DEFAULT_KITCHEN_SETTINGS: KitchenSettings = {
   cupboard: [],
@@ -2459,6 +2487,11 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
         last_interacted_at: null,
         created_at: existing?.created_at ?? new Date().toISOString(),
         accessories: [],
+        // Keep coins/inventory/streak across a re-pick so kids don't lose progress.
+        coins: existing?.coins ?? 0,
+        owned_accessories: existing?.owned_accessories ?? [],
+        care_streak: existing?.care_streak ?? 0,
+        last_care_date: existing?.last_care_date ?? null,
         custom_image_data: custom?.image ?? null,
         custom_eyes: custom?.eyes ?? null,
       };
@@ -2482,11 +2515,16 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
     [],
   );
 
+  // feed/water/play are the "care" actions: naturally rate-limited by the stat
+  // caps, so they're a safe coin source (unlike pat, which is uncapped).
   const feedPet = useCallback((memberId: string) => {
     setPets((prev) =>
       prev.map((p) => {
         if (p.member_id !== memberId) return p;
-        const updated = { ...p, hunger: 100, last_fed_at: new Date().toISOString() };
+        const updated = applyCare(
+          { ...p, hunger: 100, last_fed_at: new Date().toISOString() },
+          3,
+        );
         persistPet(updated);
         return updated;
       }),
@@ -2497,7 +2535,10 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
     setPets((prev) =>
       prev.map((p) => {
         if (p.member_id !== memberId) return p;
-        const updated = { ...p, thirst: 100, last_watered_at: new Date().toISOString() };
+        const updated = applyCare(
+          { ...p, thirst: 100, last_watered_at: new Date().toISOString() },
+          3,
+        );
         persistPet(updated);
         return updated;
       }),
@@ -2525,10 +2566,46 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
       prev.map((p) => {
         if (p.member_id !== memberId) return p;
         const current = computePetStats(p);
+        const updated = applyCare(
+          {
+            ...p,
+            happiness: Math.min(100, current.happiness + 35),
+            last_interacted_at: new Date().toISOString(),
+          },
+          4,
+        );
+        persistPet(updated);
+        return updated;
+      }),
+    );
+  }, []);
+
+  // Add coins without touching the streak (e.g. mini-game catches).
+  const awardPetCoins = useCallback((memberId: string, amount: number) => {
+    if (amount <= 0) return;
+    setPets((prev) =>
+      prev.map((p) => {
+        if (p.member_id !== memberId) return p;
+        const updated = { ...p, coins: (p.coins ?? 0) + amount };
+        persistPet(updated);
+        return updated;
+      }),
+    );
+  }, []);
+
+  // Buy a shop accessory: deduct coins and add to the owned inventory. No-op if
+  // already owned or not enough coins.
+  const buyAccessory = useCallback((memberId: string, accessoryId: string, price: number) => {
+    setPets((prev) =>
+      prev.map((p) => {
+        if (p.member_id !== memberId) return p;
+        const owned = Array.isArray(p.owned_accessories) ? p.owned_accessories : [];
+        if (owned.includes(accessoryId)) return p;
+        if ((p.coins ?? 0) < price) return p;
         const updated = {
           ...p,
-          happiness: Math.min(100, current.happiness + 35),
-          last_interacted_at: new Date().toISOString(),
+          coins: (p.coins ?? 0) - price,
+          owned_accessories: [...owned, accessoryId],
         };
         persistPet(updated);
         return updated;
@@ -2702,6 +2779,8 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
       playWithPet,
       wearAccessory,
       removeAccessory,
+      buyAccessory,
+      awardPetCoins,
       gainXp,
       needsPasswordSetup,
       clearNeedsPasswordSetup,
@@ -2798,6 +2877,8 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
       playWithPet,
       wearAccessory,
       removeAccessory,
+      buyAccessory,
+      awardPetCoins,
       gainXp,
       needsPasswordSetup,
       clearNeedsPasswordSetup,
