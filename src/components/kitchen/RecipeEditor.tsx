@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { X, Trash2, Plus, ExternalLink, Mail } from 'lucide-react';
 import { guessRecipeIcon, tryHostname } from '@/lib/kitchen';
+import { EmojiPicker } from './EmojiPicker';
 import type { Ingredient, Recipe } from '@/types';
 
 interface Props {
@@ -151,16 +152,7 @@ export function RecipeEditor({ recipe, onSave, onDelete, onClose }: Props) {
         <div className="p-5 space-y-5">
           {/* Icon + Title */}
           <div className="flex gap-3">
-            <button
-              onClick={() => {
-                const emoji = window.prompt('Enter an emoji for this recipe', displayedIcon);
-                if (emoji) setIcon(emoji.trim().slice(0, 4));
-              }}
-              className="text-3xl w-12 h-12 rounded-lg bg-surface-2 flex items-center justify-center flex-shrink-0 hover:bg-surface-3 transition"
-              title="Change icon"
-            >
-              {displayedIcon}
-            </button>
+            <EmojiPicker value={displayedIcon} onSelect={setIcon} />
             <input
               value={title}
               onChange={(e) => setTitle(e.target.value)}
