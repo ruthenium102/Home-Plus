@@ -100,6 +100,7 @@ export function setDbErrorHandler(
 export function dbUpsert<T extends TableName>(
   table: T,
   data: Tables[T]['Insert'],
+  opts?: { onConflict?: string },
 ): PromiseLike<void> {
   const id = typeof (data as { id?: unknown }).id === 'string' ? (data as { id: string }).id : null;
   if (id) markPending(table, id);
@@ -122,7 +123,7 @@ export function dbUpsert<T extends TableName>(
 
   return supabase
     .from(table)
-    .upsert(payload as Tables[T]['Insert'])
+    .upsert(payload as Tables[T]['Insert'], opts?.onConflict ? { onConflict: opts.onConflict } : undefined)
     .then(({ error }) => {
       if (error) {
         console.warn(`[db] upsert ${table}:`, error.message);

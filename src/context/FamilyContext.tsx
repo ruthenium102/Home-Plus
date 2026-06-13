@@ -433,7 +433,11 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
   // dbUpsert regardless.
   const persistPet = useCallback((pet: VirtualPet) => {
     if (!membersRef.current.some((m) => m.id === pet.member_id)) return;
-    dbUpsert('virtual_pets', pet);
+    // Conflict on the (family_id, member_id) UNIQUE key, not the primary key, so
+    // replacing a member's pet (new id, same member) updates the existing row
+    // instead of failing the unique constraint — and self-heals any local/DB id
+    // drift from the earlier new-pet bug.
+    dbUpsert('virtual_pets', pet, { onConflict: 'family_id,member_id' });
   }, []);
   const [needsPasswordSetup, setNeedsPasswordSetup] = useState(
     () => sessionStorage.getItem('needs_password_setup') === '1',
@@ -2434,8 +2438,13 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
       const memberCheckIns = checkIns.filter((c) => c.member_id === memberId).length;
       const xp = memberCompletions * 10 + memberCheckIns * 5;
       const unlocked_actions = deriveUnlockedActions(xp);
+      // Starting a new animal replaces the member's existing pet. The DB has a
+      // UNIQUE(family_id, member_id) constraint and upserts conflict on `id`, so
+      // we must REUSE the existing row's id (and created_at) — minting a fresh id
+      // would violate that constraint.
+      const existing = pets.find((p) => p.member_id === memberId);
       const newPet: VirtualPet = {
-        id: uid('pet'),
+        id: existing?.id ?? uid('pet'),
         family_id: member.family_id,
         member_id: memberId,
         animal,
@@ -2448,7 +2457,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
         last_fed_at: null,
         last_watered_at: null,
         last_interacted_at: null,
-        created_at: new Date().toISOString(),
+        created_at: existing?.created_at ?? new Date().toISOString(),
         accessories: [],
         custom_image_data: custom?.image ?? null,
         custom_eyes: custom?.eyes ?? null,
@@ -2456,7 +2465,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
       setPets((prev) => [...prev.filter((p) => p.member_id !== memberId), newPet]);
       persistPet(newPet);
     },
-    [members, completions, checkIns],
+    [members, completions, checkIns, pets],
   );
 
   const setPetCustomDrawing = useCallback(

@@ -1,13 +1,5 @@
-import {
-  forwardRef,
-  useCallback,
-  useEffect,
-  useImperativeHandle,
-  useRef,
-  useState,
-} from 'react';
-import type { CustomPetEyes, PetAnimal } from '@/types';
-import { PetEyes, type PetEyesHandle } from './PetEyes';
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
+import type { PetAnimal } from '@/types';
 import { petImage } from './petSpecies';
 import { wornForSlot } from './petAccessories';
 
@@ -19,19 +11,17 @@ export interface PetCanvasHandle {
   reactSquash: () => void;
   /** Trigger an "eating" squish. */
   reactSquish: () => void;
-  /** Force a single blink. */
-  blink: () => void;
 }
 
 interface Props {
   animal: PetAnimal;
   mood: PetMood;
   size?: number;
-  /** Pet xp; controls growth stage and tail wag speed. */
+  /** Pet xp; controls growth stage. */
   xp?: number;
   /** Currently-worn accessory ids. */
   accessories?: string[];
-  /** When true, the pet is interactive (eye tracking, click-to-pat). */
+  /** When true, the pet is interactive (click-to-pat). */
   interactive?: boolean;
   /** Called when the SVG itself is clicked. */
   onPetClick?: (e: React.MouseEvent<HTMLDivElement>) => void;
@@ -41,10 +31,6 @@ interface Props {
   showShadow?: boolean;
   /** Pause animations (e.g. when page is hidden). */
   paused?: boolean;
-  /** Processed drawing for custom pets (data: URL). */
-  customImage?: string | null;
-  /** Eye positions (0..1 of the rendered image) for custom pets. */
-  customEyes?: CustomPetEyes | null;
 }
 
 export function xpToStage(xp: number): PetStage {
@@ -75,18 +61,14 @@ export const PetCanvas = forwardRef<PetCanvasHandle, Props>(function PetCanvas(
     attentionTrigger = 0,
     showShadow = true,
     paused = false,
-    customImage = null,
-    customEyes = null,
   },
   ref,
 ) {
-  const rootRef = useRef<HTMLDivElement>(null);
   const figureRef = useRef<HTMLDivElement>(null);
-  const eyesRef = useRef<PetEyesHandle>(null);
   const stage = xpToStage(xp);
   const scale = stageScale(stage);
 
-  // ---- Imperative reactions (squash/squish/blink) ----
+  // ---- Imperative reactions (squash/squish) ----
 
   const reactSquash = useCallback(() => {
     const el = figureRef.current;
@@ -106,61 +88,7 @@ export const PetCanvas = forwardRef<PetCanvasHandle, Props>(function PetCanvas(
     window.setTimeout(() => el.classList.remove('pet-squish'), 800);
   }, []);
 
-  useImperativeHandle(
-    ref,
-    () => ({
-      reactSquash,
-      reactSquish,
-      blink: () => eyesRef.current?.blink(),
-    }),
-    [reactSquash, reactSquish],
-  );
-
-  // ---- Cursor tracking (window mousemove → imperatively update iris cx/cy) ----
-
-  useEffect(() => {
-    if (!interactive || paused) return;
-    let raf = 0;
-    let lastX = 0;
-    let lastY = 0;
-    let pending = false;
-    const flush = () => {
-      pending = false;
-      eyesRef.current?.lookAt(lastX, lastY);
-    };
-    const onMove = (e: MouseEvent) => {
-      lastX = e.clientX;
-      lastY = e.clientY;
-      if (!pending) {
-        pending = true;
-        raf = requestAnimationFrame(flush);
-      }
-    };
-    window.addEventListener('mousemove', onMove);
-    return () => {
-      window.removeEventListener('mousemove', onMove);
-      if (raf) cancelAnimationFrame(raf);
-    };
-  }, [interactive, paused]);
-
-  // ---- Random blink loop (every 3-5s) ----
-
-  useEffect(() => {
-    if (paused || mood === 'sleeping' || mood === 'sad') return;
-    let cancelled = false;
-    const schedule = () => {
-      const delay = 3000 + Math.random() * 2000;
-      window.setTimeout(() => {
-        if (cancelled) return;
-        eyesRef.current?.blink();
-        schedule();
-      }, delay);
-    };
-    schedule();
-    return () => {
-      cancelled = true;
-    };
-  }, [paused, mood]);
+  useImperativeHandle(ref, () => ({ reactSquash, reactSquish }), [reactSquash, reactSquish]);
 
   // ---- Attention behavior on cue ----
 
@@ -193,30 +121,14 @@ export const PetCanvas = forwardRef<PetCanvasHandle, Props>(function PetCanvas(
     cy = 95,
     r = 60;
 
-  const isCustom = animal === 'custom';
-  // Custom-pet image fills (mostly) the 200x200 viewBox.
-  const CI_X = 5,
-    CI_Y = 5,
-    CI_W = 190,
-    CI_H = 190;
   // Illustrated (Fluent) pets sit slightly inset so the floor shadow + bob read.
   const PI_X = 32,
     PI_Y = 22,
     PI_W = 136,
     PI_H = 136;
-  const customEyeLayout =
-    isCustom && customEyes
-      ? {
-          leftCx: CI_X + customEyes.left.x * CI_W,
-          rightCx: CI_X + customEyes.right.x * CI_W,
-          eyeY: CI_Y + ((customEyes.left.y + customEyes.right.y) / 2) * CI_H,
-          eyeR: Math.max(4, customEyes.radius * CI_W),
-        }
-      : undefined;
 
   return (
     <div
-      ref={rootRef}
       style={{
         width: size,
         height: size,
@@ -252,7 +164,7 @@ export const PetCanvas = forwardRef<PetCanvasHandle, Props>(function PetCanvas(
         </svg>
       )}
 
-      {/* Figure wrapper — handles breathe/bounce/squash/squish/attention */}
+      {/* Figure wrapper — handles squash/squish/attention one-shots */}
       <div
         ref={figureRef}
         className={[moodCls, attentionCls].filter(Boolean).join(' ')}
@@ -276,112 +188,69 @@ export const PetCanvas = forwardRef<PetCanvasHandle, Props>(function PetCanvas(
               transition: 'transform 600ms cubic-bezier(0.34, 1.56, 0.64, 1)',
             }}
           >
-           {/* Nested motion layers: outer float/sway + inner breathe, on
-               independent phases so the pet reads as alive. */}
-           <g className="pet-bob" style={{ transformBox: 'view-box', transformOrigin: '100px 172px' }}>
-            <g
-              className="pet-breathe-l"
-              style={{ transformBox: 'view-box', transformOrigin: '100px 172px' }}
-            >
-            {isCustom ? (
-              customImage ? (
+            {/* Nested motion layers: outer float/sway + inner breathe, on
+                independent phases so the pet reads as alive. */}
+            <g className="pet-bob" style={{ transformBox: 'view-box', transformOrigin: '100px 172px' }}>
+              <g
+                className="pet-breathe-l"
+                style={{ transformBox: 'view-box', transformOrigin: '100px 172px' }}
+              >
+                {/* Illustrated pet — bundled Fluent 3D artwork. The bob/breathe
+                    wrapper above brings it to life; mood reads via motion + the
+                    overlays below. */}
                 <image
-                  href={customImage}
-                  x={CI_X}
-                  y={CI_Y}
-                  width={CI_W}
-                  height={CI_H}
+                  href={petImage(animal)}
+                  x={PI_X}
+                  y={PI_Y}
+                  width={PI_W}
+                  height={PI_H}
                   preserveAspectRatio="xMidYMid meet"
+                  style={{ pointerEvents: 'none' }}
                 />
-              ) : (
-                // Empty-state for a custom pet without a drawing yet — a soft
-                // paper rectangle with a pencil glyph so the slot isn't blank.
-                <g>
-                  <rect x={CI_X} y={CI_Y} width={CI_W} height={CI_H} rx={20} fill="#f5e9d8" />
-                  <text
-                    x={100}
-                    y={115}
-                    fontSize="80"
-                    textAnchor="middle"
-                    style={{ pointerEvents: 'none' }}
-                  >
-                    ✏️
+
+                {/* Wardrobe — worn accessories as emoji overlays, by slot. */}
+                <EmojiAccessories accessories={accessories} />
+
+                {/* Mood overlays */}
+                {mood === 'eating' && (
+                  <text x={cx + r * 0.85} y={cy + r * 0.25} fontSize={r * 0.4} textAnchor="middle">
+                    🍎
                   </text>
-                </g>
-              )
-            ) : (
-              // Illustrated pet — bundled Fluent 3D artwork. The bob/breathe
-              // wrapper above brings it to life; mood reads via motion + the
-              // overlays below.
-              <image
-                href={petImage(animal)}
-                x={PI_X}
-                y={PI_Y}
-                width={PI_W}
-                height={PI_H}
-                preserveAspectRatio="xMidYMid meet"
-                style={{ pointerEvents: 'none' }}
-              />
-            )}
-
-            {/* Eyes — iris-tracking overlay only for custom drawings (the
-                illustrated pets have their eyes baked into the artwork). */}
-            {isCustom && customEyeLayout && (
-              <PetEyes
-                ref={eyesRef}
-                cx={cx}
-                cy={cy}
-                r={r}
-                mood={mood}
-                rootRef={rootRef}
-                layout={customEyeLayout}
-              />
-            )}
-
-            {/* Wardrobe — worn accessories as emoji overlays, by slot. Skipped
-                for custom drawings, which carry their own details. */}
-            {!isCustom && <EmojiAccessories accessories={accessories} />}
-
-            {/* Mood overlays */}
-            {mood === 'eating' && (
-              <text x={cx + r * 0.85} y={cy + r * 0.25} fontSize={r * 0.4} textAnchor="middle">
-                🍎
-              </text>
-            )}
-            {mood === 'drinking' && (
-              <text x={cx + r * 0.85} y={cy + r * 0.25} fontSize={r * 0.4} textAnchor="middle">
-                💧
-              </text>
-            )}
-            {mood === 'happy' && (
-              <>
-                <text
-                  x={cx - r * 0.9}
-                  y={cy - r * 0.6}
-                  fontSize={r * 0.3}
-                  className="pet-sparkle"
-                  style={{ animationDelay: '0s' }}
-                >
-                  ⭐
-                </text>
-                <text
-                  x={cx + r * 0.85}
-                  y={cy - r * 0.7}
-                  fontSize={r * 0.25}
-                  className="pet-sparkle"
-                  style={{ animationDelay: '0.4s' }}
-                >
-                  ⭐
-                </text>
-              </>
-            )}
-            {attentionAnim === 'yawn' && (
-              <text x={cx + r * 0.7} y={cy - r * 0.6} fontSize={r * 0.3}>
-                💤
-              </text>
-            )}
+                )}
+                {mood === 'drinking' && (
+                  <text x={cx + r * 0.85} y={cy + r * 0.25} fontSize={r * 0.4} textAnchor="middle">
+                    💧
+                  </text>
+                )}
+                {mood === 'happy' && (
+                  <>
+                    <text
+                      x={cx - r * 0.9}
+                      y={cy - r * 0.6}
+                      fontSize={r * 0.3}
+                      className="pet-sparkle"
+                      style={{ animationDelay: '0s' }}
+                    >
+                      ⭐
+                    </text>
+                    <text
+                      x={cx + r * 0.85}
+                      y={cy - r * 0.7}
+                      fontSize={r * 0.25}
+                      className="pet-sparkle"
+                      style={{ animationDelay: '0.4s' }}
+                    >
+                      ⭐
+                    </text>
+                  </>
+                )}
+                {attentionAnim === 'yawn' && (
+                  <text x={cx + r * 0.7} y={cy - r * 0.6} fontSize={r * 0.3}>
+                    💤
+                  </text>
+                )}
+              </g>
             </g>
-           </g>
           </g>
         </svg>
       </div>

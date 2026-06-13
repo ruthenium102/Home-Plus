@@ -27,22 +27,15 @@ export const PET_SPECIES: PetSpecies[] = [
   { animal: 'fish', label: 'Fish', emoji: '🐠', treat: '🦐', img: '/pets/fish.png' },
 ];
 
-// The "draw your own" option — picker only, no bundled image.
-export const CUSTOM_SPECIES: PetSpecies = {
-  animal: 'custom',
-  label: 'My drawing',
-  emoji: '✏️',
-  treat: '🍪',
-  img: '',
-};
+// Options shown in the new-pet picker.
+export const PET_PICKER: PetSpecies[] = PET_SPECIES;
 
-// Options shown in the new-pet picker (illustrated species + draw-your-own).
-export const PET_PICKER: PetSpecies[] = [...PET_SPECIES, CUSTOM_SPECIES];
-
-// Lookup incl. the custom option and legacy aliases.
+// Lookup incl. legacy aliases. The retired 'custom' (draw-your-own) and the old
+// 'bunny'/'axolotl' values map to the nearest current species so existing pets
+// keep rendering.
 const META: Record<string, PetSpecies> = {
   ...Object.fromEntries(PET_SPECIES.map((s) => [s.animal, s])),
-  custom: CUSTOM_SPECIES,
+  custom: PET_SPECIES.find((s) => s.animal === 'cat')!,
   bunny: PET_SPECIES.find((s) => s.animal === 'rabbit')!,
   axolotl: PET_SPECIES.find((s) => s.animal === 'fish')!,
 };

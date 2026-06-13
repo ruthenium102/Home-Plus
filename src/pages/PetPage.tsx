@@ -12,7 +12,6 @@ import {
 import { SpeechBubble } from '@/components/pet/SpeechBubble';
 import { HeartBurst } from '@/components/pet/HeartBurst';
 import { MiniGame } from '@/components/pet/MiniGame';
-import { CustomPetEditor } from '@/components/pet/CustomPetEditor';
 import {
   ACCESSORIES,
   nextUnlock,
@@ -20,7 +19,7 @@ import {
   type Accessory,
 } from '@/components/pet/petAccessories';
 import { PET_PICKER, speciesMeta } from '@/components/pet/petSpecies';
-import type { CustomPetEyes, PetAnimal, VirtualPet } from '@/types';
+import type { PetAnimal, VirtualPet } from '@/types';
 
 function computeLiveStats(pet: VirtualPet) {
   const now = Date.now();
@@ -127,23 +126,12 @@ function SetupScreen({
   const { createPet } = useFamily();
   const [selectedAnimal, setSelectedAnimal] = useState<PetAnimal | null>(null);
   const [petName, setPetName] = useState('');
-  const [editorOpen, setEditorOpen] = useState(false);
 
   const handleCreate = () => {
     if (!selectedAnimal || !petName.trim()) return;
     createPet(memberId, selectedAnimal, petName.trim());
     onCreated?.();
   };
-
-  const handleCustomConfirm = (result: { image: string; eyes: CustomPetEyes }) => {
-    if (!petName.trim()) return;
-    createPet(memberId, 'custom', petName.trim(), result);
-    setEditorOpen(false);
-    onCreated?.();
-  };
-
-  const isCustom = selectedAnimal === 'custom';
-  const nameLabel = isCustom ? 'your drawing' : selectedAnimal;
 
   return (
     <div className="space-y-6 max-w-lg mx-auto">
@@ -197,7 +185,7 @@ function SetupScreen({
       {selectedAnimal && (
         <div className="card p-5 space-y-4">
           <h3 className="text-sm font-semibold text-text-muted uppercase tracking-wider">
-            Name {nameLabel}
+            Name {selectedAnimal}
           </h3>
           <input
             type="text"
@@ -208,28 +196,14 @@ function SetupScreen({
             maxLength={20}
             autoFocus
           />
-          {isCustom ? (
-            <button
-              onClick={() => setEditorOpen(true)}
-              disabled={!petName.trim()}
-              className="btn-primary w-full py-3 text-base rounded-xl"
-            >
-              ✏️ Draw your pet
-            </button>
-          ) : (
-            <button
-              onClick={handleCreate}
-              disabled={!petName.trim()}
-              className="btn-primary w-full py-3 text-base rounded-xl"
-            >
-              Welcome {petName.trim() || '…'}! 🎉
-            </button>
-          )}
+          <button
+            onClick={handleCreate}
+            disabled={!petName.trim()}
+            className="btn-primary w-full py-3 text-base rounded-xl"
+          >
+            Welcome {petName.trim() || '…'}! 🎉
+          </button>
         </div>
-      )}
-
-      {editorOpen && (
-        <CustomPetEditor onConfirm={handleCustomConfirm} onCancel={() => setEditorOpen(false)} />
       )}
     </div>
   );
@@ -264,7 +238,6 @@ function PetView({ pet, memberId, onNewPet }: PetViewProps) {
     wearAccessory,
     removeAccessory,
     gainXp,
-    setPetCustomDrawing,
   } = useFamily();
   const { resolved } = useTheme();
   const isDark = resolved === 'dark';
@@ -285,7 +258,6 @@ function PetView({ pet, memberId, onNewPet }: PetViewProps) {
     }),
     [isDark],
   );
-  const [redrawOpen, setRedrawOpen] = useState(false);
   const [activeMood, setActiveMood] = useState<PetMood | null>(null);
   const [tick, setTick] = useState(0);
   const [showMiniGame, setShowMiniGame] = useState(false);
@@ -471,7 +443,7 @@ function PetView({ pet, memberId, onNewPet }: PetViewProps) {
           <div>
             <h2 className="font-display text-xl text-text leading-tight">{pet.name}</h2>
             <p className="text-xs text-text-muted capitalize">
-              {pet.animal === 'custom' ? 'Custom drawing' : pet.animal} · {stageLabel}
+              {animalMeta.label} · {stageLabel}
             </p>
           </div>
         </div>
@@ -491,15 +463,6 @@ function PetView({ pet, memberId, onNewPet }: PetViewProps) {
           >
             🔄 New pet
           </button>
-          {pet.animal === 'custom' && (
-            <button
-              onClick={() => setRedrawOpen(true)}
-              className="px-3 py-1.5 rounded-full text-xs font-semibold border border-border hover:bg-surface-2 transition-colors"
-              title="Redraw your pet"
-            >
-              ✏️ Redraw
-            </button>
-          )}
           <div
             className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-bold shadow-sm"
             style={{
@@ -526,8 +489,6 @@ function PetView({ pet, memberId, onNewPet }: PetViewProps) {
             onPetClick={handlePetClick}
             attentionTrigger={attentionTrigger}
             paused={pagePaused}
-            customImage={pet.custom_image_data ?? null}
-            customEyes={pet.custom_eyes ?? null}
           />
           {/* Speech bubble — anchored above the pet */}
           <SpeechBubble messageKey={bubbleKey} text={bubbleMessage} />
@@ -729,21 +690,6 @@ function PetView({ pet, memberId, onNewPet }: PetViewProps) {
           </p>
         </div>
       </div>
-
-      {redrawOpen && (
-        <CustomPetEditor
-          initial={
-            pet.custom_image_data && pet.custom_eyes
-              ? { image: pet.custom_image_data, eyes: pet.custom_eyes }
-              : null
-          }
-          onConfirm={({ image, eyes }) => {
-            setPetCustomDrawing(memberId, image, eyes);
-            setRedrawOpen(false);
-          }}
-          onCancel={() => setRedrawOpen(false)}
-        />
-      )}
     </div>
   );
 }
