@@ -8,6 +8,8 @@ import {
   Repeat,
   Calendar as CalendarIcon,
   Pencil,
+  ChevronDown,
+  ChevronRight,
 } from 'lucide-react';
 import { useFamily } from '@/context/FamilyContext';
 import { useTheme } from '@/context/ThemeContext';
@@ -260,23 +262,46 @@ function ItemsList({
   const { toggleListItem, deleteListItem, addListItem } = useFamily();
   const { show } = useToast();
   const swipeMode = useSwipeMode();
+  const [showCompleted, setShowCompleted] = useState(true);
+
+  const activeItems = items.filter((i) => !i.done);
+  const completedItems = items.filter((i) => i.done);
+
+  const renderRow = (item: TodoItem) => (
+    <ListItemRow
+      key={item.id}
+      item={item}
+      list={list}
+      members={members}
+      swipeMode={swipeMode}
+      dragProps={itemDnd.getRowProps(item.id)}
+      toggleListItem={toggleListItem}
+      deleteListItem={deleteListItem}
+      addListItem={addListItem}
+      showToast={show}
+      onEdit={onEditItem}
+    />
+  );
+
   return (
-    <div className="divide-y divide-border">
-      {items.map((item) => (
-        <ListItemRow
-          key={item.id}
-          item={item}
-          list={list}
-          members={members}
-          swipeMode={swipeMode}
-          dragProps={itemDnd.getRowProps(item.id)}
-          toggleListItem={toggleListItem}
-          deleteListItem={deleteListItem}
-          addListItem={addListItem}
-          showToast={show}
-          onEdit={onEditItem}
-        />
-      ))}
+    <div>
+      <div className="divide-y divide-border">{activeItems.map(renderRow)}</div>
+      {completedItems.length > 0 && (
+        <div className={activeItems.length > 0 ? 'mt-2 border-t border-border' : undefined}>
+          <button
+            onClick={() => setShowCompleted((v) => !v)}
+            className="flex items-center gap-1.5 w-full px-3 py-2 text-[11px] font-medium uppercase tracking-wider text-text-faint hover:text-text transition-colors"
+          >
+            {showCompleted ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+            Completed ({completedItems.length})
+          </button>
+          {showCompleted && (
+            <div className="divide-y divide-border border-t border-border">
+              {completedItems.map(renderRow)}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

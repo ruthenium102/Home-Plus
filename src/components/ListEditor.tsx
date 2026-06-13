@@ -11,6 +11,39 @@ import {
   Plane,
   ChefHat,
   ListChecks,
+  Home,
+  Car,
+  Gift,
+  Dumbbell,
+  BookOpen,
+  Gamepad2,
+  Music,
+  Palette,
+  Sparkles,
+  PawPrint,
+  Baby,
+  Flower2,
+  TreePine,
+  Pill,
+  Shirt,
+  Salad,
+  Carrot,
+  Apple,
+  Banana,
+  Beef,
+  Drumstick,
+  Fish,
+  Soup,
+  Pizza,
+  Sandwich,
+  Egg,
+  Cake,
+  IceCream,
+  Coffee,
+  Wine,
+  Milk,
+  Utensils,
+  Croissant,
 } from 'lucide-react';
 import { useFamily } from '@/context/FamilyContext';
 import { COLOR_OPTIONS, MEMBER_COLORS } from '@/lib/colors';
@@ -24,16 +57,52 @@ interface Props {
 }
 
 const ICON_OPTIONS = [
+  // Tasks & household
   { name: 'ListChecks', Icon: ListChecks },
+  { name: 'Home', Icon: Home },
+  { name: 'ShoppingBag', Icon: ShoppingBag },
   { name: 'Wrench', Icon: Wrench },
   { name: 'Hammer', Icon: Hammer },
-  { name: 'GraduationCap', Icon: GraduationCap },
-  { name: 'CircleUserRound', Icon: CircleUserRound },
-  { name: 'ShoppingBag', Icon: ShoppingBag },
   { name: 'Briefcase', Icon: Briefcase },
-  { name: 'Heart', Icon: Heart },
+  { name: 'GraduationCap', Icon: GraduationCap },
+  { name: 'Car', Icon: Car },
   { name: 'Plane', Icon: Plane },
+  { name: 'CircleUserRound', Icon: CircleUserRound },
+  // Food & kitchen
   { name: 'ChefHat', Icon: ChefHat },
+  { name: 'Utensils', Icon: Utensils },
+  { name: 'Salad', Icon: Salad },
+  { name: 'Carrot', Icon: Carrot },
+  { name: 'Apple', Icon: Apple },
+  { name: 'Banana', Icon: Banana },
+  { name: 'Beef', Icon: Beef },
+  { name: 'Drumstick', Icon: Drumstick },
+  { name: 'Fish', Icon: Fish },
+  { name: 'Soup', Icon: Soup },
+  { name: 'Pizza', Icon: Pizza },
+  { name: 'Sandwich', Icon: Sandwich },
+  { name: 'Egg', Icon: Egg },
+  { name: 'Croissant', Icon: Croissant },
+  { name: 'Cake', Icon: Cake },
+  { name: 'IceCream', Icon: IceCream },
+  { name: 'Coffee', Icon: Coffee },
+  { name: 'Milk', Icon: Milk },
+  { name: 'Wine', Icon: Wine },
+  // Family & life
+  { name: 'Heart', Icon: Heart },
+  { name: 'Baby', Icon: Baby },
+  { name: 'PawPrint', Icon: PawPrint },
+  { name: 'Gift', Icon: Gift },
+  { name: 'Dumbbell', Icon: Dumbbell },
+  { name: 'BookOpen', Icon: BookOpen },
+  { name: 'Gamepad2', Icon: Gamepad2 },
+  { name: 'Music', Icon: Music },
+  { name: 'Palette', Icon: Palette },
+  { name: 'Shirt', Icon: Shirt },
+  { name: 'Pill', Icon: Pill },
+  { name: 'Flower2', Icon: Flower2 },
+  { name: 'TreePine', Icon: TreePine },
+  { name: 'Sparkles', Icon: Sparkles },
 ];
 
 export function ListEditor({ open, onClose, editing }: Props) {
@@ -178,7 +247,7 @@ export function ListEditor({ open, onClose, editing }: Props) {
           {/* Icon */}
           <div>
             <div className="text-sm text-text-muted mb-2">Icon</div>
-            <div className="grid grid-cols-5 gap-1.5">
+            <div className="grid grid-cols-5 gap-1.5 max-h-52 overflow-y-auto pr-1">
               {ICON_OPTIONS.map((opt) => (
                 <button
                   key={opt.name}
