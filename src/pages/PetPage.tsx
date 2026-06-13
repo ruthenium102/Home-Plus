@@ -19,21 +19,8 @@ import {
   wornForSlot,
   type Accessory,
 } from '@/components/pet/petAccessories';
+import { PET_PICKER, speciesMeta } from '@/components/pet/petSpecies';
 import type { CustomPetEyes, PetAnimal, VirtualPet } from '@/types';
-
-const ANIMALS: { animal: PetAnimal; label: string; emoji: string; treat: string }[] = [
-  { animal: 'cat', label: 'Cat', emoji: '🐱', treat: '🐟' },
-  { animal: 'dog', label: 'Dog', emoji: '🐶', treat: '🍖' },
-  { animal: 'bunny', label: 'Bunny', emoji: '🐰', treat: '🥕' },
-  { animal: 'hamster', label: 'Hamster', emoji: '🐹', treat: '🌰' },
-  { animal: 'axolotl', label: 'Axolotl', emoji: '🦎', treat: '🦐' },
-  { animal: 'dragon', label: 'Dragon', emoji: '🐲', treat: '🔥' },
-  { animal: 'custom', label: 'My drawing', emoji: '✏️', treat: '🍪' },
-];
-
-function getAnimalMeta(animal: PetAnimal) {
-  return ANIMALS.find((a) => a.animal === animal) ?? ANIMALS[0];
-}
 
 function computeLiveStats(pet: VirtualPet) {
   const now = Date.now();
@@ -126,7 +113,17 @@ function ActionButton({ emoji, label, onClick, disabled, color }: ActionButtonPr
   );
 }
 
-function SetupScreen({ memberId }: { memberId: string }) {
+function SetupScreen({
+  memberId,
+  hasExisting = false,
+  onCancel,
+  onCreated,
+}: {
+  memberId: string;
+  hasExisting?: boolean;
+  onCancel?: () => void;
+  onCreated?: () => void;
+}) {
   const { createPet } = useFamily();
   const [selectedAnimal, setSelectedAnimal] = useState<PetAnimal | null>(null);
   const [petName, setPetName] = useState('');
@@ -135,12 +132,14 @@ function SetupScreen({ memberId }: { memberId: string }) {
   const handleCreate = () => {
     if (!selectedAnimal || !petName.trim()) return;
     createPet(memberId, selectedAnimal, petName.trim());
+    onCreated?.();
   };
 
   const handleCustomConfirm = (result: { image: string; eyes: CustomPetEyes }) => {
     if (!petName.trim()) return;
     createPet(memberId, 'custom', petName.trim(), result);
     setEditorOpen(false);
+    onCreated?.();
   };
 
   const isCustom = selectedAnimal === 'custom';
@@ -150,8 +149,25 @@ function SetupScreen({ memberId }: { memberId: string }) {
     <div className="space-y-6 max-w-lg mx-auto">
       <div className="text-center">
         <div className="text-4xl mb-2">🐾</div>
-        <h2 className="font-display text-2xl text-text mb-1">Meet your new pet!</h2>
+        <h2 className="font-display text-2xl text-text mb-1">
+          {hasExisting ? 'Choose a new pet' : 'Meet your new pet!'}
+        </h2>
         <p className="text-sm text-text-muted">Choose your companion and give them a name.</p>
+        {hasExisting && (
+          <>
+            <p className="text-xs text-text-faint mt-2">
+              Heads up: this replaces your current pet.
+            </p>
+            {onCancel && (
+              <button
+                onClick={onCancel}
+                className="mt-3 text-sm text-text-muted hover:text-text underline underline-offset-2"
+              >
+                ← Keep my current pet
+              </button>
+            )}
+          </>
+        )}
       </div>
 
       <div className="card p-5">
@@ -159,7 +175,7 @@ function SetupScreen({ memberId }: { memberId: string }) {
           Pick your pet
         </h3>
         <div className="grid grid-cols-3 gap-3">
-          {ANIMALS.map(({ animal, label, emoji }) => (
+          {PET_PICKER.map(({ animal, label, emoji }) => (
             <button
               key={animal}
               onClick={() => setSelectedAnimal(animal)}
@@ -222,6 +238,7 @@ function SetupScreen({ memberId }: { memberId: string }) {
 interface PetViewProps {
   pet: VirtualPet;
   memberId: string;
+  onNewPet: () => void;
 }
 
 const ATTENTION_TIMEOUT_MS = 30_000;
@@ -237,7 +254,7 @@ function pick<T>(arr: T[]): T {
   return arr[Math.floor(Math.random() * arr.length)];
 }
 
-function PetView({ pet, memberId }: PetViewProps) {
+function PetView({ pet, memberId, onNewPet }: PetViewProps) {
   const {
     members,
     feedPet,
@@ -337,7 +354,7 @@ function PetView({ pet, memberId }: PetViewProps) {
   const hasPlay = pet.unlocked_actions.includes('play');
   const hasSuperPat = pet.unlocked_actions.includes('super_pat');
 
-  const animalMeta = getAnimalMeta(pet.animal);
+  const animalMeta = speciesMeta(pet.animal);
   const stage = xpToStage(pet.xp);
   const stageLabel = stage === 'baby' ? 'Baby' : stage === 'child' ? 'Junior' : 'Adult';
 
@@ -459,6 +476,21 @@ function PetView({ pet, memberId }: PetViewProps) {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <button
+            onClick={() => {
+              if (
+                window.confirm(
+                  `Start a new pet? ${pet.name} will be replaced (your earned level stays).`,
+                )
+              ) {
+                onNewPet();
+              }
+            }}
+            className="px-3 py-1.5 rounded-full text-xs font-semibold border border-border hover:bg-surface-2 transition-colors"
+            title="Start a new animal"
+          >
+            🔄 New pet
+          </button>
           {pet.animal === 'custom' && (
             <button
               onClick={() => setRedrawOpen(true)}
@@ -734,10 +766,19 @@ function StageChip({ label, active, hint }: { label: string; active: boolean; hi
 
 export function PetPage() {
   const { activeMember, getPet } = useFamily();
+  const [newPetMode, setNewPetMode] = useState(false);
+
+  // Reset the "choose a new pet" flow whenever the active member changes, so we
+  // don't strand a different child on the setup screen.
+  const memberId = activeMember?.id ?? null;
+  useEffect(() => {
+    setNewPetMode(false);
+  }, [memberId]);
 
   if (!activeMember) return null;
 
   const pet = getPet(activeMember.id);
+  const showSetup = !pet || newPetMode;
 
   return (
     <div className="space-y-4">
@@ -746,10 +787,15 @@ export function PetPage() {
         <p className="text-sm text-text-muted">Your kawaii companion</p>
       </div>
 
-      {!pet ? (
-        <SetupScreen memberId={activeMember.id} />
+      {showSetup ? (
+        <SetupScreen
+          memberId={activeMember.id}
+          hasExisting={!!pet}
+          onCancel={() => setNewPetMode(false)}
+          onCreated={() => setNewPetMode(false)}
+        />
       ) : (
-        <PetView pet={pet} memberId={activeMember.id} />
+        <PetView pet={pet} memberId={activeMember.id} onNewPet={() => setNewPetMode(true)} />
       )}
     </div>
   );

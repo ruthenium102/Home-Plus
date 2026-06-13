@@ -450,7 +450,23 @@ export interface KitchenSettings {
 // Virtual Pet (Phase 6)
 // ============================================================================
 
-export type PetAnimal = 'cat' | 'dog' | 'bunny' | 'hamster' | 'axolotl' | 'dragon' | 'custom';
+export type PetAnimal =
+  | 'cat'
+  | 'dog'
+  | 'rabbit'
+  | 'hamster'
+  | 'fox'
+  | 'panda'
+  | 'penguin'
+  | 'dragon'
+  | 'unicorn'
+  | 'frog'
+  | 'turtle'
+  | 'fish'
+  | 'custom'
+  // Legacy stored values (pre-illustrated overhaul), aliased at render time.
+  | 'bunny'
+  | 'axolotl';
 
 // Eye placement for custom pets, in 0..1 coordinates relative to the
 // processed pet image. Drawn over the image by PetEyes.
