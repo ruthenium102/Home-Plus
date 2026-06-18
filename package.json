@@ -1,7 +1,7 @@
 {
   "name": "home-plus",
   "private": true,
-  "version": "1.0.109",
+  "version": "1.0.110",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -13,7 +13,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "format": "prettier --write src",
-    "postinstall": "patch-package"
+    "postinstall": "node scripts/fix-speech-recognition.mjs"
   },
   "dependencies": {
     "@capacitor-community/speech-recognition": "^7.0.1",
