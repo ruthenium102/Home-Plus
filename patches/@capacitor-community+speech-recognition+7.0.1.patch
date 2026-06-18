@@ -40,7 +40,7 @@ index 5d1b35b..5cbec3a 100644
 +++ b/node_modules/@capacitor-community/speech-recognition/ios/Plugin/Plugin.swift
 @@ -3,7 +3,19 @@ import Capacitor
  import Speech
-
+ 
  @objc(SpeechRecognition)
 -public class SpeechRecognition: CAPPlugin {
 +public class SpeechRecognition: CAPPlugin, CAPBridgedPlugin {
@@ -56,6 +56,6 @@ index 5d1b35b..5cbec3a 100644
 +        CAPPluginMethod(name: "checkPermissions", returnType: CAPPluginReturnPromise),
 +        CAPPluginMethod(name: "requestPermissions", returnType: CAPPluginReturnPromise)
 +    ]
-
+ 
      let defaultMatches = 5
      let messageMissingPermission = "Missing permission"
