@@ -1,9 +1,9 @@
 diff --git a/node_modules/@capacitor-community/speech-recognition/Package.swift b/node_modules/@capacitor-community/speech-recognition/Package.swift
 new file mode 100644
-index 0000000..882a64c
+index 0000000..75ca156
 --- /dev/null
 +++ b/node_modules/@capacitor-community/speech-recognition/Package.swift
-@@ -0,0 +1,27 @@
+@@ -0,0 +1,30 @@
 +// swift-tools-version: 5.9
 +import PackageDescription
 +
@@ -26,8 +26,36 @@ index 0000000..882a64c
 +                .product(name: "Cordova", package: "capacitor-swift-pm")
 +            ],
 +            path: "ios/Plugin",
-+            exclude: ["Info.plist"],
-+            publicHeadersPath: "."
++            // The published 7.0.1 tarball still ships the legacy ObjC bridge
++            // (Plugin.h / Plugin.m). SwiftPM cannot mix C and Swift in one
++            // target, so compile ONLY Plugin.swift — it now self-registers via
++            // CAPBridgedPlugin, making the ObjC CAP_PLUGIN macro redundant.
++            sources: ["Plugin.swift"]
 +        )
 +    ]
 +)
+diff --git a/node_modules/@capacitor-community/speech-recognition/ios/Plugin/Plugin.swift b/node_modules/@capacitor-community/speech-recognition/ios/Plugin/Plugin.swift
+index 5d1b35b..5cbec3a 100644
+--- a/node_modules/@capacitor-community/speech-recognition/ios/Plugin/Plugin.swift
++++ b/node_modules/@capacitor-community/speech-recognition/ios/Plugin/Plugin.swift
+@@ -3,7 +3,19 @@ import Capacitor
+ import Speech
+
+ @objc(SpeechRecognition)
+-public class SpeechRecognition: CAPPlugin {
++public class SpeechRecognition: CAPPlugin, CAPBridgedPlugin {
++
++    public let identifier = "SpeechRecognition"
++    public let jsName = "SpeechRecognition"
++    public let pluginMethods: [CAPPluginMethod] = [
++        CAPPluginMethod(name: "available", returnType: CAPPluginReturnPromise),
++        CAPPluginMethod(name: "start", returnType: CAPPluginReturnPromise),
++        CAPPluginMethod(name: "stop", returnType: CAPPluginReturnPromise),
++        CAPPluginMethod(name: "getSupportedLanguages", returnType: CAPPluginReturnPromise),
++        CAPPluginMethod(name: "isListening", returnType: CAPPluginReturnPromise),
++        CAPPluginMethod(name: "checkPermissions", returnType: CAPPluginReturnPromise),
++        CAPPluginMethod(name: "requestPermissions", returnType: CAPPluginReturnPromise)
++    ]
+
+     let defaultMatches = 5
+     let messageMissingPermission = "Missing permission"
