@@ -11,7 +11,7 @@ import {
 } from 'lucide-react';
 import { addDays, format } from 'date-fns';
 import { useFamily } from '@/context/FamilyContext';
-import { mealTypeLabel } from '@/lib/kitchen';
+import { getMonday, mealTypeLabel } from '@/lib/kitchen';
 import { hapticLight, hapticMedium } from '@/lib/native';
 import { createEdgeAutoScroller } from '@/lib/dragAutoScroll';
 import type { MealPlan, MealType, Recipe } from '@/types';
@@ -66,9 +66,11 @@ export function MealPlannerView() {
   const [repeatTargetId, setRepeatTargetId] = useState<string | null>(null);
   const [editTargetId, setEditTargetId] = useState<string | null>(null);
   const dayCount = useMealDayCount();
-  // First visible day of the window. Anchored to today so the current day is
-  // always in view; paging moves by a whole window (dayCount days).
-  const [weekStart, setWeekStart] = useState(() => format(new Date(), 'yyyy-MM-dd'));
+  // First visible day of the window. Anchored to the start of the week (Monday)
+  // so the planner lines up with the Calendar and Shopping list — a meal placed
+  // earlier this week stays visible here instead of falling before "today".
+  // Paging moves by a whole window (dayCount days).
+  const [weekStart, setWeekStart] = useState(() => getMonday(new Date()));
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
   const [selectedMealType, setSelectedMealType] = useState<MealType>('dinner');
   const [query, setQuery] = useState('');
@@ -92,7 +94,7 @@ export function MealPlannerView() {
     setWeekStart(format(addDays(new Date(weekStart), delta * dayCount), 'yyyy-MM-dd'));
   }
   function goToday() {
-    setWeekStart(format(new Date(), 'yyyy-MM-dd'));
+    setWeekStart(getMonday(new Date()));
   }
 
   const plansThisWeek = useMemo(
