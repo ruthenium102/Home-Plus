@@ -20,7 +20,7 @@ function locationIcon(loc: string | null) {
 export function MemberStrip() {
   const { members, chores } = useFamily();
   const [picking, setPicking] = useState<FamilyMember | null>(null);
-  const roleMap = useMemo(() => rosterRoleAssignments(chores, members), [chores, members]);
+  const roleMap = useMemo(() => rosterRoleAssignments(chores), [chores]);
   // Parents render first, children below — stable within each group so any
   // manual reorder Ben has applied is preserved.
   const sortedMembers = useMemo(

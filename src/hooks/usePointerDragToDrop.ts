@@ -82,6 +82,12 @@ export function usePointerDragToDrop<P>({
   const start = useCallback(
     (payload: P, downEv: React.PointerEvent) => {
       if (downEv.button !== undefined && downEv.button !== 0) return;
+      // Desktop: cancel the press's default action so the browser never
+      // starts a text selection — select-none on the chip only protects the
+      // chip itself; the selection otherwise anchors here and extends across
+      // day labels etc. as the drag moves. Mouse only: cancelling a touch
+      // pointerdown suppresses the compatibility click on tap.
+      if (downEv.pointerType === 'mouse') downEv.preventDefault();
       const target = downEv.currentTarget as HTMLElement;
       const startX = downEv.clientX;
       const startY = downEv.clientY;

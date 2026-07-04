@@ -1,5 +1,5 @@
 import { getISOWeek, getISOWeekYear } from 'date-fns';
-import type { Chore, FamilyMember } from '@/types';
+import type { Chore } from '@/types';
 
 /** Returns ISO week string YYYY-Www (Monday-based ISO 8601). */
 export function isoWeekStr(date: Date = new Date()): string {
@@ -75,21 +75,15 @@ function weekOrdinal(dayNumber: number, startWeekday: number): number {
   return Math.floor((dayNumber - shift) / 7);
 }
 
-function isMemberAway(member: FamilyMember): boolean {
-  if (!member.location_until) return false;
-  return new Date(member.location_until) > new Date();
-}
-
 /**
  * Returns the member id whose turn it is for a rotated/roster_role chore.
- * Skips members marked as away (location_until is in the future).
- * Falls back to non-skip behaviour if all are away.
+ *
+ * Travel status is deliberately IGNORED: an "Away til..." member keeps their
+ * turn. Skipping away members looked helpful but meant setting a status
+ * silently dumped everyone's rotation chores onto whoever was left home —
+ * the roster order is the contract, and parents can swap manually if needed.
  */
-export function currentRotationAssignee(
-  chore: Chore,
-  members: FamilyMember[],
-  date: Date = new Date(),
-): string | null {
+export function currentRotationAssignee(chore: Chore, date: Date = new Date()): string | null {
   const { rotation_roster, rotation_pointer, rotation_anchor_iso_week, rotation_weekday } = chore;
   if (!rotation_roster || rotation_roster.length === 0) return null;
 
@@ -108,17 +102,8 @@ export function currentRotationAssignee(
             weekOrdinal(isoWeekMondayDayNumber(anchor), startWeekday),
         );
 
-  // Try each slot in order; skip members who are away
-  for (let attempt = 0; attempt < rotation_roster.length; attempt++) {
-    const idx = (rotation_pointer + offset + attempt) % rotation_roster.length;
-    const memberId = rotation_roster[idx];
-    const member = members.find((m) => m.id === memberId);
-    if (member && !isMemberAway(member)) return memberId;
-  }
-
-  // All away — ignore skip logic
-  const fallbackIdx = (rotation_pointer + offset) % rotation_roster.length;
-  return rotation_roster[fallbackIdx] ?? null;
+  const idx = (rotation_pointer + offset) % rotation_roster.length;
+  return rotation_roster[idx] ?? null;
 }
 
 /**
@@ -127,14 +112,13 @@ export function currentRotationAssignee(
  */
 export function rosterRoleAssignments(
   chores: Chore[],
-  members: FamilyMember[],
   date: Date = new Date(),
 ): Map<string, string[]> {
   const result = new Map<string, string[]>();
 
   for (const chore of chores) {
     if (chore.mode !== 'roster_role' || chore.archived) continue;
-    const assigneeId = currentRotationAssignee(chore, members, date);
+    const assigneeId = currentRotationAssignee(chore, date);
     if (!assigneeId) continue;
     const label = chore.roster_role_name || chore.title;
     const existing = result.get(assigneeId) || [];

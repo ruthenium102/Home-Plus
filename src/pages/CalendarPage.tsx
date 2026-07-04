@@ -128,6 +128,11 @@ export function CalendarPage() {
   // Mouse drags keep the immediate movement threshold.
   const startEventDrag = (e: ExpandedEvent, downEv: React.PointerEvent) => {
     if (downEv.button !== undefined && downEv.button !== 0) return;
+    // Desktop: stop the press starting a browser text selection, which would
+    // otherwise highlight day numbers/labels while dragging a chip across the
+    // grid. Mouse only — cancelling a touch pointerdown suppresses the
+    // compatibility click on tap.
+    if (downEv.pointerType === 'mouse') downEv.preventDefault();
     const target = downEv.currentTarget as HTMLElement;
     const startX = downEv.clientX;
     const startY = downEv.clientY;

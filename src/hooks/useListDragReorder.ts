@@ -108,6 +108,11 @@ export function useListDragReorder<T extends { id: string }>(
       // SwipeableRow (swipe-to-delete) doesn't also start tracking it — the
       // handle owns vertical reorder, the row body owns horizontal swipe.
       e.stopPropagation();
+      // Desktop: cancel the press's default action so the browser never
+      // anchors a text selection here — it would otherwise extend across
+      // neighbouring rows' text as the drag moves. Mouse only: cancelling a
+      // touch pointerdown suppresses the tap's compatibility click.
+      if (e.pointerType === 'mouse') e.preventDefault();
       const target = e.currentTarget as HTMLElement;
       const startX = e.clientX;
       const startY = e.clientY;

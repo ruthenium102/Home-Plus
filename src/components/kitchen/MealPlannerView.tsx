@@ -184,6 +184,11 @@ export function MealPlannerView() {
 
   function startRecipeDrag(recipeId: string, downEv: React.PointerEvent) {
     if (downEv.button !== undefined && downEv.button !== 0) return;
+    // Desktop: cancel the press's default action so the browser never starts
+    // a text selection — the chip is select-none, but the selection anchors
+    // on mousedown and extends across the day headers as the drag moves.
+    // Mouse only: cancelling a touch pointerdown suppresses the tap's click.
+    if (downEv.pointerType === 'mouse') downEv.preventDefault();
     const target = downEv.currentTarget as HTMLElement;
     const startX = downEv.clientX;
     const startY = downEv.clientY;
@@ -258,6 +263,8 @@ export function MealPlannerView() {
     if (downEv.button !== undefined && downEv.button !== 0) return;
     // Let the chip's repeat/remove buttons handle their own taps.
     if ((downEv.target as HTMLElement).closest('button')) return;
+    // Stop desktop text selection anchoring on this press (see startRecipeDrag).
+    if (downEv.pointerType === 'mouse') downEv.preventDefault();
     const target = downEv.currentTarget as HTMLElement;
     const startX = downEv.clientX;
     const startY = downEv.clientY;

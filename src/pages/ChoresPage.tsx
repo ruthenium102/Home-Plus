@@ -50,7 +50,7 @@ export function ChoresPage() {
 // ============================================================================
 
 function KidView({ member }: { member: FamilyMember }) {
-  const { chores, completions, completeChore, deleteCompletion, goals, rewardCategories, members } =
+  const { chores, completions, completeChore, deleteCompletion, goals, rewardCategories } =
     useFamily();
   const { resolved } = useTheme();
   const { show } = useToast();
@@ -66,10 +66,10 @@ function KidView({ member }: { member: FamilyMember }) {
     return raw.filter((item) => {
       const chore = chores.find((c) => c.id === item.chore.id);
       if (!chore || chore.mode === 'standard') return true;
-      const assignee = currentRotationAssignee(chore, members, today);
+      const assignee = currentRotationAssignee(chore, today);
       return assignee === member.id;
     });
-  }, [chores, completions, member.id, today, members]);
+  }, [chores, completions, member.id, today]);
 
   const memberGoal = goals.find((g) => g.member_id === member.id && !g.achieved_at);
   const goalProgress = memberGoal
@@ -335,7 +335,7 @@ function ParentOverview() {
           const items = rawItems.filter((item) => {
             const chore = chores.find((c) => c.id === item.chore.id);
             if (!chore || chore.mode === 'standard') return true;
-            const assignee = currentRotationAssignee(chore, members, today);
+            const assignee = currentRotationAssignee(chore, today);
             return assignee === kid.id;
           });
           const todayDone = items.filter((i) => i.state === 'done').length;
