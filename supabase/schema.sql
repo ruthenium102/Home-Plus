@@ -398,6 +398,7 @@ create table if not exists chores (
   requires_photo boolean not null default false,
   requires_approval boolean not null default false,
   archived boolean not null default false,
+  position integer,                          -- synced display order (v23)
   created_at timestamptz not null default now()
 );
 create index if not exists idx_chores_family on chores(family_id);
@@ -766,6 +767,7 @@ create table if not exists todo_lists (
   icon text,
   color text,
   archived boolean not null default false,
+  position integer,                          -- synced display order (v23)
   created_at timestamptz not null default now()
 );
 create index if not exists idx_todo_lists_family on todo_lists(family_id);
@@ -808,6 +810,7 @@ create table if not exists habits (
   archived boolean not null default false,
   -- Specific weekdays (0=Sun..6=Sat) for cadence='pick_days'. Empty for others.
   weekdays integer[] not null default '{}',
+  position integer,                          -- synced display order (v23)
   created_at timestamptz not null default now()
 );
 create index if not exists idx_habits_family on habits(family_id);

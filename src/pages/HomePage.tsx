@@ -10,6 +10,7 @@ import { SwipeableRow } from '@/components/SwipeableRow';
 import { useTheme } from '@/context/ThemeContext';
 import { useToast } from '@/context/ToastContext';
 import { useSwipeMode } from '@/hooks/useSwipeMode';
+import { useNowTick, useToday } from '@/hooks/useToday';
 import { getColorTokens } from '@/lib/colors';
 import { isParent, formatBalance } from '@/lib/chores';
 import { isDueSoon, isOverdue, formatDue, visibleLists } from '@/lib/lists';
@@ -39,7 +40,7 @@ export function HomePage({ onNavigate }: Props) {
     checkIns,
     activeMember,
     deleteEvent,
-    addEvent,
+    restoreEvent,
     incrementCheckIn,
   } = useFamily();
   const { resolved } = useTheme();
@@ -54,29 +55,21 @@ export function HomePage({ onNavigate }: Props) {
     deleteEvent(eventId);
     show({
       message: `"${title}" deleted`,
-      onUndo: () => {
-        addEvent({
-          title: original.title,
-          description: original.description,
-          start_at: original.start_at,
-          end_at: original.end_at,
-          all_day: original.all_day,
-          location: original.location,
-          category: original.category,
-          member_ids: original.member_ids,
-          recurrence: original.recurrence,
-          reminder_offsets: original.reminder_offsets,
-          created_by: original.created_by,
-        });
-      },
+      // Restore the exact row — rebuilding via addEvent dropped exdates (so a
+      // moved-away occurrence came back as a duplicate) and the Google-sync flag.
+      onUndo: () => restoreEvent(original),
     });
   };
 
-  const today = new Date();
+  // Live day + minute tick: `today` flips at midnight; `nowTick` keeps the
+  // "what's left today" filter dropping events as they end, since the events
+  // array itself no longer changes identity on no-op background polls.
+  const today = useToday();
+  const nowTick = useNowTick(60_000);
   const todays = useMemo(() => {
     const expanded = expandEvents(events, startOfDay(today), endOfDay(today));
-    return expanded.filter((e) => isAfter(new Date(e.occurrence_end), new Date()));
-  }, [events]);
+    return expanded.filter((e) => isAfter(new Date(e.occurrence_end), new Date(nowTick)));
+  }, [events, today, nowTick]);
 
   const kids = members
     .filter((m) => m.role === 'child')

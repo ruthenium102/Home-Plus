@@ -113,3 +113,59 @@ describe('expandEvents — exdates (moved/deleted single occurrence, migration v
     expect(out.map((o) => o.occurrence_start)).toEqual(['2026-06-02T09:00:00.000Z']);
   });
 });
+
+describe('expandEvents — old series fast-forward (v1.0.112)', () => {
+  it('still expands a daily series created years before the visible range', () => {
+    // Pre-fix, expansion walked one step at a time from the series origin with
+    // a 500-iteration cap, so a daily series older than ~16 months silently
+    // produced NO occurrences ("my recurring event disappeared").
+    const ev = makeEvent({
+      start_at: '2022-01-01T09:00:00.000Z',
+      end_at: '2022-01-01T10:00:00.000Z',
+      recurrence: rec({ freq: 'daily', interval: 1 }),
+    });
+    const out = expandEvents(
+      [ev],
+      new Date('2026-06-01T00:00:00.000Z'),
+      new Date('2026-06-04T00:00:00.000Z'),
+    );
+    expect(out.map((o) => o.occurrence_start)).toEqual([
+      '2026-06-01T09:00:00.000Z',
+      '2026-06-02T09:00:00.000Z',
+      '2026-06-03T09:00:00.000Z',
+    ]);
+  });
+
+  it('still expands an old weekly byweekday series (worst case: steps 1 day)', () => {
+    // 2022-01-03 was a Monday; Mondays in the June 2026 window: 06-01.
+    const ev = makeEvent({
+      start_at: '2022-01-03T09:00:00.000Z',
+      end_at: '2022-01-03T10:00:00.000Z',
+      recurrence: rec({ freq: 'weekly', interval: 1, byweekday: [1] }),
+    });
+    const out = expandEvents(
+      [ev],
+      new Date('2026-06-01T00:00:00.000Z'),
+      new Date('2026-06-08T00:00:00.000Z'),
+    );
+    expect(out.map((o) => o.occurrence_start)).toEqual(['2026-06-01T09:00:00.000Z']);
+  });
+
+  it('respects exdates on fast-forwarded occurrences (same instants as the slow walk)', () => {
+    const ev = makeEvent({
+      start_at: '2022-01-01T09:00:00.000Z',
+      end_at: '2022-01-01T10:00:00.000Z',
+      recurrence: rec({ freq: 'daily', interval: 1 }),
+      exdates: ['2026-06-02T09:00:00.000Z'],
+    });
+    const out = expandEvents(
+      [ev],
+      new Date('2026-06-01T00:00:00.000Z'),
+      new Date('2026-06-04T00:00:00.000Z'),
+    );
+    expect(out.map((o) => o.occurrence_start)).toEqual([
+      '2026-06-01T09:00:00.000Z',
+      '2026-06-03T09:00:00.000Z',
+    ]);
+  });
+});

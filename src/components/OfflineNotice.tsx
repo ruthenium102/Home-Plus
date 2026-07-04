@@ -1,5 +1,5 @@
 import { CloudOff } from 'lucide-react';
-import { useFamily } from '@/context/FamilyContext';
+import { useSyncStatus } from '@/context/FamilyContext';
 
 /**
  * Inline page-level banner shown when the device is offline. The TopBar's
@@ -8,7 +8,7 @@ import { useFamily } from '@/context/FamilyContext';
  * be stale and that edits will sync later. Renders nothing while online.
  */
 export function OfflineNotice() {
-  const { online } = useFamily();
+  const { online } = useSyncStatus();
   if (online) return null;
 
   return (

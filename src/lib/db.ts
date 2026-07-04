@@ -170,13 +170,15 @@ export async function rpcSetMemberPin(memberId: string, pin: string | null): Pro
   }
 }
 
-/** Cloud-mode: verify a PIN server-side. Returns true on match / no-PIN. */
+/** Cloud-mode: verify a PIN server-side. Returns true on match / no-PIN.
+ *  Throws on RPC failure (network down, etc.) so callers can tell "couldn't
+ *  check" apart from "wrong PIN" instead of blaming the user's typing. */
 export async function rpcVerifyMemberPin(memberId: string, pin: string): Promise<boolean> {
   if (!supabase) return true;
   const { data, error } = await supabase.rpc('verify_member_pin', { member: memberId, pin });
   if (error) {
     console.warn('[db] verify_member_pin:', error.message);
-    return false;
+    throw new Error(error.message);
   }
   return data === true;
 }

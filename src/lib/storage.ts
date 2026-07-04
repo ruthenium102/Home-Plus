@@ -57,6 +57,15 @@ export const storage = {
       // quota exceeded etc — fail quietly
     }
   },
+  /** Write an already-serialized value (lets callers stringify once and skip
+   *  unchanged writes without paying for a second JSON.stringify). */
+  setRaw(key: string, raw: string) {
+    try {
+      localStorage.setItem(PREFIX + key, raw);
+    } catch {
+      // quota exceeded etc — fail quietly
+    }
+  },
   remove(key: string) {
     localStorage.removeItem(PREFIX + key);
   },

@@ -29,6 +29,8 @@ import {
 import { useToast } from '@/context/ToastContext';
 import { syncEventToGoogle, unsyncEventFromGoogle } from '@/lib/googleSync';
 import { hapticLight, hapticMedium } from '@/lib/native';
+import { computeHabitStreak } from '@/lib/habits';
+import { useToday } from '@/hooks/useToday';
 import {
   storage,
   DEMO_FAMILY,
@@ -101,6 +103,9 @@ interface FamilyContextValue {
   addEvent: (e: Omit<CalendarEvent, 'id' | 'created_at' | 'family_id'>) => string;
   updateEvent: (id: string, patch: Partial<CalendarEvent>) => void;
   deleteEvent: (id: string) => void;
+  /** Undo of a delete: re-insert the exact row (same id) so recurrence
+   *  exdates / sync settings / referencing rows survive the round trip. */
+  restoreEvent: (e: CalendarEvent) => void;
 
   // Members
   addMember: (m: Omit<FamilyMember, 'id' | 'created_at' | 'family_id'>) => void;
@@ -122,6 +127,9 @@ interface FamilyContextValue {
   addChore: (c: Omit<Chore, 'id' | 'created_at' | 'family_id'>) => string;
   updateChore: (id: string, patch: Partial<Chore>) => void;
   deleteChore: (id: string) => void;
+  /** Undo of a delete: re-insert with the same id so completion history
+   *  keeps pointing at this chore. */
+  restoreChore: (c: Chore) => void;
   completeChore: (choreId: string, memberId: string, forDate: string) => ChoreCompletion;
   deleteCompletion: (completionId: string) => void;
   approveCompletion: (completionId: string, approverId: string) => void;
@@ -149,11 +157,15 @@ interface FamilyContextValue {
   updateListItem: (id: string, patch: Partial<TodoItem>) => void;
   toggleListItem: (id: string) => void;
   deleteListItem: (id: string) => void;
+  /** Undo of a delete: re-insert with the same id. */
+  restoreListItem: (item: TodoItem) => void;
 
   // Habits
   addHabit: (h: Omit<Habit, 'id' | 'created_at' | 'family_id'>) => void;
   updateHabit: (id: string, patch: Partial<Habit>) => void;
   deleteHabit: (id: string) => void;
+  /** Undo of a delete: re-insert with the same id. */
+  restoreHabit: (h: Habit) => void;
   toggleCheckIn: (habitId: string, memberId: string, forDate: string) => void;
   incrementCheckIn: (habitId: string, memberId: string, forDate: string) => void;
   decrementCheckIn: (habitId: string, memberId: string, forDate: string) => void;
@@ -220,7 +232,14 @@ interface FamilyContextValue {
   // Invite flow
   needsPasswordSetup: boolean;
   clearNeedsPasswordSetup: () => void;
+}
 
+/**
+ * Sync-status lives in its OWN context so the reloading→true→false flip and
+ * lastReloadAt bump that every background poll produces only re-render the
+ * SyncIndicator — not every useFamily() consumer in the app.
+ */
+interface SyncStatusValue {
   /**
    * Force a re-fetch from Supabase for the current family.id and replace
    * local state. Returns ok + an optional error string so callers can
@@ -237,6 +256,7 @@ interface FamilyContextValue {
 }
 
 const FamilyContext = createContext<FamilyContextValue | null>(null);
+const SyncStatusContext = createContext<SyncStatusValue | null>(null);
 
 // Description marker stamped on calendar events auto-created from a member's
 // "Away til..." travel status. Lets setMemberLocation find + replace/remove the
@@ -255,14 +275,24 @@ const TRAVEL_STATUS_TAG = 'Added from travel status';
 function usePersisted<T>(key: string, value: T) {
   const ref = useRef(value);
   ref.current = value;
+  // Last serialized value actually written — skips the localStorage write when
+  // only the slice's identity changed (e.g. a cloud poll re-set identical
+  // data), so idle polling doesn't rewrite every slice on the main thread.
+  const lastWritten = useRef<string | null>(null);
+  const writeIfChanged = useCallback(() => {
+    const raw = JSON.stringify(ref.current);
+    if (raw === lastWritten.current) return;
+    lastWritten.current = raw;
+    storage.setRaw(key, raw);
+  }, [key]);
 
   useEffect(() => {
-    const id = window.setTimeout(() => storage.set(key, ref.current), 400);
+    const id = window.setTimeout(writeIfChanged, 400);
     return () => window.clearTimeout(id);
-  }, [key, value]);
+  }, [writeIfChanged, value]);
 
   useEffect(() => {
-    const flush = () => storage.set(key, ref.current);
+    const flush = writeIfChanged;
     const onVis = () => {
       if (document.visibilityState === 'hidden') flush();
     };
@@ -272,7 +302,7 @@ function usePersisted<T>(key: string, value: T) {
       window.removeEventListener('pagehide', flush);
       document.removeEventListener('visibilitychange', onVis);
     };
-  }, [key]);
+  }, [writeIfChanged]);
 }
 
 const SESSION_KEY = 'session';
@@ -345,32 +375,13 @@ function uid(_prefix?: string) {
   return crypto.randomUUID();
 }
 
-/**
- * Compute streak length for a habit by looking at consecutive check-ins
- * working backwards from today.
- */
-function computeStreak(checkIns: HabitCheckIn[], habitId: string, memberId: string): number {
-  const dates = new Set(
-    checkIns
-      .filter((c) => c.habit_id === habitId && c.member_id === memberId)
-      .map((c) => c.for_date),
-  );
-  let streak = 0;
-  const cursor = new Date();
-  // Allow today not yet checked in — start from today; if missing, try yesterday.
-  for (let i = 0; i < 365; i++) {
-    const iso = localISO(cursor);
-    if (dates.has(iso)) {
-      streak++;
-    } else if (i === 0) {
-      // No check-in today is fine, keep looking from yesterday
-    } else {
-      break;
-    }
-    cursor.setDate(cursor.getDate() - 1);
-  }
-  return streak;
-}
+// Default [start, end] times for the calendar event backing each meal slot.
+const MEAL_TIMES: Record<MealType, [string, string]> = {
+  breakfast: ['08:00', '09:00'],
+  lunch: ['12:30', '13:30'],
+  dinner: ['18:30', '20:00'],
+  snack: ['15:00', '15:30'],
+};
 
 const STREAK_MILESTONES: Record<number, number> = {
   7: 10,
@@ -508,6 +519,12 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
   // depends on family.id) can trigger a catch-up reload on reconnect without
   // resubscribing every time the callback identity changes.
   const reloadRef = useRef<(() => void) | null>(null);
+  // A rejected server RPC leaves optimistic local state wrong (e.g. a balance
+  // change the server refused) — the toast fires via onWriteError, and this
+  // pulls fresh server state immediately instead of waiting for the next poll.
+  const reconcileAfterRpcError = useCallback(() => {
+    reloadRef.current?.();
+  }, []);
   useEffect(() => {
     if (!LIVE || !supabase) return;
 
@@ -959,6 +976,26 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
     }
   }, [session, authUserId, members]);
 
+  // Reopen repeating list items whose next occurrence has arrived.
+  // toggleListItem leaves a completed repeat marked done with next_due set (so
+  // the strike-through shows briefly); this sweep flips it back to open on/
+  // after that day. Runs on load, when items change (covers cloud hydration),
+  // and at the local-midnight rollover via useToday. Idempotent across
+  // devices — each writes the same reopened row.
+  const today = useToday();
+  const todayKeyISO = localISO(today);
+  useEffect(() => {
+    const due = listItems.filter(
+      (i) => i.repeat !== 'never' && i.done && i.next_due && i.next_due <= todayKeyISO,
+    );
+    if (due.length === 0) return;
+    const dueIds = new Set(due.map((i) => i.id));
+    setListItems((prev) =>
+      prev.map((i) => (dueIds.has(i.id) ? { ...i, done: false, done_at: null } : i)),
+    );
+    for (const i of due) dbUpsert('todo_items', { ...i, done: false, done_at: null });
+  }, [todayKeyISO, listItems]);
+
   // Auto-revert "Away til..." when the until date passes.
   // Re-runs whenever members change (incl. async load from Supabase) so a
   // stale location_until doesn't linger after the app re-mounts. Also
@@ -1059,10 +1096,19 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
       if (m.has_pin) {
         if (!pin) return { ok: false, error: 'PIN required' };
         // Cloud mode verifies server-side (the hash never leaves the DB);
-        // demo mode falls back to the local non-crypto hash.
-        const ok = isCloud()
-          ? await rpcVerifyMemberPin(memberId, pin)
-          : verifyPinSync(pin, m.pin_hash ?? null);
+        // demo mode falls back to the local non-crypto hash. A failed RPC
+        // (offline, server hiccup) is NOT a wrong PIN — say so.
+        let ok: boolean;
+        try {
+          ok = isCloud()
+            ? await rpcVerifyMemberPin(memberId, pin)
+            : verifyPinSync(pin, m.pin_hash ?? null);
+        } catch {
+          return {
+            ok: false,
+            error: "Can't check the PIN right now — check your internet connection and try again",
+          };
+        }
         if (!ok) return { ok: false, error: 'Wrong PIN' };
       }
       setSession({ member_id: memberId, authenticated_at: Date.now() });
@@ -1100,6 +1146,12 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
   // flight optimistic edit isn't clobbered by a poll snapshot from before
   // the write landed). Locally-deleted rows that are pending stay deleted;
   // locally-created rows that haven't propagated yet are preserved.
+  //
+  // Crucially, when the merged result is CONTENT-identical to current state it
+  // returns `prev` unchanged. Polled rows are always fresh objects, so without
+  // this bail-out every 90s poll gave all fifteen slices new identities — which
+  // re-rendered every useFamily() consumer and re-persisted every slice to
+  // localStorage even when nothing had changed on the server.
   const mergePolled =
     <T extends { id: string }>(table: string, polled: T[]) =>
     (prev: T[]): T[] => {
@@ -1118,6 +1170,20 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
       for (const l of prev) {
         if (!polledIds.has(l.id) && isPendingWrite(table, l.id)) out.push(l);
       }
+      // No-change bail-out: same row set with per-row identical content (row
+      // order is irrelevant — every consumer sorts). Reference equality short-
+      // circuits the stringify for rows we kept from prev.
+      if (out.length === prev.length) {
+        let same = true;
+        for (const row of out) {
+          const p = prevById.get(row.id);
+          if (!p || (p !== row && JSON.stringify(p) !== JSON.stringify(row))) {
+            same = false;
+            break;
+          }
+        }
+        if (same) return prev;
+      }
       return out;
     };
 
@@ -1130,7 +1196,11 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
       // Step 1: try the canonical bulk load. If it returns data, we're done.
       const data = await dbLoadFamily(family.id);
       if (data) {
-        setFamily(data.family);
+        // Same bail-out as mergePolled: keep the identity when unchanged so a
+        // no-op poll doesn't invalidate the context value via `family`.
+        setFamily((prev) =>
+          JSON.stringify(prev) === JSON.stringify(data.family) ? prev : data.family,
+        );
         setMembers(mergePolled('family_members', data.members));
         setEvents(mergePolled('events', data.events));
         setChores(mergePolled('chores', data.chores));
@@ -1277,16 +1347,19 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
   // is visible. Raised from 20s → 90s (A1): the per-poll read is now date-
   // windowed and the realtime channel auto-resubscribes on drop (below), so a
   // tighter interval is unnecessary load. Skipped while hidden or while a
-  // manual reload is in flight to avoid pile-ups.
+  // manual reload is in flight to avoid pile-ups (read via ref so the
+  // reloading flip doesn't tear the interval down and back up every poll).
+  const reloadingRef = useRef(false);
+  reloadingRef.current = reloading;
   useEffect(() => {
     if (!LIVE || !supabase) return;
     const id = window.setInterval(() => {
       if (document.hidden) return;
-      if (reloading) return;
-      reloadFromCloud();
+      if (reloadingRef.current) return;
+      reloadRef.current?.();
     }, 90_000);
     return () => window.clearInterval(id);
-  }, [reloadFromCloud, reloading]);
+  }, []);
 
   // ---- Events --------------------------------------------------------------
 
@@ -1354,6 +1427,18 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
     [family.id],
   );
 
+  // Undo of a delete re-inserts the exact row (same id, full content) instead
+  // of minting a new one via addEvent — a rebuilt copy dropped recurrence
+  // exdates (resurrecting occurrences the user had moved) and broke rows that
+  // reference the old id. google_event_id is cleared: the Google copy was
+  // removed on delete, so a fresh sync recreates it.
+  const restoreEvent = useCallback((e: CalendarEvent) => {
+    const restored: CalendarEvent = { ...e, google_event_id: null };
+    setEvents((prev) => (prev.some((x) => x.id === restored.id) ? prev : [...prev, restored]));
+    dbUpsert('events', restored);
+    syncEventToGoogle(restored.id);
+  }, []);
+
   // ---- Members -------------------------------------------------------------
 
   const addMember = useCallback(
@@ -1413,20 +1498,51 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
     [members],
   );
 
-  // Generic "save this list of IDs as the display order" for each kind.
-  // Items not in the list keep their natural order at the tail (see the
-  // sortedX selectors below).
+  // Members keep their device-local order (a per-device display preference).
   const reorderMembers = useCallback((orderedIds: string[]) => {
     setMemberOrder(orderedIds);
   }, []);
+  // Habits / chores / lists write a synced `position` (0..n) onto the rows
+  // themselves (migrate_v23) so a reorder on one device shows up everywhere —
+  // the old localStorage-only order never left the device. The legacy order
+  // list is still updated as the pre-migration fallback (see sortByOrder).
+  // Rows not in orderedIds (other members' private lists, archived chores)
+  // keep their existing position.
   const reorderHabits = useCallback((orderedIds: string[]) => {
     setHabitOrder(orderedIds);
+    setHabits((prev) =>
+      prev.map((h) => {
+        const pos = orderedIds.indexOf(h.id);
+        if (pos < 0 || pos === h.position) return h;
+        const updated = { ...h, position: pos };
+        dbUpsert('habits', updated);
+        return updated;
+      }),
+    );
   }, []);
   const reorderChores = useCallback((orderedIds: string[]) => {
     setChoreOrder(orderedIds);
+    setChores((prev) =>
+      prev.map((c) => {
+        const pos = orderedIds.indexOf(c.id);
+        if (pos < 0 || pos === c.position) return c;
+        const updated = { ...c, position: pos };
+        dbUpsert('chores', updated);
+        return updated;
+      }),
+    );
   }, []);
   const reorderLists = useCallback((orderedIds: string[]) => {
     setListOrder(orderedIds);
+    setLists((prev) =>
+      prev.map((l) => {
+        const pos = orderedIds.indexOf(l.id);
+        if (pos < 0 || pos === l.position) return l;
+        const updated = { ...l, position: pos };
+        dbUpsert('todo_lists', updated);
+        return updated;
+      }),
+    );
   }, []);
   // Items within a single list have a real `position` field, so the order is
   // stored on the row rather than in localStorage. We rewrite the positions
@@ -1558,6 +1674,12 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
     dbDelete('chores', id);
   }, []);
 
+  // Undo of a delete: same id back, so completion history stays attached.
+  const restoreChore = useCallback((c: Chore) => {
+    setChores((prev) => (prev.some((x) => x.id === c.id) ? prev : [...prev, c]));
+    dbUpsert('chores', c);
+  }, []);
+
   function applyPayout(
     membersList: FamilyMember[],
     memberId: string,
@@ -1609,12 +1731,12 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
         setMembers((prev) => applyPayout(prev, memberId, chore.payout, 1));
         // Cloud mode: balances are server-authoritative (S3), so the actual
         // credit must go through the RPC. Demo mode keeps the local update.
-        if (isCloud()) void rpcApplyChorePayout(memberId, chore.payout, 1);
+        if (isCloud()) rpcApplyChorePayout(memberId, chore.payout, 1).catch(reconcileAfterRpcError);
       }
 
       return completion;
     },
-    [chores, family.id],
+    [chores, family.id, reconcileAfterRpcError],
   );
 
   const deleteCompletion = useCallback((completionId: string) => {
@@ -1624,12 +1746,13 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
       if (target.status === 'approved') {
         setMembers((m) => applyPayout(m, target.member_id, target.payout, -1));
         // Cloud: reverse the credit server-side (S3). Demo: local only.
-        if (isCloud()) void rpcApplyChorePayout(target.member_id, target.payout, -1);
+        if (isCloud())
+          rpcApplyChorePayout(target.member_id, target.payout, -1).catch(reconcileAfterRpcError);
       }
       dbDelete('chore_completions', completionId);
       return prev.filter((c) => c.id !== completionId);
     });
-  }, []);
+  }, [reconcileAfterRpcError]);
 
   const approveCompletion = useCallback((completionId: string, approverId: string) => {
     if (approverId === FAMILY_PROFILE_ID) return; // approver must be a real parent
@@ -1642,7 +1765,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
       if (cloud) {
         // Server-authoritative (S3): the RPC flips status AND credits the
         // balance atomically, and enforces parent-only at the DB.
-        void rpcSetCompletionStatus(completionId, 'approved');
+        rpcSetCompletionStatus(completionId, 'approved').catch(reconcileAfterRpcError);
       }
       return prev.map((c) => {
         if (c.id !== completionId) return c;
@@ -1656,12 +1779,12 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
         return updated;
       });
     });
-  }, []);
+  }, [reconcileAfterRpcError]);
 
   const rejectCompletion = useCallback((completionId: string, approverId: string) => {
     if (approverId === FAMILY_PROFILE_ID) return; // approver must be a real parent
     const cloud = isCloud();
-    if (cloud) void rpcSetCompletionStatus(completionId, 'rejected');
+    if (cloud) rpcSetCompletionStatus(completionId, 'rejected').catch(reconcileAfterRpcError);
     setCompletions((prev) =>
       prev.map((c) => {
         if (c.id !== completionId) return c;
@@ -1675,7 +1798,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
         return updated;
       }),
     );
-  }, []);
+  }, [reconcileAfterRpcError]);
 
   // ---- Redemptions ---------------------------------------------------------
 
@@ -1704,13 +1827,13 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
       if (isCloud()) {
         // Server-authoritative (S3): redeem_reward inserts the redemption and
         // (when pre-approved) debits the balance atomically at the DB.
-        void rpcRedeemReward(
+        rpcRedeemReward(
           memberId,
           category,
           amount,
           reason,
           autoApprove ? 'approved' : 'pending_approval',
-        );
+        ).catch(reconcileAfterRpcError);
         if (autoApprove) {
           setMembers((prev) => applyPayout(prev, memberId, { [category]: amount } as any, -1));
         }
@@ -1724,7 +1847,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
 
       return redemption;
     },
-    [family.id],
+    [family.id, reconcileAfterRpcError],
   );
 
   const approveRedemption = useCallback((id: string, approverId: string) => {
@@ -1738,7 +1861,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
       if (cloud) {
         // Server-authoritative (S3): RPC flips status AND debits atomically,
         // and enforces parent-only at the DB.
-        void rpcSetRedemptionStatus(id, 'approved');
+        rpcSetRedemptionStatus(id, 'approved').catch(reconcileAfterRpcError);
       }
       return prev.map((x) => {
         if (x.id !== id) return x;
@@ -1752,12 +1875,12 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
         return updated;
       });
     });
-  }, []);
+  }, [reconcileAfterRpcError]);
 
   const rejectRedemption = useCallback((id: string, approverId: string) => {
     if (approverId === FAMILY_PROFILE_ID) return; // approver must be a real parent
     const cloud = isCloud();
-    if (cloud) void rpcSetRedemptionStatus(id, 'rejected');
+    if (cloud) rpcSetRedemptionStatus(id, 'rejected').catch(reconcileAfterRpcError);
     setRedemptions((prev) =>
       prev.map((x) => {
         if (x.id !== id) return x;
@@ -1771,7 +1894,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
         return updated;
       }),
     );
-  }, []);
+  }, [reconcileAfterRpcError]);
 
   // ---- Goals ---------------------------------------------------------------
 
@@ -1914,6 +2037,12 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
     dbDelete('todo_items', id);
   }, []);
 
+  // Undo of a delete: same id back, full content preserved.
+  const restoreListItem = useCallback((item: TodoItem) => {
+    setListItems((prev) => (prev.some((x) => x.id === item.id) ? prev : [...prev, item]));
+    dbUpsert('todo_items', item);
+  }, []);
+
   // ---- Habits --------------------------------------------------------------
 
   const addHabit = useCallback(
@@ -1951,6 +2080,13 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
     dbDelete('habits', id);
   }, []);
 
+  // Undo of a delete: same id back, full content preserved. (Check-in history
+  // removed by the delete is not resurrected — matches previous behaviour.)
+  const restoreHabit = useCallback((h: Habit) => {
+    setHabits((prev) => (prev.some((x) => x.id === h.id) ? prev : [...prev, h]));
+    dbUpsert('habits', h);
+  }, []);
+
   const toggleCheckIn = useCallback(
     (habitId: string, memberId: string, forDate: string) => {
       if (memberId === FAMILY_PROFILE_ID) return; // shared profile has no own habits
@@ -1984,9 +2120,11 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
       // Streak rewards — for kids on habits with streak_rewards enabled.
       // Awarded whenever a check-in causes the streak to land on a milestone,
       // including on backfilled days (per "kid-friendly but gameable" mode).
+      // Uses the same target-aware streak as the Habits UI (lib/habits), so a
+      // milestone can't pay out on a streak the page shows as broken.
       const member = members.find((m) => m.id === memberId);
       if (member?.role === 'child' && habit.streak_rewards) {
-        const streak = computeStreak(nextCheckIns, habitId, memberId);
+        const streak = computeHabitStreak(habit, nextCheckIns, memberId);
         const reward = STREAK_MILESTONES[streak];
         if (reward) {
           // Optimistic local credit; cloud mode reconciles from the RPC + poll.
@@ -2004,11 +2142,12 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
             ),
           );
           // Cloud mode: balances are server-authoritative (S3).
-          if (isCloud()) void rpcApplyChorePayout(memberId, { stars: reward }, 1);
+          if (isCloud())
+            rpcApplyChorePayout(memberId, { stars: reward }, 1).catch(reconcileAfterRpcError);
         }
       }
     },
-    [habits, checkIns, members, family.id],
+    [habits, checkIns, members, family.id, reconcileAfterRpcError],
   );
 
   const incrementCheckIn = useCallback(
@@ -2245,13 +2384,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
     (mp: Omit<MealPlan, 'id' | 'created_at' | 'family_id'>) => {
       const recipe = recipes.find((r) => r.id === mp.recipe_id);
       const eventId = uid('e');
-      const times = {
-        breakfast: ['08:00', '09:00'],
-        lunch: ['12:30', '13:30'],
-        dinner: ['18:30', '20:00'],
-        snack: ['15:00', '15:30'],
-      };
-      const [startTime, endTime] = times[mp.meal_type as MealType] ?? times.dinner;
+      const [startTime, endTime] = MEAL_TIMES[mp.meal_type as MealType] ?? MEAL_TIMES.dinner;
 
       const newEvent: CalendarEvent = {
         id: eventId,
@@ -2345,13 +2478,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
       if (patch.meal_type && patch.meal_type !== mp.meal_type && mp.calendar_event_id) {
         const evt = events.find((e) => e.id === mp.calendar_event_id);
         if (evt) {
-          const times: Record<MealType, [string, string]> = {
-            breakfast: ['08:00', '09:00'],
-            lunch: ['12:30', '13:30'],
-            dinner: ['18:30', '20:00'],
-            snack: ['15:00', '15:30'],
-          };
-          const [startTime, endTime] = times[patch.meal_type] ?? times.dinner;
+          const [startTime, endTime] = MEAL_TIMES[patch.meal_type] ?? MEAL_TIMES.dinner;
           const datePart = evt.start_at.slice(0, 10);
           updateEvent(evt.id, {
             start_at: `${datePart}T${startTime}:00`,
@@ -2368,13 +2495,8 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
       const source = mealPlans.find((m) => m.id === sourceMealPlanId);
       if (!source || weekdays.length === 0 || weeks <= 0) return;
       const recipe = recipes.find((r) => r.id === source.recipe_id);
-      const times = {
-        breakfast: ['08:00', '09:00'],
-        lunch: ['12:30', '13:30'],
-        dinner: ['18:30', '20:00'],
-        snack: ['15:00', '15:30'],
-      };
-      const [startTime, endTime] = times[source.meal_type as MealType] ?? times.dinner;
+      const [startTime, endTime] =
+        MEAL_TIMES[source.meal_type as MealType] ?? MEAL_TIMES.dinner;
       const sourceDate = new Date(`${source.date}T00:00:00`);
       // Walk forward day by day for the requested span and pick any matching
       // weekday that doesn't already have a plan for this meal type.
@@ -2664,21 +2786,30 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
   // stored order keep their natural array position at the end.
   const sortedMembers = useMemo(() => {
     if (memberOrder.length === 0) return members;
-    const indexOf = (id: string) => {
-      const i = memberOrder.indexOf(id);
-      return i < 0 ? Number.MAX_SAFE_INTEGER : i;
-    };
+    const index = new Map(memberOrder.map((id, i) => [id, i]));
+    const indexOf = (id: string) => index.get(id) ?? Number.MAX_SAFE_INTEGER;
     return [...members].sort((a, b) => indexOf(a.id) - indexOf(b.id));
   }, [members, memberOrder]);
 
-  // Same shape for habits, chores, lists — sort by stored order with new
-  // entries falling to the end.
-  const sortByOrder = <T extends { id: string }>(items: T[], order: string[]): T[] => {
-    if (order.length === 0) return items;
-    const indexOf = (id: string) => {
-      const i = order.indexOf(id);
-      return i < 0 ? Number.MAX_SAFE_INTEGER : i;
-    };
+  // Habits, chores, lists sort by the synced `position` column once any row
+  // has one (reorders write it — migrate_v23); unpositioned rows fall to the
+  // end, oldest first. Rows from before the column existed fall back to the
+  // legacy device-local order so an existing device's layout doesn't jump.
+  const sortByOrder = <T extends { id: string; position?: number | null; created_at: string }>(
+    items: T[],
+    legacyOrder: string[],
+  ): T[] => {
+    if (items.some((i) => i.position !== null && i.position !== undefined)) {
+      return [...items].sort((a, b) => {
+        const pa = a.position ?? Number.MAX_SAFE_INTEGER;
+        const pb = b.position ?? Number.MAX_SAFE_INTEGER;
+        if (pa !== pb) return pa - pb;
+        return a.created_at.localeCompare(b.created_at);
+      });
+    }
+    if (legacyOrder.length === 0) return items;
+    const index = new Map(legacyOrder.map((id, i) => [id, i]));
+    const indexOf = (id: string) => index.get(id) ?? Number.MAX_SAFE_INTEGER;
     return [...items].sort((a, b) => indexOf(a.id) - indexOf(b.id));
   };
   const sortedHabits = useMemo(() => sortByOrder(habits, habitOrder), [habits, habitOrder]);
@@ -2711,6 +2842,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
       addMember,
       updateEvent,
       deleteEvent,
+      restoreEvent,
       updateMember,
       deleteMember,
       moveMember,
@@ -2724,6 +2856,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
       addChore,
       updateChore,
       deleteChore,
+      restoreChore,
       completeChore,
       deleteCompletion,
       approveCompletion,
@@ -2740,9 +2873,11 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
       updateListItem,
       toggleListItem,
       deleteListItem,
+      restoreListItem,
       addHabit,
       updateHabit,
       deleteHabit,
+      restoreHabit,
       toggleCheckIn,
       incrementCheckIn,
       decrementCheckIn,
@@ -2784,10 +2919,6 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
       gainXp,
       needsPasswordSetup,
       clearNeedsPasswordSetup,
-      reloadFromCloud,
-      reloading,
-      lastReloadAt,
-      online,
     }),
     [
       family,
@@ -2809,6 +2940,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
       addMember,
       updateEvent,
       deleteEvent,
+      restoreEvent,
       updateMember,
       deleteMember,
       moveMember,
@@ -2822,6 +2954,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
       addChore,
       updateChore,
       deleteChore,
+      restoreChore,
       completeChore,
       deleteCompletion,
       approveCompletion,
@@ -2838,9 +2971,11 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
       updateListItem,
       toggleListItem,
       deleteListItem,
+      restoreListItem,
       addHabit,
       updateHabit,
       deleteHabit,
+      restoreHabit,
       toggleCheckIn,
       incrementCheckIn,
       decrementCheckIn,
@@ -2882,18 +3017,34 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
       gainXp,
       needsPasswordSetup,
       clearNeedsPasswordSetup,
-      reloadFromCloud,
-      reloading,
-      lastReloadAt,
-      online,
     ],
   );
 
-  return <FamilyContext.Provider value={value}>{children}</FamilyContext.Provider>;
+  // Sync status is intentionally OUTSIDE the main context value: reloading
+  // flips true→false and lastReloadAt bumps on every background poll, and
+  // only the SyncIndicator cares.
+  const syncValue = useMemo<SyncStatusValue>(
+    () => ({ reloadFromCloud, reloading, lastReloadAt, online }),
+    [reloadFromCloud, reloading, lastReloadAt, online],
+  );
+
+  return (
+    <FamilyContext.Provider value={value}>
+      <SyncStatusContext.Provider value={syncValue}>{children}</SyncStatusContext.Provider>
+    </FamilyContext.Provider>
+  );
 }
 
 export function useFamily() {
   const ctx = useContext(FamilyContext);
   if (!ctx) throw new Error('useFamily must be used within FamilyProvider');
+  return ctx;
+}
+
+/** Sync/connectivity status — separate from useFamily so per-poll status
+ *  churn only re-renders the components that actually display it. */
+export function useSyncStatus() {
+  const ctx = useContext(SyncStatusContext);
+  if (!ctx) throw new Error('useSyncStatus must be used within FamilyProvider');
   return ctx;
 }

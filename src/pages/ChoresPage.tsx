@@ -11,13 +11,13 @@ import {
   Pencil,
   Check,
   X,
-  Camera,
 } from 'lucide-react';
 import { startOfWeek } from 'date-fns';
 import { useFamily } from '@/context/FamilyContext';
 import { useTheme } from '@/context/ThemeContext';
 import { useToast } from '@/context/ToastContext';
 import { useSwipeMode } from '@/hooks/useSwipeMode';
+import { useToday } from '@/hooks/useToday';
 import { Avatar } from '@/components/Avatar';
 import { DragHandle } from '@/components/DragHandle';
 import { DropIndicator } from '@/components/DropIndicator';
@@ -57,7 +57,9 @@ function KidView({ member }: { member: FamilyMember }) {
   const [redeemOpen, setRedeemOpen] = useState(false);
   const tokens = getColorTokens(member.color, resolved === 'dark');
 
-  const today = useMemo(() => new Date(), []);
+  // Live "today" — a frozen useMemo(new Date) kept showing yesterday's chores
+  // on a kitchen device left open past midnight.
+  const today = useToday();
   const choreItems = useMemo(() => {
     const raw = getChoresForMemberOnDate(chores, completions, member.id, today);
     // For rotated/roster_role chores, filter out entries where it's not this member's week
@@ -212,8 +214,7 @@ function areKidRowsEqual(a: KidChoreRowProps, b: KidChoreRowProps): boolean {
     a.item.chore.id === b.item.chore.id &&
     a.item.chore.title === b.item.chore.title &&
     a.item.chore.description === b.item.chore.description &&
-    a.item.chore.payout === b.item.chore.payout &&
-    a.item.chore.requires_photo === b.item.chore.requires_photo
+    a.item.chore.payout === b.item.chore.payout
   );
 }
 
@@ -263,7 +264,6 @@ const KidChoreRow = memo(function KidChoreRow({
         {isRejected && <div className="text-xs text-accent mt-0.5">✗ Try again</div>}
       </div>
       <div className="flex items-center gap-1.5 shrink-0">
-        {item.chore.requires_photo && <Camera size={12} className="text-text-faint" />}
         <span className="text-xs font-medium text-text-muted whitespace-nowrap">
           {formatPayout(item.chore.payout)}
         </span>
@@ -323,7 +323,7 @@ function ParentOverview() {
   const { resolved } = useTheme();
   const isDark = resolved === 'dark';
   const kids = members.filter((m) => m.role === 'child');
-  const today = new Date();
+  const today = useToday();
   const weekStart = startOfWeek(today, { weekStartsOn: 1 });
 
   return (
@@ -417,7 +417,7 @@ function ParentOverview() {
 }
 
 function ParentManage() {
-  const { chores, members, deleteChore, addChore, reorderChores } = useFamily();
+  const { chores, members, deleteChore, restoreChore, reorderChores } = useFamily();
   const { show } = useToast();
   const swipeMode = useSwipeMode();
   const [editorOpen, setEditorOpen] = useState(false);
@@ -440,25 +440,9 @@ function ParentManage() {
     deleteChore(c.id);
     show({
       message: `"${snapshot.title}" deleted`,
-      onUndo: () => {
-        addChore({
-          title: snapshot.title,
-          description: snapshot.description,
-          assigned_to: snapshot.assigned_to,
-          frequency: snapshot.frequency,
-          weekdays: snapshot.weekdays,
-          payout: snapshot.payout,
-          active_from: snapshot.active_from,
-          requires_photo: snapshot.requires_photo,
-          requires_approval: snapshot.requires_approval,
-          archived: snapshot.archived,
-          mode: snapshot.mode,
-          rotation_roster: snapshot.rotation_roster,
-          rotation_pointer: snapshot.rotation_pointer,
-          rotation_anchor_iso_week: snapshot.rotation_anchor_iso_week,
-          roster_role_name: snapshot.roster_role_name,
-        });
-      },
+      // Restore the exact row (same id) — recreating via addChore minted a new
+      // id, orphaning every completion in the history/stats views.
+      onUndo: () => restoreChore(snapshot),
     });
   };
 
@@ -704,7 +688,6 @@ function PendingView({
                     <div className="text-sm font-medium text-text">{chore.title}</div>
                     <div className="text-xs text-text-faint">
                       {m.name} · {formatPayout(c.payout)}
-                      {chore.requires_photo && ' · 📷 photo required'}
                     </div>
                   </div>
                   <div className="flex gap-1.5">

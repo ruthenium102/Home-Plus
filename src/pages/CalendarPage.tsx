@@ -120,11 +120,18 @@ export function CalendarPage() {
   // Pointer-based drag of an event chip onto a day cell. HTML5 DnD does not
   // work on iOS touch — we instead capture the pointer, watch pointermove
   // for the day under it (via data-day-key), then commit on pointerup.
+  //
+  // Touch drags require a short HOLD before lift-off (like native calendar
+  // apps). The chips sit in scrollable grids with touch-action: pan-y, so a
+  // quick vertical swipe that happens to start on a chip scrolls the page —
+  // previously any 6px of movement yanked the event to another day instead.
+  // Mouse drags keep the immediate movement threshold.
   const startEventDrag = (e: ExpandedEvent, downEv: React.PointerEvent) => {
     if (downEv.button !== undefined && downEv.button !== 0) return;
     const target = downEv.currentTarget as HTMLElement;
     const startX = downEv.clientX;
     const startY = downEv.clientY;
+    const isTouch = downEv.pointerType !== 'mouse';
     let started = false;
     let ghostEl: HTMLDivElement | null = null;
     const pointerId = downEv.pointerId;
@@ -140,33 +147,64 @@ export function CalendarPage() {
 
     let rafId = 0;
     let lastKey: string | null = null;
-    let lastClientX = 0;
-    let lastClientY = 0;
+    let lastClientX = startX;
+    let lastClientY = startY;
+    let holdTimer = 0;
     const autoScroll = createEdgeAutoScroller();
+
+    // Once a touch drag owns the gesture, stop the browser from claiming
+    // pan-y mid-drag (needs a non-passive touchmove; preventDefault on
+    // pointermove doesn't stop native scrolling).
+    const blockScroll = (ev: TouchEvent) => {
+      if (started) ev.preventDefault();
+    };
+
+    const beginDrag = () => {
+      started = true;
+      // Light pickup tap to match native drag lift-off.
+      void hapticLight();
+      try {
+        target.setPointerCapture(pointerId);
+      } catch {
+        /* ignore */
+      }
+      draggingRef.current = e;
+      document.addEventListener('touchmove', blockScroll, { passive: false });
+      // A floating chip that follows the pointer so the event physically
+      // moves with the finger/cursor (not just a day highlight).
+      ghostEl = document.createElement('div');
+      ghostEl.textContent = e.title;
+      ghostEl.style.cssText =
+        'position:fixed;left:0;top:0;z-index:200;pointer-events:none;' +
+        'padding:4px 10px;border-radius:8px;font-size:12px;font-weight:500;' +
+        'max-width:220px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;' +
+        'background:rgb(var(--surface));color:rgb(var(--text));' +
+        'border:1px solid rgb(var(--accent));box-shadow:0 10px 24px -8px rgba(0,0,0,0.35);';
+      ghostEl.style.transform = `translate(${lastClientX + 10}px, ${lastClientY + 10}px)`;
+      document.body.appendChild(ghostEl);
+      target.style.opacity = '0.4';
+    };
+
+    if (isTouch) {
+      holdTimer = window.setTimeout(() => {
+        holdTimer = 0;
+        beginDrag();
+      }, 300);
+    }
+
     const move = (ev: PointerEvent) => {
+      lastClientX = ev.clientX;
+      lastClientY = ev.clientY;
       if (!started) {
-        if (Math.abs(ev.clientY - startY) < 6 && Math.abs(ev.clientX - startX) < 6) return;
-        started = true;
-        // Light pickup tap to match native drag lift-off.
-        void hapticLight();
-        try {
-          target.setPointerCapture(pointerId);
-        } catch {
-          /* ignore */
+        const moved =
+          Math.abs(ev.clientY - startY) >= 6 || Math.abs(ev.clientX - startX) >= 6;
+        if (isTouch) {
+          // Movement before the hold elapsed = a scroll/tap, not a drag.
+          if (moved) cancel();
+          return;
         }
-        draggingRef.current = e;
-        // A floating chip that follows the pointer so the event physically
-        // moves with the finger/cursor (not just a day highlight).
-        ghostEl = document.createElement('div');
-        ghostEl.textContent = e.title;
-        ghostEl.style.cssText =
-          'position:fixed;left:0;top:0;z-index:200;pointer-events:none;' +
-          'padding:4px 10px;border-radius:8px;font-size:12px;font-weight:500;' +
-          'max-width:220px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;' +
-          'background:rgb(var(--surface));color:rgb(var(--text));' +
-          'border:1px solid rgb(var(--accent));box-shadow:0 10px 24px -8px rgba(0,0,0,0.35);';
-        document.body.appendChild(ghostEl);
-        target.style.opacity = '0.4';
+        if (!moved) return;
+        beginDrag();
       }
       ev.preventDefault();
       if (ghostEl) {
@@ -174,8 +212,6 @@ export function CalendarPage() {
       }
       // Auto-scroll the month/week grid so a day below the fold is reachable.
       autoScroll.update(ev.clientX, ev.clientY);
-      lastClientX = ev.clientX;
-      lastClientY = ev.clientY;
       // Throttle the hit-test + hover-state write to one per animation frame.
       // Previously this ran setDragOverDayKey on EVERY pointermove, re-rendering
       // the whole month/week grid each frame and dropping frames on A-series
@@ -193,6 +229,11 @@ export function CalendarPage() {
     };
     const cleanup = () => {
       autoScroll.stop();
+      if (holdTimer) {
+        window.clearTimeout(holdTimer);
+        holdTimer = 0;
+      }
+      document.removeEventListener('touchmove', blockScroll);
       if (ghostEl) {
         ghostEl.remove();
         ghostEl = null;
@@ -680,7 +721,16 @@ function WeekView({
                   <div
                     key={e.occurrence_key}
                     data-event-chip
-                    style={{ touchAction: 'none' }}
+                    // pan-y: quick vertical swipes on a chip scroll the page;
+                    // holding ~300ms lifts the chip into a drag (see
+                    // startEventDrag). Callout/select suppression stops the
+                    // iOS long-press magnifier during the hold.
+                    style={{
+                      touchAction: 'pan-y',
+                      WebkitTouchCallout: 'none',
+                      WebkitUserSelect: 'none',
+                      userSelect: 'none',
+                    }}
                     onPointerDown={(ev) => onStartEventDrag(e, ev)}
                   >
                     <EventChip event={e} onClick={() => onEdit(e)} variant="week" />
@@ -781,13 +831,26 @@ function MonthView({
           const overflow = dayEvents.length - visible.length;
 
           return (
-            <button
+            // role=button div (not <button>): the event chips inside are
+            // themselves interactive, and nested interactive content inside a
+            // real <button> is invalid HTML + confuses VoiceOver.
+            <div
               key={dayKey}
               data-day-key={dayKey}
+              role="button"
+              tabIndex={0}
+              aria-label={format(day, 'EEEE d MMMM')}
               onClick={() => onJumpToDay(day)}
               onDoubleClick={() => onCreate(day)}
+              onKeyDown={(ev) => {
+                if (ev.target !== ev.currentTarget) return; // chips handle their own keys
+                if (ev.key === 'Enter' || ev.key === ' ') {
+                  ev.preventDefault();
+                  onJumpToDay(day);
+                }
+              }}
               className={
-                'rounded-md p-1.5 min-h-[88px] sm:min-h-[110px] lg:min-h-[132px] flex flex-col text-left transition-colors hover:ring-1 hover:ring-border-strong ' +
+                'rounded-md p-1.5 min-h-[88px] sm:min-h-[110px] lg:min-h-[132px] flex flex-col text-left transition-colors cursor-pointer hover:ring-1 hover:ring-border-strong ' +
                 (isToday ? 'bg-accent-soft' : inMonth ? 'bg-surface-2' : 'bg-surface-2/40') +
                 (isDragOver ? ' ring-2 ring-accent' : '')
               }
@@ -836,10 +899,26 @@ function MonthView({
                   return (
                     <div
                       key={e.occurrence_key}
-                      style={{ touchAction: 'none' }}
+                      role="button"
+                      tabIndex={0}
+                      aria-label={`${e.title} — open event`}
+                      // pan-y + hold-to-drag: see the WeekView chips.
+                      style={{
+                        touchAction: 'pan-y',
+                        WebkitTouchCallout: 'none',
+                        WebkitUserSelect: 'none',
+                        userSelect: 'none',
+                      }}
                       onClick={(ev) => {
                         ev.stopPropagation();
                         onEdit(e);
+                      }}
+                      onKeyDown={(ev) => {
+                        if (ev.key === 'Enter' || ev.key === ' ') {
+                          ev.preventDefault();
+                          ev.stopPropagation();
+                          onEdit(e);
+                        }
                       }}
                       onPointerDown={(ev) => {
                         ev.stopPropagation();
@@ -854,7 +933,7 @@ function MonthView({
                   <div className="text-[10px] text-text-faint px-1">+{overflow} more</div>
                 )}
               </div>
-            </button>
+            </div>
           );
         })}
       </div>

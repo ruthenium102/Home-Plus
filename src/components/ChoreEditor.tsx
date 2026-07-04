@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { localISO } from '@/lib/dates';
 import { hapticLight, hapticMedium } from '@/lib/native';
 import { createEdgeAutoScroller } from '@/lib/dragAutoScroll';
-import { Trash2, Camera, ShieldCheck, RotateCw } from 'lucide-react';
+import { Trash2, ShieldCheck, RotateCw } from 'lucide-react';
 import { useFamily } from '@/context/FamilyContext';
 import { isoWeekStr } from '@/lib/rotation';
 import { Avatar } from './Avatar';
@@ -38,7 +38,6 @@ export function ChoreEditor({ open, onClose, editing }: Props) {
   const [payout, setPayout] = useState<Partial<Record<RewardCategoryKey, number>>>({
     stars: 5,
   });
-  const [requiresPhoto, setRequiresPhoto] = useState(false);
   const [requiresApproval, setRequiresApproval] = useState(false);
   const [mode, setMode] = useState<ChoreMode>('standard');
   const [rotationRoster, setRotationRoster] = useState<string[]>([]);
@@ -55,7 +54,6 @@ export function ChoreEditor({ open, onClose, editing }: Props) {
       setFreq(editing.frequency);
       setWeekdays(editing.weekdays);
       setPayout(editing.payout);
-      setRequiresPhoto(editing.requires_photo);
       setRequiresApproval(editing.requires_approval);
       setMode(editing.mode ?? 'standard');
       setRotationRoster(editing.rotation_roster ?? []);
@@ -68,7 +66,6 @@ export function ChoreEditor({ open, onClose, editing }: Props) {
       setFreq('daily');
       setWeekdays([]);
       setPayout({ stars: 5 });
-      setRequiresPhoto(false);
       setRequiresApproval(false);
       setMode('standard');
       setRotationRoster([]);
@@ -129,7 +126,9 @@ export function ChoreEditor({ open, onClose, editing }: Props) {
       weekdays: freq === 'weekly' ? weekdays : [],
       payout,
       active_from: editing?.active_from || today,
-      requires_photo: requiresPhoto,
+      // Photo capture isn't built yet, so the toggle is hidden — keep any
+      // value already stored on the row for when the feature lands.
+      requires_photo: editing?.requires_photo ?? false,
       requires_approval: requiresApproval,
       archived: false,
       mode,
@@ -373,12 +372,9 @@ export function ChoreEditor({ open, onClose, editing }: Props) {
             <div>
               <div className="text-sm text-text-muted mb-2">Approval</div>
               <div className="space-y-2">
-                <SegmentedToggle
-                  icon={<Camera size={14} />}
-                  label="Photo proof"
-                  value={requiresPhoto}
-                  onChange={setRequiresPhoto}
-                />
+                {/* "Photo proof" toggle removed until photo capture actually
+                    exists — it advertised a verification step that never
+                    happened (completions always saved photo_url: null). */}
                 <SegmentedToggle
                   icon={<ShieldCheck size={14} />}
                   label="Parent approves"

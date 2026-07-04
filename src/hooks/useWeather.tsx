@@ -3,6 +3,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useMemo,
   useRef,
   useState,
   type ReactNode,
@@ -257,19 +258,36 @@ export function WeatherProvider({ children }: { children: ReactNode }) {
     setLocationStatus('ready');
   }, []);
 
-  const value: WeatherState = {
-    temp,
-    code,
-    locationName,
-    loading,
-    error,
-    locationStatus,
-    requestLocation,
-    resetLocation,
-    setManualLocation,
-    unit,
-    setUnit,
-  };
+  // Memoized so consumers only re-render when weather state actually changes,
+  // not on every provider render.
+  const value = useMemo<WeatherState>(
+    () => ({
+      temp,
+      code,
+      locationName,
+      loading,
+      error,
+      locationStatus,
+      requestLocation,
+      resetLocation,
+      setManualLocation,
+      unit,
+      setUnit,
+    }),
+    [
+      temp,
+      code,
+      locationName,
+      loading,
+      error,
+      locationStatus,
+      requestLocation,
+      resetLocation,
+      setManualLocation,
+      unit,
+      setUnit,
+    ],
+  );
 
   return <WeatherContext.Provider value={value}>{children}</WeatherContext.Provider>;
 }

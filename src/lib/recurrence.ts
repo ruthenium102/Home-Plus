@@ -43,6 +43,61 @@ export function expandEvents(
   );
 }
 
+const DAY_MS = 86_400_000;
+
+/**
+ * Jump the walk cursor from the series origin to the last occurrence start at
+ * or before the earliest instant that could still overlap the range, instead
+ * of stepping one period at a time from the beginning. Without this the
+ * expansion cost grows with the age of the series, and an old daily series
+ * (or weekly-with-byweekday, which steps 1 day) exhausts the iteration cap
+ * before ever reaching the visible range — occurrences silently vanish
+ * ~500 steps after the series was created.
+ *
+ * Only used for series without a `count` limit — count-limited series must
+ * walk from the origin so occurrences are numbered correctly.
+ *
+ * The day-based jumps deliberately land one step early (n - 1): ms arithmetic
+ * can drift an hour across DST, and the normal walk cheaply covers the last
+ * step. Month/year jumps go a whole period short for the same reason.
+ */
+function fastForwardCursor(
+  origStart: Date,
+  rec: Recurrence,
+  rangeStart: Date,
+  durationMs: number,
+): Date {
+  const earliest = rangeStart.getTime() - durationMs;
+  if (origStart.getTime() >= earliest) return new Date(origStart);
+  const interval = Math.max(1, rec.interval || 1);
+  const jumpDays = (stepDays: number) => {
+    const n = Math.floor((earliest - origStart.getTime()) / (stepDays * DAY_MS)) - 1;
+    return n > 0 ? addDays(origStart, n * stepDays) : new Date(origStart);
+  };
+  switch (rec.freq) {
+    case 'daily':
+      return jumpDays(interval);
+    case 'weekly':
+      // With byweekday the walk steps 1 day; without, whole weeks.
+      return jumpDays(rec.byweekday && rec.byweekday.length > 0 ? 1 : interval * 7);
+    case 'monthly': {
+      const months =
+        (rangeStart.getFullYear() - origStart.getFullYear()) * 12 +
+        (rangeStart.getMonth() - origStart.getMonth()) -
+        1;
+      const n = Math.floor(months / interval);
+      return n > 0 ? addMonths(origStart, n * interval) : new Date(origStart);
+    }
+    case 'yearly': {
+      const years = rangeStart.getFullYear() - origStart.getFullYear() - 1;
+      const n = Math.floor(years / interval);
+      return n > 0 ? addYears(origStart, n * interval) : new Date(origStart);
+    }
+    default:
+      return new Date(origStart);
+  }
+}
+
 function expandRecurring(
   e: CalendarEvent,
   rec: Recurrence,
@@ -55,11 +110,14 @@ function expandRecurring(
   const durationMs = origEnd.getTime() - origStart.getTime();
   const until = rec.until ? new Date(rec.until) : null;
   const limit = until && isBefore(until, rangeEnd) ? until : rangeEnd;
-  const maxIterations = 500; // safety
+  const maxIterations = 2000; // safety (count-limited series still walk from origin)
   let count = 0;
 
-  // Walk forward from origStart until we pass `limit`, collecting hits.
-  let cursor = new Date(origStart);
+  // Walk forward until we pass `limit`, collecting hits. Unbounded series
+  // start the walk near rangeStart instead of at the series origin.
+  let cursor = rec.count
+    ? new Date(origStart)
+    : fastForwardCursor(origStart, rec, rangeStart, durationMs);
   let occCount = 0;
 
   while (count < maxIterations && !isAfter(cursor, limit)) {

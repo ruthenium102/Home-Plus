@@ -5,6 +5,7 @@ import { useFamily } from '@/context/FamilyContext';
 import { useTheme } from '@/context/ThemeContext';
 import { useToast } from '@/context/ToastContext';
 import { useSwipeMode } from '@/hooks/useSwipeMode';
+import { useToday } from '@/hooks/useToday';
 import { Avatar } from '@/components/Avatar';
 import { DragHandle } from '@/components/DragHandle';
 import { DropIndicator } from '@/components/DropIndicator';
@@ -39,7 +40,7 @@ export function HabitsPage() {
     incrementCheckIn,
     decrementCheckIn,
     deleteHabit,
-    addHabit,
+    restoreHabit,
     reorderHabits,
   } = useFamily();
   // Drag-to-reorder applies only to the active member's own habits — other
@@ -60,22 +61,9 @@ export function HabitsPage() {
     deleteHabit(h.id);
     show({
       message: `"${snapshot.title}" deleted`,
-      onUndo: () => {
-        addHabit({
-          title: snapshot.title,
-          description: snapshot.description,
-          member_id: snapshot.member_id,
-          cadence: snapshot.cadence,
-          weekdays: snapshot.weekdays ?? [],
-          visibility: snapshot.visibility,
-          streak_rewards: snapshot.streak_rewards,
-          archived: snapshot.archived,
-          count_mode: snapshot.count_mode ?? false,
-          daily_target: snapshot.daily_target ?? 1,
-          target_op: snapshot.target_op,
-          week_start: snapshot.week_start ?? null,
-        });
-      },
+      // Restore the exact row (same id, full content) — recreating via
+      // addHabit minted a new id and silently dropped any newer fields.
+      onUndo: () => restoreHabit(snapshot),
     });
   };
 
@@ -107,7 +95,9 @@ export function HabitsPage() {
     return ordered;
   }, [habitsToShow, members, activeMember]);
 
-  const today = new Date();
+  // Live "today" — flips at midnight so a device left open overnight doesn't
+  // keep logging check-ins against yesterday.
+  const today = useToday();
   const todayISO = localISO(today);
 
   const handleNew = () => {

@@ -186,6 +186,9 @@ export interface Chore {
   // matching the historical ISO-week behaviour. The turn changes when this
   // weekday is crossed.
   rotation_weekday?: number | null;
+  // Synced display order (0..n) written on drag-reorder (migrate_v23).
+  // null/absent = unpositioned; sorts after positioned rows.
+  position?: number | null;
 }
 
 /**
@@ -268,6 +271,8 @@ export interface TodoList {
   // Optional accent colour (uses MemberColor palette for consistency).
   color: MemberColor | null;
   archived: boolean;
+  // Synced display order (0..n) written on drag-reorder (migrate_v23).
+  position?: number | null;
   created_at: string;
 }
 
@@ -342,6 +347,8 @@ export interface Habit {
   //   'eq'  = exactly N
   //   'lte' = ≤ N (at most)          e.g. screen time ≤ 30 min
   target_op?: 'lte' | 'eq' | 'gte';
+  // Synced display order (0..n) written on drag-reorder (migrate_v23).
+  position?: number | null;
   created_at: string;
 }
 

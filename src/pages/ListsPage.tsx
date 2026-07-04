@@ -128,7 +128,9 @@ export function ListsPage() {
                     setEditingList(list);
                     setListEditorOpen(true);
                   }}
-                  className="w-6 h-6 rounded-md hover:bg-surface-2 flex items-center justify-center text-text-faint hover:text-text shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                  // Always faintly visible: hover-only visibility made this
+                  // button unreachable on touch devices (no hover state).
+                  className="w-6 h-6 rounded-md hover:bg-surface-2 flex items-center justify-center text-text-faint hover:text-text shrink-0 opacity-60 group-hover:opacity-100 transition-opacity"
                   title="Edit list"
                 >
                   <Pencil size={11} />
@@ -259,7 +261,7 @@ function ItemsList({
   // swipeMode is a primitive, so passing them down as props lets ListItemRow
   // skip re-render when an unrelated item (or an unrelated context slice, e.g.
   // the 90s cloud poll) changes — only the toggled row re-renders.
-  const { toggleListItem, deleteListItem, addListItem } = useFamily();
+  const { toggleListItem, deleteListItem, restoreListItem } = useFamily();
   const { show } = useToast();
   const swipeMode = useSwipeMode();
   const [showCompleted, setShowCompleted] = useState(true);
@@ -277,7 +279,7 @@ function ItemsList({
       dragProps={itemDnd.getRowProps(item.id)}
       toggleListItem={toggleListItem}
       deleteListItem={deleteListItem}
-      addListItem={addListItem}
+      restoreListItem={restoreListItem}
       showToast={show}
       onEdit={onEditItem}
     />
@@ -314,7 +316,7 @@ type ListItemRowProps = {
   dragProps: ReturnType<ReturnType<typeof useListDragReorder<TodoItem>>['getRowProps']>;
   toggleListItem: ReturnType<typeof useFamily>['toggleListItem'];
   deleteListItem: ReturnType<typeof useFamily>['deleteListItem'];
-  addListItem: ReturnType<typeof useFamily>['addListItem'];
+  restoreListItem: ReturnType<typeof useFamily>['restoreListItem'];
   showToast: ReturnType<typeof useToast>['show'];
   onEdit: (item: TodoItem) => void;
 };
@@ -324,8 +326,8 @@ type ListItemRowProps = {
  *
  * Compares the data the row reads (item ref, members ref, the two list fields
  * it uses, swipeMode, and the drag PRIMITIVES). Function props are
- * intentionally ignored: toggleListItem/deleteListItem/addListItem/showToast/
- * onEdit are logically stable (same behaviour for this item.id), and the drag
+ * intentionally ignored: toggleListItem/deleteListItem/restoreListItem/
+ * showToast/onEdit are logically stable (same behaviour for this item.id), and the drag
  * handlers from useListDragReorder read live state through refs, so retaining a
  * prior closure on a skipped render stays correct. `item` keeps its identity
  * for untouched rows (toggle only replaces the one edited item), so ticking one
@@ -351,7 +353,7 @@ const ListItemRow = memo(function ListItemRow({
   dragProps,
   toggleListItem,
   deleteListItem,
-  addListItem,
+  restoreListItem,
   showToast,
   onEdit,
 }: ListItemRowProps) {
@@ -361,25 +363,12 @@ const ListItemRow = memo(function ListItemRow({
   const dueSoon = isDueSoon(item, 7);
 
   const handleDelete = () => {
-    // Snapshot for undo
+    // Snapshot for undo — restored with the same id and full content.
     const snapshot = { ...item };
     deleteListItem(item.id);
     showToast({
       message: `"${item.title}" deleted`,
-      onUndo: () => {
-        addListItem({
-          list_id: snapshot.list_id,
-          title: snapshot.title,
-          notes: snapshot.notes,
-          done: snapshot.done,
-          done_at: snapshot.done_at,
-          repeat: snapshot.repeat,
-          next_due: snapshot.next_due,
-          due_date: snapshot.due_date,
-          assigned_to: snapshot.assigned_to,
-          position: snapshot.position,
-        });
-      },
+      onUndo: () => restoreListItem(snapshot),
     });
   };
 

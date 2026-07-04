@@ -1,6 +1,6 @@
 import { Cloud, CloudOff, RefreshCw } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { useFamily } from '@/context/FamilyContext';
+import { useSyncStatus } from '@/context/FamilyContext';
 import { isSupabaseConfigured } from '@/lib/supabase';
 
 /**
@@ -11,7 +11,7 @@ import { isSupabaseConfigured } from '@/lib/supabase';
  * server.
  */
 export function SyncIndicator() {
-  const { reloading, lastReloadAt, reloadFromCloud, online } = useFamily();
+  const { reloading, lastReloadAt, reloadFromCloud, online } = useSyncStatus();
   const [now, setNow] = useState(Date.now());
 
   // Tick the relative-time label every 15s while idle so the tooltip
