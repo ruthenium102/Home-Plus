@@ -472,11 +472,24 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
   // dbUpsert regardless.
   const persistPet = useCallback((pet: VirtualPet) => {
     if (!membersRef.current.some((m) => m.id === pet.member_id)) return;
+    // The stat columns are Postgres integers, but time-decay math produces
+    // fractions (happiness 39.9989...) which the server rejects with
+    // "invalid input syntax for type integer". Round every numeric stat at
+    // the write boundary — this also heals fractional values already sitting
+    // in local state from before the fix.
+    const rounded: VirtualPet = {
+      ...pet,
+      hunger: Math.round(pet.hunger),
+      thirst: Math.round(pet.thirst),
+      happiness: Math.round(pet.happiness),
+      xp: Math.round(pet.xp),
+      coins: Math.round(pet.coins ?? 0),
+    };
     // Conflict on the (family_id, member_id) UNIQUE key, not the primary key, so
     // replacing a member's pet (new id, same member) updates the existing row
     // instead of failing the unique constraint — and self-heals any local/DB id
     // drift from the earlier new-pet bug.
-    dbUpsert('virtual_pets', pet, { onConflict: 'family_id,member_id' });
+    dbUpsert('virtual_pets', rounded, { onConflict: 'family_id,member_id' });
   }, []);
   const [needsPasswordSetup, setNeedsPasswordSetup] = useState(
     () => sessionStorage.getItem('needs_password_setup') === '1',
@@ -2674,7 +2687,9 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
         const current = computePetStats(p);
         const updated = {
           ...p,
-          happiness: Math.min(100, current.happiness + 20),
+          // Round: computePetStats decays fractionally, but happiness is an
+          // integer column (and local state should match what the DB stores).
+          happiness: Math.round(Math.min(100, current.happiness + 20)),
           last_interacted_at: new Date().toISOString(),
         };
         persistPet(updated);
@@ -2691,7 +2706,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
         const updated = applyCare(
           {
             ...p,
-            happiness: Math.min(100, current.happiness + 35),
+            happiness: Math.round(Math.min(100, current.happiness + 35)),
             last_interacted_at: new Date().toISOString(),
           },
           4,
