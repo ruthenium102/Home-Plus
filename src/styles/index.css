@@ -120,6 +120,81 @@ textarea {
   display: none;
 }
 
+/* ---- Native-app (Capacitor) only — html.native-app is set at startup ----
+   Real iOS apps don't let you long-press-select arbitrary UI text; the
+   selection loupe + Copy callout popping up on labels and headings is one of
+   the clearest "this is a website" tells inside the WKWebView. Suppress it
+   app-wide and opt form fields back in. The web build is untouched. */
+html.native-app body {
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+html.native-app input,
+html.native-app textarea,
+html.native-app [contenteditable] {
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+/* Horizontal padding that respects the landscape notch / rounded corners.
+   Used by fixed-position chrome (the floating dock) that sits outside the
+   safe-area-padded content column. Mirrors px-3 sm:px-6. */
+.safe-x-pad {
+  padding-left: max(0.75rem, env(safe-area-inset-left));
+  padding-right: max(0.75rem, env(safe-area-inset-right));
+}
+@media (min-width: 640px) {
+  .safe-x-pad {
+    padding-left: max(1.5rem, env(safe-area-inset-left));
+    padding-right: max(1.5rem, env(safe-area-inset-right));
+  }
+}
+
+/* ---- Modal entrance ----
+   Phones get a bottom-sheet rise (matching the sheet layout); sm+ gets a
+   quick dialog fade/settle. The global prefers-reduced-motion rule at the
+   bottom of this file neutralises both. */
+@keyframes backdrop-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes sheet-up {
+  from {
+    transform: translateY(32px);
+    opacity: 0.5;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+@keyframes dialog-in {
+  from {
+    transform: scale(0.97) translateY(8px);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1) translateY(0);
+    opacity: 1;
+  }
+}
+.modal-backdrop {
+  animation: backdrop-in 200ms ease-out;
+}
+.modal-card {
+  animation: sheet-up 300ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+@media (min-width: 640px) {
+  .modal-card {
+    animation: dialog-in 180ms ease-out;
+  }
+}
+
 /* Subtle inset for cards */
 .card {
   background: rgb(var(--surface));

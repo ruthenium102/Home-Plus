@@ -2,6 +2,7 @@ import { format } from 'date-fns';
 import { Sun, CloudSun, Cloud, CloudRain, CloudSnow, CloudLightning, MapPin } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { useFamily } from '@/context/FamilyContext';
+import { useToday } from '@/hooks/useToday';
 import { useWeather, weatherLabel, weatherIconName } from '@/hooks/useWeather';
 import { Avatar } from './Avatar';
 import { SyncIndicator } from './SyncIndicator';
@@ -24,7 +25,9 @@ export function TopBar({ onSwitchUser }: Props) {
   const { family, activeMember } = useFamily();
   const { temp, code, locationName, loading, error, locationStatus, requestLocation, unit } =
     useWeather();
-  const now = new Date();
+  // Live date — a bare new Date() only refreshes when something re-renders,
+  // so the header showed yesterday on a device left open past midnight.
+  const now = useToday();
 
   const WeatherIcon = code !== null ? (ICON_MAP[weatherIconName(code)] ?? Cloud) : null;
   const tempStr = loading ? '—°' : error ? '?°' : temp !== null ? `${temp}°${unit}` : null;

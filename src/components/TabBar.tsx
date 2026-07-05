@@ -72,8 +72,12 @@ export function buildTabList({
 export const TabBar = memo(function TabBar({ active, onChange, ...visibility }: Props) {
   const tabs = buildTabList(visibility);
 
-  // Buttons size to fit; with a sensible cap on tab count for phones this
-  // means no horizontal scroll. Min-h ≥44px for an iOS-friendly hit area.
+  // Buttons size to fit; min-h ≥44px for an iOS-friendly hit area. With 7+
+  // tabs enabled, portrait phones drop to ~40pt per tab and every label
+  // truncates to "Cal…"-style fragments — go icon-only there (labels return
+  // at 480px+: landscape phones, tablets) and let aria-label/title carry the
+  // name, like a dense native tab bar.
+  const dense = tabs.length >= 7;
   return (
     <nav className="card p-1.5 flex gap-1">
       {tabs.map((t) => {
@@ -83,15 +87,25 @@ export const TabBar = memo(function TabBar({ active, onChange, ...visibility }: 
           <button
             key={t.key}
             onClick={() => onChange(t.key)}
+            aria-label={t.label}
+            title={t.label}
+            aria-current={isActive ? 'page' : undefined}
             className={
-              'flex-1 min-w-0 min-h-[48px] flex flex-col items-center gap-1 px-1 py-2 rounded-md transition-[transform,background-color,color,box-shadow] active:scale-95 ' +
+              'flex-1 min-w-0 min-h-[48px] flex flex-col items-center justify-center gap-1 px-1 py-2 rounded-md transition-[transform,background-color,color,box-shadow] active:scale-95 ' +
               (isActive
                 ? 'bg-accent-strong text-white shadow-sm'
                 : 'text-text-muted hover:bg-surface-2 hover:text-text')
             }
           >
             <Icon size={20} strokeWidth={isActive ? 2.2 : 1.6} />
-            <span className="text-xs font-medium truncate max-w-full">{t.label}</span>
+            <span
+              className={
+                'text-xs font-medium truncate max-w-full' +
+                (dense ? ' hidden min-[480px]:block' : '')
+              }
+            >
+              {t.label}
+            </span>
           </button>
         );
       })}

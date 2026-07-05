@@ -50,7 +50,11 @@ function ToastViewport({
   if (toasts.length === 0) return null;
 
   return (
-    <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[60] flex flex-col gap-2 pointer-events-none">
+    <div
+      className="fixed left-1/2 -translate-x-1/2 z-[60] flex flex-col items-center gap-2 pointer-events-none w-full px-4"
+      // Ride above the dock AND the home indicator on notched phones.
+      style={{ bottom: 'calc(6rem + env(safe-area-inset-bottom))' }}
+    >
       {toasts.map((t) => (
         <ToastPill key={t.id} toast={t} onDismiss={() => onDismiss(t.id)} />
       ))}
@@ -77,7 +81,8 @@ function ToastPill({ toast, onDismiss }: { toast: Toast; onDismiss: () => void }
         'pointer-events-auto flex items-center gap-3 px-4 py-2.5 bg-text text-bg rounded-full shadow-lg transition-[opacity,transform] duration-200 ' +
         (visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2')
       }
-      style={{ minWidth: 240 }}
+      // Cap to the viewport so long undo messages don't overflow small phones.
+      style={{ minWidth: 240, maxWidth: '100%' }}
     >
       <span className="text-sm flex-1">{toast.message}</span>
       {toast.onUndo && (

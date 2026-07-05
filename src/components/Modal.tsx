@@ -60,11 +60,13 @@ export function Modal({
     <div
       // On phones (< sm) the modal renders as a bottom sheet — anchored to
       // the bottom of the viewport. On sm: and up it's a centered dialog.
-      className="fixed inset-0 z-50 bg-black/50 flex items-end sm:items-center justify-center sm:p-4"
+      // modal-backdrop / modal-card animate the entrance (sheet rise on
+      // phone, dialog settle on sm+) so opens don't hard-pop.
+      className="modal-backdrop fixed inset-0 z-50 bg-black/50 flex items-end sm:items-center justify-center sm:p-4"
       onClick={onClose}
     >
       <div
-        className={`card w-full ${MAX_WIDTH_CLS[maxWidth]} max-h-[90vh] sm:max-h-[85vh] flex flex-col rounded-b-none sm:rounded-lg ${className ?? ''}`}
+        className={`modal-card card w-full ${MAX_WIDTH_CLS[maxWidth]} max-h-[90vh] sm:max-h-[85vh] flex flex-col rounded-b-none sm:rounded-lg ${className ?? ''}`}
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
@@ -85,7 +87,15 @@ export function Modal({
           </div>
         )}
 
-        <div className="p-4 space-y-4 overflow-y-auto flex-1">{children}</div>
+        <div
+          className="p-4 space-y-4 overflow-y-auto flex-1"
+          // Footer-less sheets sit on the home indicator — pad the scroll
+          // area's tail so the last control clears it. (With a footer, the
+          // footer carries the safe-area padding instead.)
+          style={footer ? undefined : { paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}
+        >
+          {children}
+        </div>
 
         {footer && (
           <div

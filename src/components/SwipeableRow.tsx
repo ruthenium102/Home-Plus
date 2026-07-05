@@ -28,6 +28,7 @@ export function SwipeableRow({
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const startXRef = useRef<number | null>(null);
+  const startYRef = useRef(0);
   const startTranslateRef = useRef(0);
   const capturedRef = useRef(false);
   const [translate, setTranslate] = useState(0);
@@ -74,6 +75,7 @@ export function SwipeableRow({
     if (target.closest('[data-no-swipe]')) return;
 
     startXRef.current = e.clientX;
+    startYRef.current = e.clientY;
     startTranslateRef.current = translate;
     capturedRef.current = false;
     setAnimating(false);
@@ -84,9 +86,19 @@ export function SwipeableRow({
   const onPointerMove = (e: React.PointerEvent) => {
     if (startXRef.current === null) return;
     const dx = e.clientX - startXRef.current;
+    const dy = e.clientY - startYRef.current;
 
-    // Only capture the pointer once we're sure this is a horizontal swipe.
-    if (!capturedRef.current && Math.abs(dx) > 6) {
+    if (!capturedRef.current) {
+      // Axis lock: a mostly-vertical move is a scroll — hand it to the
+      // browser and stop tracking, so rows don't shimmy sideways under a
+      // scrolling finger (previously any horizontal drift translated the row
+      // from the very first pixel).
+      if (Math.abs(dy) > 8 && Math.abs(dy) > Math.abs(dx)) {
+        startXRef.current = null;
+        return;
+      }
+      // Only capture (and start moving the row) on a decisive horizontal pull.
+      if (Math.abs(dx) <= 6 || Math.abs(dx) < Math.abs(dy) * 1.2) return;
       (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
       capturedRef.current = true;
     }

@@ -125,6 +125,9 @@ function AppShell() {
   const changeTab = useCallback((k: TabKey) => {
     void hapticLight();
     setTab(k);
+    // Tabs share the window scroller, so without this a switch lands the new
+    // tab wherever the old one was scrolled — native tab bars open at the top.
+    window.scrollTo({ top: 0 });
   }, []);
 
   // Reset to home when switching members so hidden tabs aren't left active
@@ -146,7 +149,13 @@ function AppShell() {
   return (
     <div
       className="min-h-dvh bg-bg"
-      style={{ paddingTop: 'env(safe-area-inset-top)' }}
+      // Left/right insets keep content clear of the notch + rounded corners
+      // in phone landscape; top keeps it below the status bar.
+      style={{
+        paddingTop: 'env(safe-area-inset-top)',
+        paddingLeft: 'env(safe-area-inset-left)',
+        paddingRight: 'env(safe-area-inset-right)',
+      }}
     >
       {/* Side rail — mounted whenever dock placement is 'side'; it slides in/
           out via a transform driven by `railOpen` so open/close stays smooth. */}
@@ -192,7 +201,10 @@ function AppShell() {
               'fixed top-3 left-3 z-40 w-10 h-10 rounded-md bg-surface border border-border flex items-center justify-center text-text-muted hover:bg-surface-2 shadow-sm transition-opacity duration-200 ' +
               (railOpen ? 'opacity-0 pointer-events-none' : 'opacity-100 delay-150')
             }
-            style={{ top: 'max(0.75rem, calc(env(safe-area-inset-top) + 0.75rem))' }}
+            style={{
+              top: 'max(0.75rem, calc(env(safe-area-inset-top) + 0.75rem))',
+              left: 'max(0.75rem, env(safe-area-inset-left))',
+            }}
             title="Open navigation"
             aria-label="Open navigation"
           >
@@ -222,10 +234,12 @@ function AppShell() {
         </main>
       </div>
 
-      {/* Floating bottom dock — shown when dock placement is 'floating'. */}
+      {/* Floating bottom dock — shown when dock placement is 'floating'.
+          safe-x-pad (not plain px-*): the dock is fixed to the viewport, so it
+          needs its own notch-aware horizontal padding in phone landscape. */}
       {!dockIsSide && (
         <div
-          className="fixed bottom-0 left-0 right-0 z-30 px-3 sm:px-6"
+          className="fixed bottom-0 left-0 right-0 z-30 safe-x-pad"
           style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}
         >
           <div className="max-w-6xl mx-auto">

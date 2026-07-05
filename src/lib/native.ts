@@ -10,6 +10,16 @@ import { SplashScreen } from '@capacitor/splash-screen';
 
 const isNative = Capacitor.isNativePlatform();
 
+/**
+ * Tag <html> with `native-app` when running inside Capacitor, so CSS can
+ * apply app-only behaviour (e.g. suppressing the iOS long-press text-selection
+ * loupe on UI chrome) without changing the web build. Call once at startup.
+ */
+export function markNativePlatform() {
+  if (!isNative) return;
+  document.documentElement.classList.add('native-app');
+}
+
 /** Sync the iOS status-bar style to the resolved theme. */
 export async function setStatusBarForTheme(resolved: 'light' | 'dark') {
   if (!isNative) return;
