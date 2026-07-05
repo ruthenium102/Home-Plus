@@ -20,6 +20,10 @@ const config: CapacitorConfig = {
   },
   ios: {
     contentInset: 'automatic',
+    // No web-style long-press link previews — the preview gesture recognizer
+    // competes with touches over the whole page and this is an app, not a
+    // browser.
+    allowsLinkPreview: false,
     // Match the light-theme --bg cream so the WKWebView host doesn't show
     // black during the iOS rubber-band overscroll. Dark mode shifts via JS
     // on the body bg, but iOS only reads this once at launch.

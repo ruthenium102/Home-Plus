@@ -67,6 +67,12 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
                 if let wk = sub as? WKWebView {
                     wk.backgroundColor = color
                     wk.scrollView.backgroundColor = color
+                    // iOS 15+: the rubber-band overscroll area is painted with
+                    // underPageBackgroundColor (defaults to systemBackground —
+                    // white) and IGNORES scrollView.backgroundColor. Without
+                    // this line the app shows a white band when scrolled past
+                    // the top/bottom, whatever the colours above say.
+                    wk.underPageBackgroundColor = color
                     wk.isOpaque = true
                 }
             }

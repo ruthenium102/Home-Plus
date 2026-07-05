@@ -96,6 +96,21 @@ function AppShell() {
   const showKitchen = activeMember?.kitchen_enabled ?? false;
   const showPet = activeMember?.pet_enabled ?? false;
   const [tab, setTab] = useState<TabKey>('home');
+  // Keep-alive: tabs the user has visited stay MOUNTED (hidden with
+  // display:none) instead of being torn down on every switch, so returning to
+  // a tab is instant — no re-running the page's chunk, queries, or memo
+  // rebuilds. The pet tab is deliberately excluded: PetPage runs timers/
+  // animation loops that shouldn't burn CPU while another tab is showing.
+  const [visitedTabs, setVisitedTabs] = useState<ReadonlySet<TabKey>>(() => new Set());
+  useEffect(() => {
+    if (tab === 'home' || tab === 'pet') return;
+    setVisitedTabs((prev) => {
+      if (prev.has(tab)) return prev;
+      const next = new Set(prev);
+      next.add(tab);
+      return next;
+    });
+  }, [tab]);
   const [switcherOpen, setSwitcherOpen] = useState(false);
   const [dockPlacement] = useDockPlacement();
   const [railOpen, setRailOpen] = useSideRailOpen();
@@ -128,6 +143,30 @@ function AppShell() {
     // Tabs share the window scroller, so without this a switch lands the new
     // tab wherever the old one was scrolled — native tab bars open at the top.
     window.scrollTo({ top: 0 });
+  }, []);
+
+  // Warm the lazy tab chunks shortly after the first screen settles, so the
+  // first tap on each tab doesn't pay a fetch+parse hitch. Deferred 2s (past
+  // cold-start) then idle-scheduled where WebKit supports it.
+  useEffect(() => {
+    const prefetch = () => {
+      void import('@/pages/CalendarPage');
+      void import('@/pages/ChoresPage');
+      void import('@/pages/ListsPage');
+      void import('@/pages/HabitsPage');
+      void import('@/pages/KitchenPage');
+      void import('@/pages/MyDayPage');
+      void import('@/pages/PetPage');
+      void import('@/pages/SettingsPage');
+    };
+    const id = window.setTimeout(() => {
+      if ('requestIdleCallback' in window) {
+        window.requestIdleCallback(prefetch, { timeout: 3000 });
+      } else {
+        prefetch();
+      }
+    }, 2000);
+    return () => window.clearTimeout(id);
   }, []);
 
   // Reset to home when switching members so hidden tabs aren't left active
@@ -218,19 +257,51 @@ function AppShell() {
         <TopBar onSwitchUser={() => setSwitcherOpen(true)} />
 
         <main>
-          {tab === 'home' && <HomePage onNavigate={changeTab} />}
-          {tab !== 'home' && (
-            <Suspense fallback={<TabFallback />}>
-              {tab === 'calendar' && <CalendarPage />}
-              {tab === 'chores' && <ChoresPage />}
-              {tab === 'lists' && <ListsPage />}
-              {tab === 'habits' && <HabitsPage />}
-              {tab === 'kitchen' && <KitchenPage />}
-              {tab === 'my-day' && <MyDayPage />}
-              {tab === 'pet' && <PetPage />}
-              {tab === 'settings' && <SettingsPage />}
-            </Suspense>
-          )}
+          {/* Home is always mounted; other visited tabs stay mounted but
+              hidden (display:none stops their CSS animations and rendering
+              work). isVisited || active handles the very first visit. */}
+          <div style={{ display: tab === 'home' ? undefined : 'none' }}>
+            <HomePage onNavigate={changeTab} />
+          </div>
+          <Suspense fallback={tab !== 'home' ? <TabFallback /> : null}>
+            {(visitedTabs.has('calendar') || tab === 'calendar') && (
+              <div style={{ display: tab === 'calendar' ? undefined : 'none' }}>
+                <CalendarPage />
+              </div>
+            )}
+            {(visitedTabs.has('chores') || tab === 'chores') && (
+              <div style={{ display: tab === 'chores' ? undefined : 'none' }}>
+                <ChoresPage />
+              </div>
+            )}
+            {(visitedTabs.has('lists') || tab === 'lists') && (
+              <div style={{ display: tab === 'lists' ? undefined : 'none' }}>
+                <ListsPage />
+              </div>
+            )}
+            {(visitedTabs.has('habits') || tab === 'habits') && (
+              <div style={{ display: tab === 'habits' ? undefined : 'none' }}>
+                <HabitsPage />
+              </div>
+            )}
+            {(visitedTabs.has('kitchen') || tab === 'kitchen') && (
+              <div style={{ display: tab === 'kitchen' ? undefined : 'none' }}>
+                <KitchenPage />
+              </div>
+            )}
+            {(visitedTabs.has('my-day') || tab === 'my-day') && (
+              <div style={{ display: tab === 'my-day' ? undefined : 'none' }}>
+                <MyDayPage />
+              </div>
+            )}
+            {/* Pet is mount-on-demand only (animation loops). */}
+            {tab === 'pet' && <PetPage />}
+            {(visitedTabs.has('settings') || tab === 'settings') && (
+              <div style={{ display: tab === 'settings' ? undefined : 'none' }}>
+                <SettingsPage />
+              </div>
+            )}
+          </Suspense>
         </main>
       </div>
 
@@ -240,7 +311,12 @@ function AppShell() {
       {!dockIsSide && (
         <div
           className="fixed bottom-0 left-0 right-0 z-30 safe-x-pad"
-          style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}
+          style={{
+            paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))',
+            // Promote the dock to its own compositor layer so WKWebView never
+            // repaints it while the page scrolls underneath.
+            transform: 'translateZ(0)',
+          }}
         >
           <div className="max-w-6xl mx-auto">
             <TabBar
