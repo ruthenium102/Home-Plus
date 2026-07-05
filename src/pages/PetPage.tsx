@@ -6,7 +6,9 @@ import { usePointerDragToDrop } from '@/hooks/usePointerDragToDrop';
 import {
   PetCanvas,
   xpToStage,
+  STAGE_RANK,
   type PetMood,
+  type PetStage,
   type PetCanvasHandle,
 } from '@/components/pet/PetCanvas';
 import { SpeechBubble } from '@/components/pet/SpeechBubble';
@@ -18,6 +20,13 @@ import {
   wornForSlot,
   type Accessory,
 } from '@/components/pet/petAccessories';
+import {
+  dailyQuests,
+  rollQuestState,
+  questProgress,
+  isQuestComplete,
+} from '@/components/pet/petQuests';
+import { ACHIEVEMENTS, findAchievement } from '@/components/pet/petAchievements';
 import { PET_PICKER, speciesMeta } from '@/components/pet/petSpecies';
 import type { PetAnimal, VirtualPet } from '@/types';
 
@@ -238,8 +247,8 @@ function PetView({ pet, memberId, onNewPet }: PetViewProps) {
     wearAccessory,
     removeAccessory,
     buyAccessory,
-    awardPetCoins,
-    gainXp,
+    claimQuest,
+    finishMiniGame,
   } = useFamily();
   const { resolved } = useTheme();
   const isDark = resolved === 'dark';
@@ -257,6 +266,7 @@ function PetView({ pet, memberId, onNewPet }: PetViewProps) {
       superPat: getColorTokens('sand', isDark).base,
       miniGame: getColorTokens('sage', isDark).base,
       wardrobe: getColorTokens('olive', isDark).base,
+      awards: getColorTokens('sand', isDark).base,
     }),
     [isDark],
   );
@@ -264,6 +274,8 @@ function PetView({ pet, memberId, onNewPet }: PetViewProps) {
   const [tick, setTick] = useState(0);
   const [showMiniGame, setShowMiniGame] = useState(false);
   const [showAccessories, setShowAccessories] = useState(false);
+  const [showAwards, setShowAwards] = useState(false);
+  const [evolvedStage, setEvolvedStage] = useState<PetStage | null>(null);
   const [bubbleMessage, setBubbleMessage] = useState<string | null>(null);
   const [bubbleKey, setBubbleKey] = useState(0);
   const [heartBurstTrigger, setHeartBurstTrigger] = useState(0);
@@ -330,7 +342,44 @@ function PetView({ pet, memberId, onNewPet }: PetViewProps) {
 
   const animalMeta = speciesMeta(pet.animal);
   const stage = xpToStage(pet.xp);
-  const stageLabel = stage === 'baby' ? 'Baby' : stage === 'child' ? 'Junior' : 'Adult';
+  const stageLabel =
+    stage === 'baby'
+      ? 'Baby'
+      : stage === 'child'
+        ? 'Junior'
+        : stage === 'adult'
+          ? 'Adult'
+          : 'Legend';
+
+  // ---- Evolution celebration (phase 4) ----
+  // Remember the last stage this device has seen per pet; when the live stage
+  // outranks it, throw a little party. First visit just records the baseline.
+  useEffect(() => {
+    const key = `pet_stage_seen:${pet.id}`;
+    const seen = localStorage.getItem(key) as PetStage | null;
+    if (seen && seen !== stage && STAGE_RANK[stage] > (STAGE_RANK[seen] ?? 0)) {
+      setEvolvedStage(stage);
+    }
+    localStorage.setItem(key, stage);
+  }, [pet.id, stage]);
+
+  // ---- Daily quests + achievements (phase 4) ----
+  const questState = rollQuestState(pet);
+  const todaysQuests = dailyQuests(pet, questState.date);
+  const earnedAchievements = pet.achievements ?? [];
+
+  // Announce freshly earned achievements via the speech bubble. Track per pet
+  // id so switching members doesn't produce phantom announcements.
+  const achievementsSeenRef = useRef<{ petId: string; ids: string[] } | null>(null);
+  useEffect(() => {
+    const prev = achievementsSeenRef.current;
+    if (prev && prev.petId === pet.id) {
+      const added = earnedAchievements.filter((id) => !prev.ids.includes(id));
+      const latest = added.length > 0 ? findAchievement(added[added.length - 1]) : undefined;
+      if (latest) speak(`🏆 ${latest.label}!`);
+    }
+    achievementsSeenRef.current = { petId: pet.id, ids: earnedAchievements };
+  }, [pet.id, earnedAchievements, speak]);
 
   const accessoriesWorn = Array.isArray(pet.accessories) ? pet.accessories : [];
   const owned = Array.isArray(pet.owned_accessories) ? pet.owned_accessories : [];
@@ -423,6 +472,18 @@ function PetView({ pet, memberId, onNewPet }: PetViewProps) {
       speak(pick(SLEEP_LINES));
     }
   }, [mood, speak]);
+
+  // ---- Quests: claim rewards ----
+
+  const onClaimQuest = useCallback(
+    (questId: string, rewardCoins: number) => {
+      claimQuest(memberId, questId, rewardCoins);
+      triggerMood('happy', 1500);
+      speak(`+${rewardCoins} 🪙 Quest done!`);
+      noteInteraction();
+    },
+    [claimQuest, memberId, triggerMood, speak, noteInteraction],
+  );
 
   // ---- Shop: buy / equip ----
 
@@ -589,6 +650,74 @@ function PetView({ pet, memberId, onNewPet }: PetViewProps) {
         <StatBar emoji="😊" label="Happiness" value={happiness} isDark={isDark} />
       </div>
 
+      {/* Daily quests — three per day, deterministic per pet */}
+      <div className="card p-5 space-y-3">
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-semibold text-text-muted uppercase tracking-wider">
+            Today's Quests
+          </h3>
+          <span className="text-xs text-text-faint">
+            {todaysQuests.filter((q) => questState.claimed.includes(q.id)).length}/
+            {todaysQuests.length} done
+          </span>
+        </div>
+        {todaysQuests.map((q) => {
+          const claimed = questState.claimed.includes(q.id);
+          const complete = isQuestComplete(q, questState);
+          const progress = questProgress(q, questState);
+          return (
+            <div
+              key={q.id}
+              className={
+                'flex items-center gap-3 p-3 rounded-xl border transition-colors ' +
+                (claimed
+                  ? 'bg-surface-2/40 border-border opacity-60'
+                  : complete
+                    ? 'bg-accent-soft/60 border-accent'
+                    : 'bg-surface-2/60 border-border')
+              }
+            >
+              <span className="text-2xl shrink-0">{q.emoji}</span>
+              <div className="flex-1 min-w-0">
+                <p className={'text-sm font-medium text-text ' + (claimed ? 'line-through' : '')}>
+                  {q.label}
+                </p>
+                <div className="mt-1 flex items-center gap-2">
+                  <div className="h-1.5 flex-1 rounded-full bg-surface-2 overflow-hidden">
+                    <div
+                      className="h-full rounded-full bg-accent-strong transition-[width] duration-500"
+                      style={{ width: `${(progress / q.target) * 100}%` }}
+                    />
+                  </div>
+                  <span className="text-[11px] text-text-faint shrink-0">
+                    {progress}/{q.target}
+                  </span>
+                </div>
+              </div>
+              {claimed ? (
+                <span className="text-xs font-semibold text-text-faint shrink-0">✓ Done</span>
+              ) : complete ? (
+                <button
+                  onClick={() => onClaimQuest(q.id, q.rewardCoins)}
+                  className="shrink-0 px-3 py-1.5 rounded-full text-xs font-bold text-white bg-accent-strong shadow-sm active:scale-95 transition-transform"
+                >
+                  Claim 🪙 {q.rewardCoins}
+                </button>
+              ) : (
+                <span className="text-xs font-semibold text-text-muted shrink-0">
+                  🪙 {q.rewardCoins}
+                </span>
+              )}
+            </div>
+          );
+        })}
+        {todaysQuests.every((q) => questState.claimed.includes(q.id)) && (
+          <p className="text-xs text-text-muted text-center pt-1">
+            All quests done — come back tomorrow for new ones! 🌟
+          </p>
+        )}
+      </div>
+
       {/* Actions */}
       <div className="card p-5">
         <h3 className="text-sm font-semibold text-text-muted uppercase tracking-wider mb-4">
@@ -628,6 +757,12 @@ function PetView({ pet, memberId, onNewPet }: PetViewProps) {
             color={actionColors.wardrobe}
             onClick={() => setShowAccessories((v) => !v)}
           />
+          <ActionButton
+            emoji="🏆"
+            label="Awards"
+            color={actionColors.awards}
+            onClick={() => setShowAwards((v) => !v)}
+          />
         </div>
       </div>
 
@@ -638,13 +773,54 @@ function PetView({ pet, memberId, onNewPet }: PetViewProps) {
           paused={pagePaused}
           onEnd={(score) => {
             if (score > 0) {
-              gainXp(memberId, score * 2);
-              awardPetCoins(memberId, score);
+              finishMiniGame(memberId, score);
               speak(`+${score * 2} XP · +${score} 🪙`);
               noteInteraction();
             }
           }}
         />
+      )}
+
+      {/* Awards — earned + locked achievements */}
+      {showAwards && (
+        <div className="card p-5 space-y-3">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-semibold text-text-muted uppercase tracking-wider">
+              Awards
+            </h3>
+            <span className="text-sm font-bold text-text">
+              🏆 {earnedAchievements.length}/{ACHIEVEMENTS.length}
+            </span>
+          </div>
+          <p className="text-xs text-text-faint">
+            Each award earns a 🪙 5 bonus. Keep caring for {pet.name} to unlock them all!
+          </p>
+          <div className="grid grid-cols-3 gap-2">
+            {ACHIEVEMENTS.map((a) => {
+              const isEarned = earnedAchievements.includes(a.id);
+              return (
+                <div
+                  key={a.id}
+                  className={
+                    'p-3 rounded-2xl border-2 text-center ' +
+                    (isEarned
+                      ? 'border-accent bg-accent-soft shadow-sm'
+                      : 'border-border bg-surface-2/40 opacity-60')
+                  }
+                  title={a.hint}
+                >
+                  <div className={'text-2xl mb-1 ' + (isEarned ? '' : 'grayscale')}>
+                    {isEarned ? a.emoji : '🔒'}
+                  </div>
+                  <div className="text-xs font-medium text-text">{a.label}</div>
+                  <div className="text-[10px] text-text-faint mt-0.5 leading-tight">
+                    {isEarned ? 'Earned!' : a.hint}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
       )}
 
       {/* Shop — buy accessories with coins, then tap to wear */}
@@ -723,10 +899,11 @@ function PetView({ pet, memberId, onNewPet }: PetViewProps) {
             {xpInLevel} / {nextLevelXp} XP to Level {level + 1}
           </p>
         </div>
-        <div className="mt-3 grid grid-cols-3 gap-2">
+        <div className="mt-3 grid grid-cols-4 gap-2">
           <StageChip label="Baby" active={stage === 'baby'} hint="Lv 1–3" />
           <StageChip label="Junior" active={stage === 'child'} hint="Lv 4–7" />
-          <StageChip label="Adult" active={stage === 'adult'} hint="Lv 8+" />
+          <StageChip label="Adult" active={stage === 'adult'} hint="Lv 8–14" />
+          <StageChip label="Legend" active={stage === 'legend'} hint="Lv 15+" />
         </div>
         <div className="mt-3 p-3 rounded-xl bg-accent-soft/50 text-center">
           <p className="text-xs text-text-muted">
@@ -735,6 +912,39 @@ function PetView({ pet, memberId, onNewPet }: PetViewProps) {
           </p>
         </div>
       </div>
+
+      {/* Evolution celebration — shown once per stage-up, per device */}
+      {evolvedStage && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-6"
+          onClick={() => setEvolvedStage(null)}
+          role="dialog"
+          aria-label={`${pet.name} grew up`}
+        >
+          <div
+            className="card p-6 w-full max-w-sm text-center space-y-3"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="text-3xl" aria-hidden>
+              🎉 ✨ 🎉
+            </div>
+            <div className="flex justify-center">
+              <PetCanvas animal={pet.animal} mood="happy" size={160} xp={pet.xp} />
+            </div>
+            <h3 className="font-display text-2xl text-text">{pet.name} grew up!</h3>
+            <p className="text-sm text-text-muted">
+              Say hello to your {stageLabel} {animalMeta.label.toLowerCase()}!
+              {evolvedStage === 'legend' && ' Legends sparkle forever. ✨'}
+            </p>
+            <button
+              onClick={() => setEvolvedStage(null)}
+              className="btn-primary w-full py-3 text-base rounded-xl"
+            >
+              Yay! 🎊
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

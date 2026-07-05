@@ -509,7 +509,32 @@ export interface VirtualPet {
   // the local YYYY-MM-DD the most recent daily bonus was claimed.
   care_streak: number;
   last_care_date?: string | null;
+  // Gameplay depth (phase 4). achievements = earned achievement ids (permanent);
+  // lifetime_stats = cumulative event counters (feeds, pats, coins_earned, …);
+  // quest_state = today's quest progress, rolled over by local date.
+  achievements: string[];
+  lifetime_stats: Record<string, number>;
+  quest_state?: PetQuestState | null;
   // Legacy custom-drawing data (feature retired). Kept so old rows still parse.
   custom_image_data?: string | null;
   custom_eyes?: CustomPetEyes | null;
+}
+
+// Countable pet gameplay events. Used both as today's quest-progress counters
+// and as lifetime achievement counters.
+export type PetEvent =
+  | 'feed'
+  | 'water'
+  | 'pat'
+  | 'play'
+  | 'minigame_catch'
+  | 'quest_complete'
+  | 'coins_earned';
+
+// Per-day quest progress. `date` is the local YYYY-MM-DD the counters belong
+// to — when it isn't today, the state resets before applying new events.
+export interface PetQuestState {
+  date: string;
+  counts: Record<string, number>;
+  claimed: string[];
 }

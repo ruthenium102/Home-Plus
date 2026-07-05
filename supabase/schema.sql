@@ -1002,6 +1002,9 @@ create table if not exists virtual_pets (
   owned_accessories  jsonb not null default '[]'::jsonb,
   care_streak        integer not null default 0,
   last_care_date     text,
+  achievements       jsonb not null default '[]'::jsonb,
+  lifetime_stats     jsonb not null default '{}'::jsonb,
+  quest_state        jsonb,
   created_at         timestamptz not null default now(),
   unique (family_id, member_id)
 );

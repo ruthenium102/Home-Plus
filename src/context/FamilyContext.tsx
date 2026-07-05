@@ -72,10 +72,16 @@ import type {
   RewardCategory,
   RewardCategoryKey,
   RewardGoal,
+  PetEvent,
   TodoItem,
   TodoList,
   VirtualPet,
 } from '@/types';
+import { rollQuestState } from '@/components/pet/petQuests';
+import {
+  checkNewAchievements,
+  ACHIEVEMENT_COIN_BONUS,
+} from '@/components/pet/petAchievements';
 
 interface FamilyContextValue {
   family: Family;
@@ -227,6 +233,8 @@ interface FamilyContextValue {
   removeAccessory: (memberId: string, accessoryId: string) => void;
   buyAccessory: (memberId: string, accessoryId: string, price: number) => void;
   awardPetCoins: (memberId: string, amount: number) => void;
+  claimQuest: (memberId: string, questId: string, rewardCoins: number) => void;
+  finishMiniGame: (memberId: string, score: number) => void;
   gainXp: (memberId: string, amount: number) => void;
 
   // Invite flow
@@ -359,6 +367,41 @@ function applyCare(pet: VirtualPet, baseCoins: number): VirtualPet {
     coins += DAILY_CARE_BONUS + Math.min(streak, 7) * 2;
   }
   return { ...pet, coins, care_streak: streak, last_care_date: lastCareDate };
+}
+
+// ---- Virtual pet gameplay depth (phase 4) ----------------------------------
+//
+// Count gameplay events into today's quest progress + the lifetime stats, then
+// award any achievements the pet now qualifies for (each pays a small coin
+// bonus). Callers pass the events that just happened; an empty map still
+// refreshes best_streak and re-checks achievements (e.g. after XP gains).
+function applyPetEvents(
+  pet: VirtualPet,
+  events: Partial<Record<PetEvent, number>>,
+): VirtualPet {
+  const qs = rollQuestState(pet);
+  const counts = { ...qs.counts };
+  const stats = { ...(pet.lifetime_stats ?? {}) };
+  for (const [key, amount] of Object.entries(events)) {
+    if (!amount || amount <= 0) continue;
+    counts[key] = (counts[key] ?? 0) + amount;
+    stats[key] = (stats[key] ?? 0) + amount;
+  }
+  stats.best_streak = Math.max(stats.best_streak ?? 0, pet.care_streak ?? 0);
+  let next: VirtualPet = {
+    ...pet,
+    quest_state: { ...qs, counts },
+    lifetime_stats: stats,
+  };
+  const newly = checkNewAchievements(next);
+  if (newly.length > 0) {
+    next = {
+      ...next,
+      achievements: [...(next.achievements ?? []), ...newly.map((a) => a.id)],
+      coins: (next.coins ?? 0) + newly.length * ACHIEVEMENT_COIN_BONUS,
+    };
+  }
+  return next;
 }
 
 const DEFAULT_KITCHEN_SETTINGS: KitchenSettings = {
@@ -2627,6 +2670,11 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
         owned_accessories: existing?.owned_accessories ?? [],
         care_streak: existing?.care_streak ?? 0,
         last_care_date: existing?.last_care_date ?? null,
+        // Achievements, lifetime stats and today's quest progress survive a
+        // re-pick too — the pet row id is reused, so quests stay consistent.
+        achievements: existing?.achievements ?? [],
+        lifetime_stats: existing?.lifetime_stats ?? {},
+        quest_state: existing?.quest_state ?? null,
         custom_image_data: custom?.image ?? null,
         custom_eyes: custom?.eyes ?? null,
       };
@@ -2656,10 +2704,14 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
     setPets((prev) =>
       prev.map((p) => {
         if (p.member_id !== memberId) return p;
-        const updated = applyCare(
+        const cared = applyCare(
           { ...p, hunger: 100, last_fed_at: new Date().toISOString() },
           3,
         );
+        const updated = applyPetEvents(cared, {
+          feed: 1,
+          coins_earned: cared.coins - (p.coins ?? 0),
+        });
         persistPet(updated);
         return updated;
       }),
@@ -2670,10 +2722,14 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
     setPets((prev) =>
       prev.map((p) => {
         if (p.member_id !== memberId) return p;
-        const updated = applyCare(
+        const cared = applyCare(
           { ...p, thirst: 100, last_watered_at: new Date().toISOString() },
           3,
         );
+        const updated = applyPetEvents(cared, {
+          water: 1,
+          coins_earned: cared.coins - (p.coins ?? 0),
+        });
         persistPet(updated);
         return updated;
       }),
@@ -2685,13 +2741,16 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
       prev.map((p) => {
         if (p.member_id !== memberId) return p;
         const current = computePetStats(p);
-        const updated = {
-          ...p,
-          // Round: computePetStats decays fractionally, but happiness is an
-          // integer column (and local state should match what the DB stores).
-          happiness: Math.round(Math.min(100, current.happiness + 20)),
-          last_interacted_at: new Date().toISOString(),
-        };
+        const updated = applyPetEvents(
+          {
+            ...p,
+            // Round: computePetStats decays fractionally, but happiness is an
+            // integer column (and local state should match what the DB stores).
+            happiness: Math.round(Math.min(100, current.happiness + 20)),
+            last_interacted_at: new Date().toISOString(),
+          },
+          { pat: 1 },
+        );
         persistPet(updated);
         return updated;
       }),
@@ -2703,7 +2762,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
       prev.map((p) => {
         if (p.member_id !== memberId) return p;
         const current = computePetStats(p);
-        const updated = applyCare(
+        const cared = applyCare(
           {
             ...p,
             happiness: Math.round(Math.min(100, current.happiness + 35)),
@@ -2711,6 +2770,10 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
           },
           4,
         );
+        const updated = applyPetEvents(cared, {
+          play: 1,
+          coins_earned: cared.coins - (p.coins ?? 0),
+        });
         persistPet(updated);
         return updated;
       }),
@@ -2739,11 +2802,60 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
         const owned = Array.isArray(p.owned_accessories) ? p.owned_accessories : [];
         if (owned.includes(accessoryId)) return p;
         if ((p.coins ?? 0) < price) return p;
-        const updated = {
-          ...p,
-          coins: (p.coins ?? 0) - price,
-          owned_accessories: [...owned, accessoryId],
-        };
+        // Empty event map: still re-checks achievements (wardrobe milestones).
+        const updated = applyPetEvents(
+          {
+            ...p,
+            coins: (p.coins ?? 0) - price,
+            owned_accessories: [...owned, accessoryId],
+          },
+          {},
+        );
+        persistPet(updated);
+        return updated;
+      }),
+    );
+  }, []);
+
+  // Claim a completed daily quest's coin reward. Completion is validated by the
+  // UI against today's quest set (same pattern as buyAccessory's price); here we
+  // only guard against double-claims and count the completion for achievements.
+  const claimQuest = useCallback((memberId: string, questId: string, rewardCoins: number) => {
+    setPets((prev) =>
+      prev.map((p) => {
+        if (p.member_id !== memberId) return p;
+        const qs = rollQuestState(p);
+        if (qs.claimed.includes(questId)) return p;
+        const updated = applyPetEvents(
+          {
+            ...p,
+            coins: (p.coins ?? 0) + rewardCoins,
+            quest_state: { ...qs, claimed: [...qs.claimed, questId] },
+          },
+          { quest_complete: 1, coins_earned: rewardCoins },
+        );
+        persistPet(updated);
+        return updated;
+      }),
+    );
+  }, []);
+
+  // Mini-game payout: XP + coins + event counters in a single write.
+  const finishMiniGame = useCallback((memberId: string, score: number) => {
+    if (score <= 0) return;
+    setPets((prev) =>
+      prev.map((p) => {
+        if (p.member_id !== memberId) return p;
+        const newXp = p.xp + score * 2;
+        const updated = applyPetEvents(
+          {
+            ...p,
+            xp: newXp,
+            unlocked_actions: deriveUnlockedActions(newXp),
+            coins: (p.coins ?? 0) + score,
+          },
+          { minigame_catch: score, coins_earned: score },
+        );
         persistPet(updated);
         return updated;
       }),
@@ -2781,11 +2893,15 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
       prev.map((p) => {
         if (p.member_id !== memberId) return p;
         const newXp = Math.max(0, p.xp + amount);
-        const updated = {
-          ...p,
-          xp: newXp,
-          unlocked_actions: deriveUnlockedActions(newXp),
-        };
+        // Empty event map: re-checks achievements (growth-stage milestones).
+        const updated = applyPetEvents(
+          {
+            ...p,
+            xp: newXp,
+            unlocked_actions: deriveUnlockedActions(newXp),
+          },
+          {},
+        );
         persistPet(updated);
         return updated;
       }),
@@ -2931,6 +3047,8 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
       removeAccessory,
       buyAccessory,
       awardPetCoins,
+      claimQuest,
+      finishMiniGame,
       gainXp,
       needsPasswordSetup,
       clearNeedsPasswordSetup,
@@ -3029,6 +3147,8 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
       removeAccessory,
       buyAccessory,
       awardPetCoins,
+      claimQuest,
+      finishMiniGame,
       gainXp,
       needsPasswordSetup,
       clearNeedsPasswordSetup,

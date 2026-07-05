@@ -3,7 +3,10 @@ import type { PetAnimal } from '@/types';
 import { petImage } from './petSpecies';
 
 export type PetMood = 'idle' | 'eating' | 'drinking' | 'happy' | 'sad' | 'sleeping';
-export type PetStage = 'baby' | 'child' | 'adult';
+export type PetStage = 'baby' | 'child' | 'adult' | 'legend';
+
+// Ordering for "has the pet reached stage X yet" comparisons.
+export const STAGE_RANK: Record<PetStage, number> = { baby: 0, child: 1, adult: 2, legend: 3 };
 
 export interface PetCanvasHandle {
   /** Trigger a one-shot squash+bounce reaction animation. */
@@ -32,18 +35,20 @@ interface Props {
 
 export function xpToStage(xp: number): PetStage {
   // Map XP → level → stage:
-  //   levels 1-3 (xp 0-299)  -> baby
-  //   levels 4-7 (xp 300-699) -> child
-  //   levels 8+  (xp 700+)   -> adult
+  //   levels 1-3  (xp 0-299)    -> baby
+  //   levels 4-7  (xp 300-699)  -> child
+  //   levels 8-14 (xp 700-1399) -> adult
+  //   levels 15+  (xp 1400+)    -> legend
   // We base it on level so it lines up with the existing UI's level meter.
   const level = Math.floor(xp / 100) + 1;
   if (level <= 3) return 'baby';
   if (level <= 7) return 'child';
-  return 'adult';
+  if (level <= 14) return 'adult';
+  return 'legend';
 }
 
 function stageScale(stage: PetStage): number {
-  return stage === 'baby' ? 0.85 : stage === 'child' ? 1.0 : 1.15;
+  return stage === 'baby' ? 0.85 : stage === 'child' ? 1.0 : stage === 'adult' ? 1.15 : 1.22;
 }
 
 export const PetCanvas = forwardRef<PetCanvasHandle, Props>(function PetCanvas(
@@ -241,6 +246,29 @@ export const PetCanvas = forwardRef<PetCanvasHandle, Props>(function PetCanvas(
                   <text x={cx + r * 0.7} y={cy - r * 0.6} fontSize={r * 0.3}>
                     💤
                   </text>
+                )}
+                {/* Legend stage — a permanent, gentle sparkle aura */}
+                {stage === 'legend' && mood !== 'happy' && (
+                  <>
+                    <text
+                      x={cx - r * 0.95}
+                      y={cy - r * 0.45}
+                      fontSize={r * 0.24}
+                      className="pet-sparkle"
+                      style={{ animationDelay: '0.2s' }}
+                    >
+                      ✨
+                    </text>
+                    <text
+                      x={cx + r * 0.9}
+                      y={cy - r * 0.55}
+                      fontSize={r * 0.2}
+                      className="pet-sparkle"
+                      style={{ animationDelay: '0.9s' }}
+                    >
+                      ✨
+                    </text>
+                  </>
                 )}
               </g>
             </g>
