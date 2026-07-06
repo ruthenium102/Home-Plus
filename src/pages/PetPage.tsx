@@ -28,6 +28,7 @@ import {
 } from '@/components/pet/petQuests';
 import { ACHIEVEMENTS, findAchievement } from '@/components/pet/petAchievements';
 import { playPetSound, isPetSoundMuted, setPetSoundMuted } from '@/lib/petSounds';
+import { hapticLight } from '@/lib/native';
 import { Volume2, VolumeX } from 'lucide-react';
 import { PET_PICKER, speciesMeta } from '@/components/pet/petSpecies';
 import type { PetAnimal, VirtualPet } from '@/types';
@@ -279,6 +280,7 @@ function PetView({ pet, memberId, onNewPet }: PetViewProps) {
   const [showAwards, setShowAwards] = useState(false);
   const [evolvedStage, setEvolvedStage] = useState<PetStage | null>(null);
   const [soundMuted, setSoundMuted] = useState(isPetSoundMuted);
+  const [activeTreat, setActiveTreat] = useState<number | null>(null);
   const [bubbleMessage, setBubbleMessage] = useState<string | null>(null);
   const [bubbleKey, setBubbleKey] = useState(0);
   const [heartBurstTrigger, setHeartBurstTrigger] = useState(0);
@@ -434,7 +436,23 @@ function PetView({ pet, memberId, onNewPet }: PetViewProps) {
     dropAttr: 'pet-drop',
     onDrop: () => handleTreatDrop(),
     onOverChange: (dropId) => setDropHot(dropId !== null),
+    // Hold to pick a treat up, then drag onto the pet — a brief long-press so a
+    // scroll flick over the tray doesn't accidentally grab a treat. The chips
+    // carry touch-action:none (below) so the hold isn't stolen by page scroll.
+    holdToStart: 160,
+    // Forgiving cancel threshold: there's no scroll to disambiguate from here,
+    // so tolerate a little finger wobble during the hold before cancelling.
+    threshold: 12,
+    onPickUp: () => {
+      void hapticLight();
+      playPetSound('catch');
+    },
   });
+
+  // Clear the lifted-treat highlight once a drag finishes.
+  useEffect(() => {
+    if (!treatDrag.isDragging) setActiveTreat(null);
+  }, [treatDrag.isDragging]);
 
   // ---- Standard buttons ----
 
@@ -642,21 +660,27 @@ function PetView({ pet, memberId, onNewPet }: PetViewProps) {
                     : `${pet.name} is relaxing. Click them or drag a treat!`}
         </p>
 
-        {/* Treat tray — drag onto the pet to feed */}
+        {/* Treat tray — hold a treat to pick it up, then drag onto the pet */}
         <div className="mt-3 flex items-center gap-2 px-3 py-2 rounded-xl bg-surface-2/70 border border-border">
-          <span className="text-xs font-medium text-text-muted shrink-0">Drag a treat:</span>
+          <span className="text-xs font-medium text-text-muted shrink-0">Hold &amp; drag:</span>
           <div className="flex gap-1.5">
             {[animalMeta.treat, '🍎', '🍪', '🥩'].map((emoji, i) => (
               <div
                 key={i}
-                onPointerDown={(e) => treatDrag.start(emoji, e)}
+                onPointerDown={(e) => {
+                  setActiveTreat(i);
+                  treatDrag.start(emoji, e);
+                }}
                 className={
-                  'treat-drag select-none text-2xl px-2 py-1 rounded-lg bg-surface hover:bg-accent-soft transition-colors ' +
-                  (treatDrag.isDragging ? 'opacity-50' : '')
+                  'treat-drag select-none text-2xl px-2 py-1 rounded-lg bg-surface hover:bg-accent-soft transition-transform ' +
+                  (treatDrag.isDragging && activeTreat === i ? 'scale-125 shadow-lg' : '')
                 }
-                style={treatDrag.isDragging ? { touchAction: 'none' } : undefined}
-                title="Drag onto your pet"
-                aria-label={`Drag ${emoji} onto your pet to feed them`}
+                // touch-action:none always, so on touch the hold-to-pick-up
+                // gesture is never stolen by the page scroller (the bug where
+                // dragging a treat just scrolled the page).
+                style={{ touchAction: 'none' }}
+                title="Hold, then drag onto your pet"
+                aria-label={`Hold ${emoji}, then drag onto your pet to feed them`}
               >
                 {emoji}
               </div>

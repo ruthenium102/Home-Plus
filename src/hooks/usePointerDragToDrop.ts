@@ -44,6 +44,16 @@ interface Options<P> {
   onOverChange?: (dropId: string | null) => void;
   /** Movement (px) before a press becomes a drag. Defaults to 6. */
   threshold?: number;
+  /**
+   * If set, the drag only "picks up" after the pointer is held roughly still
+   * for this many ms (a long-press), instead of the default move-past-threshold
+   * start. Moving beyond `threshold` before the hold elapses cancels it. Pair
+   * with `touch-action: none` on the source element so on touch a quick swipe
+   * neither scrolls the page nor drags — matching a deliberate hold-to-grab.
+   */
+  holdToStart?: number;
+  /** Fired the moment a hold-to-start drag picks up (e.g. haptic + sound). */
+  onPickUp?: () => void;
 }
 
 export function usePointerDragToDrop<P>({
@@ -51,6 +61,8 @@ export function usePointerDragToDrop<P>({
   onDrop,
   onOverChange,
   threshold = 6,
+  holdToStart,
+  onPickUp,
 }: Options<P>): PointerDragToDrop<P> {
   const [isDragging, setIsDragging] = useState(false);
   const [overDropId, setOverDropId] = useState<string | null>(null);
@@ -93,25 +105,24 @@ export function usePointerDragToDrop<P>({
       const startY = downEv.clientY;
       const pointerId = downEv.pointerId;
       let started = false;
+      let holdTimer = 0;
 
-      const move = (ev: PointerEvent) => {
-        if (!started) {
-          if (Math.abs(ev.clientY - startY) < threshold && Math.abs(ev.clientX - startX) < threshold)
-            return;
-          started = true;
-          try {
-            target.setPointerCapture(pointerId);
-          } catch {
-            /* ignore */
-          }
-          setIsDragging(true);
+      const movedPastThreshold = (ev: PointerEvent) =>
+        Math.abs(ev.clientY - startY) >= threshold || Math.abs(ev.clientX - startX) >= threshold;
+
+      const beginDrag = () => {
+        started = true;
+        try {
+          target.setPointerCapture(pointerId);
+        } catch {
+          /* ignore */
         }
-        autoScrollRef.current.update(ev.clientX, ev.clientY);
-        setOver(findDropAt(ev.clientX, ev.clientY));
-        ev.preventDefault();
+        setIsDragging(true);
       };
 
       const cleanup = () => {
+        if (holdTimer) window.clearTimeout(holdTimer);
+        holdTimer = 0;
         autoScrollRef.current.stop();
         target.removeEventListener('pointermove', move);
         target.removeEventListener('pointerup', up);
@@ -123,6 +134,23 @@ export function usePointerDragToDrop<P>({
         }
         setIsDragging(false);
         setOver(null);
+      };
+
+      const move = (ev: PointerEvent) => {
+        if (holdToStart != null && !started) {
+          // Long-press mode: moving before the hold elapses cancels the pickup
+          // (the source has touch-action:none, so the page doesn't scroll —
+          // a quick swipe simply does nothing).
+          if (movedPastThreshold(ev)) cleanup();
+          return;
+        }
+        if (!started) {
+          if (!movedPastThreshold(ev)) return;
+          beginDrag();
+        }
+        autoScrollRef.current.update(ev.clientX, ev.clientY);
+        setOver(findDropAt(ev.clientX, ev.clientY));
+        ev.preventDefault();
       };
 
       const up = (ev: PointerEvent) => {
@@ -137,8 +165,18 @@ export function usePointerDragToDrop<P>({
       target.addEventListener('pointermove', move);
       target.addEventListener('pointerup', up);
       target.addEventListener('pointercancel', cancel);
+
+      // Hold-to-start: arm the drag once the finger has been held (roughly)
+      // still for `holdToStart` ms.
+      if (holdToStart != null) {
+        holdTimer = window.setTimeout(() => {
+          holdTimer = 0;
+          beginDrag();
+          onPickUp?.();
+        }, holdToStart);
+      }
     },
-    [findDropAt, onDrop, setOver, threshold],
+    [findDropAt, onDrop, setOver, threshold, holdToStart, onPickUp],
   );
 
   return { start, isDragging, overDropId };
