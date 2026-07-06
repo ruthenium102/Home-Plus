@@ -74,5 +74,11 @@
 	<string>Home Plus uses your location to show the weather where you are, so your family can see if they need a coat today.</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
+	<!-- Without this key iOS caps CoreAnimation (and WKWebView rendering) at
+	     60Hz on ProMotion iPhones, so scrolling looks choppy next to the rest
+	     of the 120Hz system UI. Opting in lets the WebView render at the
+	     display's full refresh rate. No effect on non-ProMotion devices. -->
+	<key>CADisableMinimumFrameDurationOnPhone</key>
+	<true/>
 </dict>
 </plist>

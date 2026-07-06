@@ -1052,20 +1052,21 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
     for (const i of due) dbUpsert('todo_items', { ...i, done: false, done_at: null });
   }, [todayKeyISO, listItems]);
 
-  // Auto-revert "Away til..." when the until date passes.
-  // Re-runs whenever members change (incl. async load from Supabase) so a
-  // stale location_until doesn't linger after the app re-mounts. Also
+  // Auto-revert "Away til..." the day AFTER the until date — the status is
+  // inclusive of the until day, matching the mirrored travel calendar event.
+  // Re-runs whenever members change (incl. async load from Supabase) and at
+  // the midnight rollover, so a stale location_until doesn't linger. Also
   // persists via dbUpsert so the next realtime sync doesn't bring it back.
   useEffect(() => {
-    const now = new Date();
+    const today = localISO();
     members.forEach((m) => {
-      if (m.location_until && new Date(m.location_until) < now) {
+      if (m.location_until && localISO(new Date(m.location_until)) < today) {
         const cleared = { ...m, current_location: 'Home', location_until: null };
         setMembers((prev) => prev.map((x) => (x.id === m.id ? cleared : x)));
         dbUpsert('family_members', cleared);
       }
     });
-  }, [members]);
+  }, [members, todayKeyISO]);
 
   // ---- Virtual Pet helpers -------------------------------------------------
 
@@ -1668,10 +1669,10 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
         const member = membersRef.current.find((m) => m.id === id);
         const dest = (location ?? '').split(' til ')[0].trim();
         const startISO = new Date(`${localISO()}T00:00:00`).toISOString();
-        // The status auto-resets to "Home" on `until`, so the away period runs
-        // up to (but not including) that return date.
-        const lastDay = new Date(new Date(until).getTime() - 24 * 60 * 60 * 1000);
-        const endISO = new Date(`${localISO(lastDay)}T23:59:00`).toISOString();
+        // The away period is INCLUSIVE of the `until` day — "til 6 Jul" means
+        // away through the 6th, back home from the 7th (the auto-revert below
+        // matches). So the event runs to the end of the until day itself.
+        const endISO = new Date(`${localISO(new Date(until))}T23:59:00`).toISOString();
         if (new Date(endISO) >= new Date(startISO)) {
           addEvent({
             title: `✈️ ${member?.name ?? 'Away'}${dest ? ` — ${dest}` : ''}`,

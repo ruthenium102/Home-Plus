@@ -97,7 +97,9 @@ export function RecipesView() {
           <p>No recipes match your search.</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+        // auto-rows-fr: every row shares the tallest card's height, so rows
+        // stay uniform when a title wraps or an ingredients preview shows
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 auto-rows-fr gap-3">
           {filtered.map((recipe) => (
             <RecipeCard
               key={recipe.id}

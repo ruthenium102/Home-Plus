@@ -42,7 +42,9 @@ export function LocationPicker({ open, member, onClose }: Props) {
   const handleTravelSubmit = () => {
     if (!travelDest.trim() || !travelUntil) return;
     const dest = travelDest.trim();
-    const untilDate = new Date(travelUntil);
+    // Parse the date input as LOCAL midnight — bare `new Date('YYYY-MM-DD')`
+    // is UTC midnight, which shifts the day in negative-offset timezones.
+    const untilDate = new Date(`${travelUntil}T00:00:00`);
     const dateLabel = untilDate.toLocaleDateString(undefined, {
       day: 'numeric',
       month: 'short',
