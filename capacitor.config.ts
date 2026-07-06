@@ -19,7 +19,12 @@ const config: CapacitorConfig = {
     },
   },
   ios: {
-    contentInset: 'automatic',
+    // 'never', NOT 'automatic': the web layer already pads for every safe-area
+    // inset via env(safe-area-inset-*) (see App.tsx outer wrapper + dock).
+    // 'automatic' made WKWebView ALSO inset the scroll view for the status bar,
+    // so the notch height was applied twice — a big empty gap at the top of
+    // every page. Let CSS be the single source of truth for insets.
+    contentInset: 'never',
     // No web-style long-press link previews — the preview gesture recognizer
     // competes with touches over the whole page and this is an app, not a
     // browser.

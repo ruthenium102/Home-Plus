@@ -20,13 +20,15 @@ class ViewController: CAPBridgeViewController {
         //    than the viewport (this is the springy "pull past the end" that
         //    the native pull-down menus have — a fixed UIKit curve that already
         //    ramps up resistance the further you pull past the top/bottom).
-        //  - a HEAVIER deceleration than the default .normal (0.998) so a flick
-        //    doesn't fly across the whole page — the scroll settles sooner and
-        //    feels more controlled/premium. Tunable: raise toward 0.998 for
-        //    more glide, lower toward .fast (0.99) for a stickier stop.
+        //  - a slightly heavier deceleration than the default .normal (0.998)
+        //    so a flick glides but still settles with control rather than
+        //    flying to the bottom. Tunable: raise toward 0.998 for more glide,
+        //    lower toward .fast (0.99) for a stickier stop. (0.996 = a touch
+        //    more glide than the initial 0.992, per Ben's feedback; the edge
+        //    bounce is independent of this and stays the same.)
         wk.scrollView.bounces = true
         wk.scrollView.alwaysBounceVertical = true
-        wk.scrollView.decelerationRate = UIScrollView.DecelerationRate(rawValue: 0.992)
+        wk.scrollView.decelerationRate = UIScrollView.DecelerationRate(rawValue: 0.996)
 
         applyHostBackground()
 
