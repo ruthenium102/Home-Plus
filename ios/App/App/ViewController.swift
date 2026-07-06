@@ -15,10 +15,18 @@ class ViewController: CAPBridgeViewController {
         super.viewDidLoad()
         guard let wk = webView else { return }
 
-        // Native scroll feel: rubber-band at both edges (even when the page is
-        // shorter than the viewport) with the standard deceleration curve.
+        // Native scroll feel:
+        //  - bounce/rubber-band at both edges, even when the page is shorter
+        //    than the viewport (this is the springy "pull past the end" that
+        //    the native pull-down menus have — a fixed UIKit curve that already
+        //    ramps up resistance the further you pull past the top/bottom).
+        //  - a HEAVIER deceleration than the default .normal (0.998) so a flick
+        //    doesn't fly across the whole page — the scroll settles sooner and
+        //    feels more controlled/premium. Tunable: raise toward 0.998 for
+        //    more glide, lower toward .fast (0.99) for a stickier stop.
+        wk.scrollView.bounces = true
         wk.scrollView.alwaysBounceVertical = true
-        wk.scrollView.decelerationRate = .normal
+        wk.scrollView.decelerationRate = UIScrollView.DecelerationRate(rawValue: 0.992)
 
         applyHostBackground()
 
