@@ -14,6 +14,8 @@ interface Props {
   xpPerCatch?: number;
   /** Called with the total XP earned when the game ends. */
   onEnd?: (xpEarned: number) => void;
+  /** Called each time a treat is caught (e.g. to play a sound). */
+  onCatch?: () => void;
   /** Pause hooks (e.g. page hidden). */
   paused?: boolean;
 }
@@ -26,7 +28,7 @@ const TREAT_EMOJIS = ['🍖', '🥕', '🍎', '🥩', '🍪', '🥨', '🍇'];
  * - Mouse-over (or tap) a treat to catch it.
  * - Each catch awards `xpPerCatch` XP and pops a counter.
  */
-export function MiniGame({ xpPerCatch = 2, onEnd, paused = false }: Props) {
+export function MiniGame({ xpPerCatch = 2, onEnd, onCatch, paused = false }: Props) {
   const [running, setRunning] = useState(false);
   const [treats, setTreats] = useState<Treat[]>([]);
   const [score, setScore] = useState(0);
@@ -97,6 +99,7 @@ export function MiniGame({ xpPerCatch = 2, onEnd, paused = false }: Props) {
   const handleCatch = (id: number) => {
     setTreats((prev) => prev.map((t) => (t.id === id && !t.caught ? { ...t, caught: true } : t)));
     setScore((s) => s + 1);
+    onCatch?.();
     // Cleanup the caught treat after its pop animation
     window.setTimeout(() => {
       setTreats((prev) => prev.filter((t) => t.id !== id));

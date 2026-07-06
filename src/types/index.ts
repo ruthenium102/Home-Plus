@@ -464,16 +464,21 @@ export type PetAnimal =
   | 'hamster'
   | 'fox'
   | 'panda'
-  | 'penguin'
   | 'dragon'
   | 'unicorn'
   | 'frog'
-  | 'turtle'
-  | 'fish'
+  | 'bear'
+  | 'koala'
+  | 'tiger'
   | 'custom'
-  // Legacy stored values (pre-illustrated overhaul), aliased at render time.
+  // Legacy stored values (aliased to a current head species at render time):
+  // the pre-illustrated overhaul (bunny/axolotl) and the retired full-body
+  // species (penguin/turtle/fish) from before the headshot-only roster.
   | 'bunny'
-  | 'axolotl';
+  | 'axolotl'
+  | 'penguin'
+  | 'turtle'
+  | 'fish';
 
 // Eye placement for custom pets, in 0..1 coordinates relative to the
 // processed pet image. Drawn over the image by PetEyes.

@@ -27,6 +27,8 @@ import {
   isQuestComplete,
 } from '@/components/pet/petQuests';
 import { ACHIEVEMENTS, findAchievement } from '@/components/pet/petAchievements';
+import { playPetSound, isPetSoundMuted, setPetSoundMuted } from '@/lib/petSounds';
+import { Volume2, VolumeX } from 'lucide-react';
 import { PET_PICKER, speciesMeta } from '@/components/pet/petSpecies';
 import type { PetAnimal, VirtualPet } from '@/types';
 
@@ -276,6 +278,7 @@ function PetView({ pet, memberId, onNewPet }: PetViewProps) {
   const [showAccessories, setShowAccessories] = useState(false);
   const [showAwards, setShowAwards] = useState(false);
   const [evolvedStage, setEvolvedStage] = useState<PetStage | null>(null);
+  const [soundMuted, setSoundMuted] = useState(isPetSoundMuted);
   const [bubbleMessage, setBubbleMessage] = useState<string | null>(null);
   const [bubbleKey, setBubbleKey] = useState(0);
   const [heartBurstTrigger, setHeartBurstTrigger] = useState(0);
@@ -359,6 +362,7 @@ function PetView({ pet, memberId, onNewPet }: PetViewProps) {
     const seen = localStorage.getItem(key) as PetStage | null;
     if (seen && seen !== stage && STAGE_RANK[stage] > (STAGE_RANK[seen] ?? 0)) {
       setEvolvedStage(stage);
+      playPetSound('evolve');
     }
     localStorage.setItem(key, stage);
   }, [pet.id, stage]);
@@ -404,6 +408,7 @@ function PetView({ pet, memberId, onNewPet }: PetViewProps) {
       patPet(memberId);
       triggerMood('happy', 1500);
       speak(pick(PAT_LINES));
+      playPetSound('pat');
       noteInteraction();
     },
     [patPet, memberId, triggerMood, speak, noteInteraction],
@@ -421,6 +426,7 @@ function PetView({ pet, memberId, onNewPet }: PetViewProps) {
     triggerMood('eating', 1800);
     canvasRef.current?.reactSquish();
     speak(pick(FEEDING_LINES));
+    playPetSound('feed');
     noteInteraction();
   }, [feedPet, memberId, triggerMood, hunger, speak, noteInteraction]);
 
@@ -438,6 +444,7 @@ function PetView({ pet, memberId, onNewPet }: PetViewProps) {
     triggerMood('eating', 1800);
     canvasRef.current?.reactSquish();
     speak(pick(FEEDING_LINES));
+    playPetSound('feed');
     noteInteraction();
   };
   const handleWater = () => {
@@ -446,6 +453,7 @@ function PetView({ pet, memberId, onNewPet }: PetViewProps) {
     triggerMood('drinking', 1800);
     canvasRef.current?.reactSquish();
     speak(pick(WATER_LINES));
+    playPetSound('water');
     noteInteraction();
   };
   const handlePat = () => {
@@ -455,6 +463,7 @@ function PetView({ pet, memberId, onNewPet }: PetViewProps) {
     setHeartOrigin({ x: 90, y: 90 });
     setHeartBurstTrigger((t) => t + 1);
     speak(pick(PAT_LINES));
+    playPetSound('pat');
     noteInteraction();
   };
   const handlePlay = () => {
@@ -462,6 +471,7 @@ function PetView({ pet, memberId, onNewPet }: PetViewProps) {
     triggerMood('happy', 1500);
     canvasRef.current?.reactSquash();
     speak(pick(PLAY_LINES));
+    playPetSound('play');
     noteInteraction();
   };
 
@@ -480,6 +490,7 @@ function PetView({ pet, memberId, onNewPet }: PetViewProps) {
       claimQuest(memberId, questId, rewardCoins);
       triggerMood('happy', 1500);
       speak(`+${rewardCoins} 🪙 Quest done!`);
+      playPetSound('reward');
       noteInteraction();
     },
     [claimQuest, memberId, triggerMood, speak, noteInteraction],
@@ -538,6 +549,18 @@ function PetView({ pet, memberId, onNewPet }: PetViewProps) {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <button
+            onClick={() => {
+              const next = setPetSoundMuted();
+              setSoundMuted(next);
+              if (!next) playPetSound('pat');
+            }}
+            className="w-8 h-8 flex items-center justify-center rounded-full text-text-muted border border-border hover:bg-surface-2 transition-colors"
+            title={soundMuted ? 'Unmute pet sounds' : 'Mute pet sounds'}
+            aria-label={soundMuted ? 'Unmute pet sounds' : 'Mute pet sounds'}
+          >
+            {soundMuted ? <VolumeX size={15} /> : <Volume2 size={15} />}
+          </button>
           <button
             onClick={() => {
               if (
@@ -771,10 +794,12 @@ function PetView({ pet, memberId, onNewPet }: PetViewProps) {
         <MiniGame
           xpPerCatch={2}
           paused={pagePaused}
+          onCatch={() => playPetSound('catch')}
           onEnd={(score) => {
             if (score > 0) {
               finishMiniGame(memberId, score);
               speak(`+${score * 2} XP · +${score} 🪙`);
+              playPetSound('reward');
               noteInteraction();
             }
           }}

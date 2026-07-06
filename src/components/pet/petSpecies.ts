@@ -1,7 +1,9 @@
 // Pet species registry. Each species maps to a bundled Microsoft Fluent Emoji
-// (3D) illustration in /public/pets. Legacy stored animal values ('bunny',
-// 'axolotl') from before the illustrated overhaul are aliased to their nearest
-// new species so existing pets keep rendering.
+// (3D) illustration in /public/pets. The roster is headshots only — every image
+// is a face/head bust (no full bodies) so the pets read consistently. Legacy
+// stored animal values ('bunny'/'axolotl' from the pre-illustrated overhaul,
+// and 'penguin'/'turtle'/'fish' from the earlier full-body roster) are aliased
+// to their nearest current head species so existing pets keep rendering.
 import type { PetAnimal } from '@/types';
 
 export interface PetSpecies {
@@ -19,25 +21,30 @@ export const PET_SPECIES: PetSpecies[] = [
   { animal: 'hamster', label: 'Hamster', emoji: '🐹', treat: '🌰', img: '/pets/hamster.png' },
   { animal: 'fox', label: 'Fox', emoji: '🦊', treat: '🍇', img: '/pets/fox.png' },
   { animal: 'panda', label: 'Panda', emoji: '🐼', treat: '🎋', img: '/pets/panda.png' },
-  { animal: 'penguin', label: 'Penguin', emoji: '🐧', treat: '🐟', img: '/pets/penguin.png' },
+  { animal: 'bear', label: 'Bear', emoji: '🐻', treat: '🍯', img: '/pets/bear.png' },
   { animal: 'dragon', label: 'Dragon', emoji: '🐲', treat: '🔥', img: '/pets/dragon.png' },
   { animal: 'unicorn', label: 'Unicorn', emoji: '🦄', treat: '🍓', img: '/pets/unicorn.png' },
   { animal: 'frog', label: 'Frog', emoji: '🐸', treat: '🪰', img: '/pets/frog.png' },
-  { animal: 'turtle', label: 'Turtle', emoji: '🐢', treat: '🥬', img: '/pets/turtle.png' },
-  { animal: 'fish', label: 'Fish', emoji: '🐠', treat: '🦐', img: '/pets/fish.png' },
+  { animal: 'koala', label: 'Koala', emoji: '🐨', treat: '🍃', img: '/pets/koala.png' },
+  { animal: 'tiger', label: 'Tiger', emoji: '🐯', treat: '🥩', img: '/pets/tiger.png' },
 ];
 
 // Options shown in the new-pet picker.
 export const PET_PICKER: PetSpecies[] = PET_SPECIES;
 
-// Lookup incl. legacy aliases. The retired 'custom' (draw-your-own) and the old
-// 'bunny'/'axolotl' values map to the nearest current species so existing pets
-// keep rendering.
+// Lookup incl. legacy aliases. The retired 'custom' (draw-your-own), the old
+// 'bunny'/'axolotl' values, and the retired full-body 'penguin'/'turtle'/'fish'
+// species all map to the nearest current head species so existing pets keep
+// rendering.
+const byAnimal = (a: PetAnimal) => PET_SPECIES.find((s) => s.animal === a)!;
 const META: Record<string, PetSpecies> = {
   ...Object.fromEntries(PET_SPECIES.map((s) => [s.animal, s])),
-  custom: PET_SPECIES.find((s) => s.animal === 'cat')!,
-  bunny: PET_SPECIES.find((s) => s.animal === 'rabbit')!,
-  axolotl: PET_SPECIES.find((s) => s.animal === 'fish')!,
+  custom: byAnimal('cat'),
+  bunny: byAnimal('rabbit'),
+  axolotl: byAnimal('frog'),
+  penguin: byAnimal('koala'),
+  turtle: byAnimal('koala'),
+  fish: byAnimal('tiger'),
 };
 
 /** Metadata for any animal value (incl. custom + legacy), falling back to cat. */
