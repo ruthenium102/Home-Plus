@@ -812,7 +812,7 @@ function HistoryView({
                       className={
                         'flex items-center gap-1 text-[10px] uppercase tracking-wider font-semibold px-2 py-1 rounded ' +
                         (isApproved
-                          ? 'text-green-700 dark:text-green-300 bg-green-500/10'
+                          ? 'text-success bg-success/10'
                           : 'text-text-muted bg-surface-2')
                       }
                     >
@@ -861,7 +861,7 @@ function HistoryView({
                       className={
                         'flex items-center gap-1 text-[10px] uppercase tracking-wider font-semibold px-2 py-1 rounded ' +
                         (isApproved
-                          ? 'text-green-700 dark:text-green-300 bg-green-500/10'
+                          ? 'text-success bg-success/10'
                           : 'text-text-muted bg-surface-2')
                       }
                     >

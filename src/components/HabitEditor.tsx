@@ -519,9 +519,9 @@ export function HabitEditor({ open, editing, onClose }: Props) {
                       <span
                         className={
                           weekState === 'met'
-                            ? 'text-emerald-600 dark:text-emerald-400 font-semibold'
+                            ? 'text-success font-semibold'
                             : weekState === 'violated'
-                              ? 'text-red-500 font-semibold'
+                              ? 'text-danger font-semibold'
                               : 'text-text'
                         }
                       >
@@ -544,9 +544,9 @@ export function HabitEditor({ open, editing, onClose }: Props) {
                               'relative h-14 rounded-md flex flex-col items-center justify-center ' +
                               (isToday ? 'ring-2 ring-accent/70 ' : '') +
                               (state === 'met'
-                                ? 'bg-emerald-500'
+                                ? 'bg-success'
                                 : state === 'violated'
-                                  ? 'bg-red-500'
+                                  ? 'bg-danger'
                                   : 'bg-orange-200 dark:bg-orange-900/30')
                             }
                             title={`${format(day, 'EEE d MMM')} — ${count}/${target}`}

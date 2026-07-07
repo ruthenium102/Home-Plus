@@ -94,4 +94,34 @@ if (existsSync(pluginSwiftPath)) {
   }
 }
 
+// 3. Plugin.swift — force ON-DEVICE recognition (idempotent). Without this,
+//    SFSpeechRecognizer defaults to Apple's server-based recognition, i.e. raw
+//    (potentially a child's) audio leaves the device — contradicting the
+//    privacy policy's "speech-to-text runs on-device" claim and the App
+//    Privacy label. Devices/languages without on-device support will fail
+//    recognition rather than silently uploading audio; that is intentional.
+if (existsSync(pluginSwiftPath)) {
+  const current = readFileSync(pluginSwiftPath, 'utf8');
+  if (!current.includes('requiresOnDeviceRecognition')) {
+    const anchor = 'self.recognitionRequest?.shouldReportPartialResults = partialResults';
+    if (!current.includes(anchor)) {
+      console.error(
+        '[fix-speech-recognition] Plugin.swift no longer matches the expected ' +
+          'recognitionRequest setup — verify the on-device-recognition fix ' +
+          'still applies after a plugin upgrade.'
+      );
+      process.exit(0);
+    }
+    writeFileSync(
+      pluginSwiftPath,
+      current.replace(
+        anchor,
+        anchor +
+          '\n            // Home Plus patch: never send raw audio to Apple servers.\n' +
+          '            self.recognitionRequest?.requiresOnDeviceRecognition = true'
+      )
+    );
+  }
+}
+
 console.log('[fix-speech-recognition] speech-recognition SPM fix applied.');

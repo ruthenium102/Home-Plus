@@ -299,10 +299,10 @@ export function AuthPage() {
 
           {/* Error / confirmation */}
           {error && (
-            <div className="text-sm text-red-500 bg-red-500/10 px-3 py-2.5 rounded-md">{error}</div>
+            <div className="text-sm text-danger bg-danger/10 px-3 py-2.5 rounded-md">{error}</div>
           )}
           {resetSent && (
-            <div className="text-sm text-green-600 dark:text-green-400 bg-green-500/10 px-3 py-2.5 rounded-md">
+            <div className="text-sm text-success bg-success/10 px-3 py-2.5 rounded-md">
               Reset link sent — check your inbox.
             </div>
           )}

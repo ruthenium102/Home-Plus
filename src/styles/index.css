@@ -23,6 +23,14 @@
      passes AA there); dark overrides it darker so white button text passes. */
   --accent-strong: 188 73 43;
   --accent-soft: 250 232 222;
+  /* Semantic status colors — same split as accent/accent-strong: the base is
+     for text/icons on surfaces (lifted in dark for AA), the -strong variant is
+     for filled backgrounds with white label text (AA in BOTH themes). Never
+     use raw Tailwind red/green/emerald classes — they don't adapt to dark. */
+  --danger: 185 28 28; /* red-700 — 5.2:1 on cream surfaces */
+  --danger-strong: 185 28 28; /* white text on this: 5.5:1 */
+  --success: 21 128 61; /* green-700 */
+  --success-strong: 21 128 61;
 
   --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.04);
   --shadow: 0 4px 14px -4px rgb(0 0 0 / 0.08), 0 2px 4px -2px rgb(0 0 0 / 0.04);
@@ -41,6 +49,12 @@
   --accent: 224 116 80; /* lifted terracotta for dark — vivid for accent text/icons */
   --accent-strong: 188 86 52; /* darker terracotta for filled buttons so white label text hits AA 4.5:1 */
   --accent-soft: 58 38 30;
+  /* Status text lifts for AA on dark surfaces; -strong stays the darker fill
+     so white label text keeps passing. */
+  --danger: 248 145 137; /* ~7:1 on dark surface */
+  --danger-strong: 185 28 28;
+  --success: 116 204 152; /* ~7:1 on dark surface */
+  --success-strong: 21 128 61;
 }
 
 html,

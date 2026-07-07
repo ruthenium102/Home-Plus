@@ -174,10 +174,10 @@ export function habitCellState(
  */
 export function habitCellClass(state: HabitCellState, hasActivity: boolean): string {
   if (state === 'met') {
-    return hasActivity ? 'bg-emerald-400' : 'bg-emerald-400/20 border border-emerald-400/30';
+    return hasActivity ? 'bg-success' : 'bg-success/20 border border-success/30';
   }
   if (state === 'violated') {
-    return hasActivity ? 'bg-red-500' : 'bg-red-500/15 border border-red-500/25';
+    return hasActivity ? 'bg-danger' : 'bg-danger/15 border border-danger/25';
   }
   return hasActivity ? 'bg-text-faint/60' : 'bg-surface-3 border border-border/60';
 }

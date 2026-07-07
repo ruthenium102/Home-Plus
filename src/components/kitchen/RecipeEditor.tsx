@@ -137,7 +137,7 @@ export function RecipeEditor({ recipe, onSave, onDelete, onClose }: Props) {
             {onDelete && (
               <button
                 onClick={onDelete}
-                className="btn-ghost text-red-500 hover:text-red-700 flex items-center gap-1 text-sm"
+                className="btn-ghost text-danger hover:text-danger flex items-center gap-1 text-sm"
               >
                 <Trash2 size={14} />
                 Delete
@@ -260,7 +260,7 @@ export function RecipeEditor({ recipe, onSave, onDelete, onClose }: Props) {
                   />
                   <button
                     onClick={() => removeIngredient(i)}
-                    className="text-text-faint hover:text-red-500 transition"
+                    className="text-text-faint hover:text-danger transition"
                   >
                     <X size={16} />
                   </button>
@@ -293,7 +293,7 @@ export function RecipeEditor({ recipe, onSave, onDelete, onClose }: Props) {
                   />
                   <button
                     onClick={() => removeStep(i)}
-                    className="text-text-faint hover:text-red-500 transition mt-1"
+                    className="text-text-faint hover:text-danger transition mt-1"
                   >
                     <X size={16} />
                   </button>

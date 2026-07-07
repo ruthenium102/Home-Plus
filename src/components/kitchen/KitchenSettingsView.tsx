@@ -56,7 +56,7 @@ export function KitchenSettingsView() {
                 {item}
                 <button
                   onClick={() => removeCupboardItem(item)}
-                  className="text-text-faint hover:text-red-500 transition"
+                  className="text-text-faint hover:text-danger transition"
                 >
                   <X size={12} />
                 </button>

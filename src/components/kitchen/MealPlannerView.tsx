@@ -425,7 +425,7 @@ export function MealPlannerView() {
                     <span className="text-base shrink-0">{r.icon || '🍽️'}</span>
                     <span className="flex-1 truncate text-text min-w-0">{r.title}</span>
                     {r.favorite && (
-                      <Heart size={11} className="text-red-500 shrink-0" fill="currentColor" />
+                      <Heart size={11} className="text-danger shrink-0" fill="currentColor" />
                     )}
                   </div>
                 ))
@@ -866,7 +866,7 @@ function MealChip({
                 setMenuOpen(false);
                 onRemove();
               }}
-              className={item + ' text-red-500'}
+              className={item + ' text-danger'}
             >
               <Trash2 size={15} /> Delete
             </button>

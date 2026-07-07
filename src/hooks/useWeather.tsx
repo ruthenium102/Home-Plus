@@ -11,7 +11,13 @@ import {
 
 const LOCATION_KEY = 'hp:location';
 const UNIT_KEY = 'hp:weather_unit';
-const PERTH = { lat: -31.9505, lng: 115.8605, name: 'Perth' };
+const PERTH = { lat: -31.95, lng: 115.86, name: 'Perth' };
+
+// Coarsen coordinates to 2 decimal places (~1.1 km) before storing or sending
+// anywhere. The privacy policy promises COARSE location for weather; precise
+// GPS must never leave the device. Applied at capture AND at fetch time (the
+// latter heals precise coords cached by older builds).
+const coarse = (n: number) => Math.round(n * 100) / 100;
 const REFRESH_MS = 30 * 60 * 1000; // 30 min between weather refreshes
 const GPS_STALE_MS = 7 * 24 * 60 * 60 * 1000; // re-request GPS once a week
 
@@ -127,7 +133,10 @@ export function WeatherProvider({ children }: { children: ReactNode }) {
   const [error, setError] = useState<string | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const fetchWeather = useCallback(async (lat: number, lng: number, nameOverride?: string) => {
+  const fetchWeather = useCallback(async (rawLat: number, rawLng: number, nameOverride?: string) => {
+    // Only ever transmit coarse coordinates (see `coarse` above).
+    const lat = coarse(rawLat);
+    const lng = coarse(rawLng);
     setLoading(true);
     setError(null);
     try {
@@ -196,8 +205,9 @@ export function WeatherProvider({ children }: { children: ReactNode }) {
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         const c: StoredLocation = {
-          lat: pos.coords.latitude,
-          lng: pos.coords.longitude,
+          // Store coarse (~1.1 km), never precise — policy accuracy (L4).
+          lat: coarse(pos.coords.latitude),
+          lng: coarse(pos.coords.longitude),
           ts: Date.now(),
         };
         localStorage.setItem(LOCATION_KEY, JSON.stringify(c));
@@ -219,15 +229,15 @@ export function WeatherProvider({ children }: { children: ReactNode }) {
     doGeoRequest();
   }, [locationStatus, doGeoRequest]);
 
-  // Auto-refresh GPS once a week if we have a non-manual cached location
+  // Auto-refresh GPS once a week — but ONLY when the user previously enabled
+  // location (a cached location exists). A fresh install must NOT trigger the
+  // OS location prompt on load: the policy says weather/location is off until
+  // you turn it on, so the first request only ever comes from the explicit
+  // "Enable weather" tap (requestLocation) — L6.
   useEffect(() => {
     try {
       const raw = localStorage.getItem(LOCATION_KEY);
-      if (!raw) {
-        // No cached location at all → request once on first load
-        doGeoRequest();
-        return;
-      }
+      if (!raw) return; // never been enabled — stay idle until the user opts in
       const parsed = JSON.parse(raw) as StoredLocation;
       if (parsed.manual) return; // user picked manually — never auto-refresh
       const age = Date.now() - (parsed.ts ?? 0);
@@ -235,7 +245,7 @@ export function WeatherProvider({ children }: { children: ReactNode }) {
     } catch {
       // Ignore — leave cached coords in place
     }
-     
+
   }, []);
 
   const resetLocation = useCallback(() => {

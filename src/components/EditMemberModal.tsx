@@ -314,7 +314,7 @@ export function EditMemberModal({ open, member, onClose }: Props) {
                             {linked && (
                               <CheckCircle2
                                 size={14}
-                                className="text-green-500 shrink-0"
+                                className="text-success shrink-0"
                                 aria-label="Account linked"
                               />
                             )}
@@ -349,7 +349,7 @@ export function EditMemberModal({ open, member, onClose }: Props) {
                               sign-in.
                             </p>
                           )}
-                          {emailError && <div className="text-xs text-red-500">{emailError}</div>}
+                          {emailError && <div className="text-xs text-danger">{emailError}</div>}
                           <div className="flex gap-2">
                             <button
                               type="button"
@@ -451,7 +451,7 @@ export function EditMemberModal({ open, member, onClose }: Props) {
                               autoComplete="new-password"
                               className="w-full px-3 py-2 bg-surface border border-border rounded-md text-text text-sm placeholder:text-text-faint focus:outline-none focus:border-accent"
                             />
-                            {pwError && <div className="text-xs text-red-500">{pwError}</div>}
+                            {pwError && <div className="text-xs text-danger">{pwError}</div>}
                             <div className="flex gap-2">
                               <button
                                 type="button"
@@ -502,7 +502,7 @@ export function EditMemberModal({ open, member, onClose }: Props) {
             <button
               type="button"
               onClick={handleDelete}
-              className="flex items-center gap-2 text-sm text-red-500 hover:text-red-400 transition-colors"
+              className="flex items-center gap-2 text-sm text-danger hover:text-danger transition-colors"
             >
               <Trash2 size={14} /> Remove from family
             </button>

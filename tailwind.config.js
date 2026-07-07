@@ -29,7 +29,11 @@ export default {
         'text-faint': 'rgb(var(--text-faint) / <alpha-value>)',
         accent: 'rgb(var(--accent) / <alpha-value>)',
         'accent-strong': 'rgb(var(--accent-strong) / <alpha-value>)',
-        'accent-soft': 'rgb(var(--accent-soft) / <alpha-value>)'
+        'accent-soft': 'rgb(var(--accent-soft) / <alpha-value>)',
+        danger: 'rgb(var(--danger) / <alpha-value>)',
+        'danger-strong': 'rgb(var(--danger-strong) / <alpha-value>)',
+        success: 'rgb(var(--success) / <alpha-value>)',
+        'success-strong': 'rgb(var(--success-strong) / <alpha-value>)'
       },
       borderRadius: {
         sm: '6px',

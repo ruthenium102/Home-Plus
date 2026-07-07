@@ -2,11 +2,9 @@ import { useEffect, useMemo, useState } from 'react';
 import { Trash2, Search, X } from 'lucide-react';
 import { useFamily } from '@/context/FamilyContext';
 import { COLOR_OPTIONS, MEMBER_COLORS } from '@/lib/colors';
-import { ICON_OPTIONS, ICON_CATEGORIES, getListIcon } from '@/lib/listIcons';
+import { ICON_OPTIONS, ICON_CATEGORIES } from '@/lib/listIcons';
 import { Modal } from './Modal';
 import type { TodoList, MemberColor } from '@/types';
-
-export { getListIcon };
 
 interface Props {
   open: boolean;

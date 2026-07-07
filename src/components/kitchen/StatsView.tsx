@@ -80,7 +80,7 @@ export function StatsView() {
           value={stats.uniqueRecipes}
         />
         <StatCard
-          icon={<Heart size={20} className="text-red-500" />}
+          icon={<Heart size={20} className="text-danger" />}
           label="Favourites"
           value={stats.totalFavorites}
         />

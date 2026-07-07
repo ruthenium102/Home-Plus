@@ -221,7 +221,7 @@ function HabitStatsCard({
           icon={
             <Flame
               size={12}
-              className={currentStreak > 0 ? 'text-red-500' : 'text-text-faint'}
+              className={currentStreak > 0 ? 'text-danger' : 'text-text-faint'}
               fill={currentStreak > 0 ? 'currentColor' : 'none'}
             />
           }
@@ -355,11 +355,11 @@ function HeatmapLegend() {
   return (
     <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-text-faint">
       <span className="flex items-center gap-1">
-        <span className="w-3 h-3 rounded-[2px] bg-emerald-400" />
+        <span className="w-3 h-3 rounded-[2px] bg-success" />
         Met
       </span>
       <span className="flex items-center gap-1">
-        <span className="w-3 h-3 rounded-[2px] bg-red-500 bg-[repeating-linear-gradient(45deg,transparent,transparent_2px,rgba(255,255,255,0.55)_2px,rgba(255,255,255,0.55)_3px)]" />
+        <span className="w-3 h-3 rounded-[2px] bg-danger bg-[repeating-linear-gradient(45deg,transparent,transparent_2px,rgba(255,255,255,0.55)_2px,rgba(255,255,255,0.55)_3px)]" />
         Missed
       </span>
       <span className="flex items-center gap-1">

@@ -609,14 +609,14 @@ export function SettingsPage() {
       {/* Danger zone — permanent account deletion (cloud accounts only;
           demo mode has no server account to delete). */}
       {isSupabaseConfigured && (
-        <section className="card p-5 border-red-500/30">
+        <section className="card p-5 border-danger/30">
           <h2 className="font-display text-lg text-text mb-1">Danger zone</h2>
           <p className="text-xs text-text-faint mb-4">
             Permanently delete your account and all associated data. This can't be undone.
           </p>
           <button
             onClick={() => setDeleteAccountOpen(true)}
-            className="flex items-center gap-2 px-4 py-2 border border-red-500/40 text-red-500 text-sm rounded-md hover:bg-red-500/10 font-medium"
+            className="flex items-center gap-2 px-4 py-2 border border-danger/40 text-danger text-sm rounded-md hover:bg-danger/10 font-medium"
           >
             <Trash2 size={14} /> Delete account
           </button>
@@ -691,7 +691,7 @@ function MemberRow({
             </span>
           )}
           {hasLogin ? (
-            <span className="text-[10px] uppercase tracking-wider text-green-600 dark:text-green-400 font-semibold bg-green-500/10 px-1.5 py-0.5 rounded">
+            <span className="text-[10px] uppercase tracking-wider text-success font-semibold bg-success/10 px-1.5 py-0.5 rounded">
               Login
             </span>
           ) : (
@@ -784,7 +784,7 @@ function CupboardEditor() {
               {item}
               <button
                 onClick={() => remove(item)}
-                className="text-text-faint hover:text-red-500 transition"
+                className="text-text-faint hover:text-danger transition"
               >
                 <X size={10} />
               </button>
@@ -978,7 +978,7 @@ function InvitesSection({
       </div>
 
       {error && (
-        <div className="text-sm text-red-500 bg-red-500/10 px-3 py-2 rounded-md mb-3">{error}</div>
+        <div className="text-sm text-danger bg-danger/10 px-3 py-2 rounded-md mb-3">{error}</div>
       )}
 
       {pending.length === 0 ? (
@@ -1026,7 +1026,7 @@ function InvitesSection({
                 <button
                   onClick={() => revoke(inv.id)}
                   disabled={busyId === inv.id}
-                  className="px-2 py-1.5 rounded-md text-xs text-red-500 border border-red-500/30 hover:bg-red-500/10"
+                  className="px-2 py-1.5 rounded-md text-xs text-danger border border-danger/30 hover:bg-danger/10"
                   title="Revoke invitation"
                 >
                   <Trash2 size={12} />

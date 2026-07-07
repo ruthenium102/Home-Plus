@@ -331,7 +331,7 @@ function BlockOnTimeline({ block, onCommit, onToggleDone, onRemove }: BlockOnTim
         <button
           onPointerDown={(e) => e.stopPropagation()}
           onClick={onRemove}
-          className="shrink-0 w-5 h-5 rounded flex items-center justify-center text-text-faint/40 hover:text-red-500 hover:bg-red-500/10 transition-colors opacity-0 group-hover:opacity-100"
+          className="shrink-0 w-5 h-5 rounded flex items-center justify-center text-text-faint/40 hover:text-danger hover:bg-danger/10 transition-colors opacity-0 group-hover:opacity-100"
           aria-label="Remove block"
         >
           <Trash2 size={11} />
@@ -433,11 +433,11 @@ function Timeline({
           className="absolute left-0 right-0 z-20 flex items-center pointer-events-none"
           style={{ top: nowTop }}
         >
-          <div className="w-12 pr-1 text-[10px] font-semibold text-red-500 text-right">
+          <div className="w-12 pr-1 text-[10px] font-semibold text-danger text-right">
             {format(now, 'h:mm')}
           </div>
-          <div className="flex-1 h-px bg-red-500/80" />
-          <div className="absolute left-12 w-2 h-2 rounded-full bg-red-500 -translate-x-1" />
+          <div className="flex-1 h-px bg-danger/80" />
+          <div className="absolute left-12 w-2 h-2 rounded-full bg-danger -translate-x-1" />
         </div>
       )}
 
@@ -508,7 +508,7 @@ function PoolItemChip({ item, onEdit, onDelete, onDragStart, isDragging }: PoolI
       </button>
       <button
         onClick={onDelete}
-        className="shrink-0 w-6 h-6 min-w-[44px] min-h-[44px] rounded flex items-center justify-center text-text-faint hover:text-red-500 hover:bg-red-500/10 opacity-0 group-hover:opacity-100 transition-[transform,opacity,background-color,border-color,color,box-shadow]"
+        className="shrink-0 w-6 h-6 min-w-[44px] min-h-[44px] rounded flex items-center justify-center text-text-faint hover:text-danger hover:bg-danger/10 opacity-0 group-hover:opacity-100 transition-[transform,opacity,background-color,border-color,color,box-shadow]"
         title="Delete activity"
         aria-label="Delete activity"
       >

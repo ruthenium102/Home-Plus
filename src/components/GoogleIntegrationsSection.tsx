@@ -206,8 +206,8 @@ export function GoogleIntegrationsSection() {
         <div
           className={`text-sm rounded-md px-3 py-2 mb-3 ${
             banner.kind === 'success'
-              ? 'bg-green-100 text-green-900 dark:bg-green-900/30 dark:text-green-200'
-              : 'bg-red-100 text-red-900 dark:bg-red-900/30 dark:text-red-200'
+              ? 'bg-success/15 text-success'
+              : 'bg-danger/15 text-danger'
           }`}
         >
           {banner.text}
@@ -222,7 +222,7 @@ export function GoogleIntegrationsSection() {
           <div className="text-xs text-text-muted mt-0.5">
             Set up by {row.connected_by_name} &middot; last sync {timeAgo(row.last_synced_at)}
             {row.last_sync_error && (
-              <span className="text-red-600 dark:text-red-400">
+              <span className="text-danger">
                 {' '}&middot; {row.last_sync_error}
               </span>
             )}

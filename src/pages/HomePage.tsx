@@ -217,9 +217,9 @@ export function HomePage({ onNavigate }: Props) {
                       className={
                         'w-8 h-8 rounded-full flex items-center justify-center shrink-0 text-[11px] font-bold tabular-nums transition-transform active:scale-95 cursor-pointer ' +
                         (badge === 'met'
-                          ? 'bg-emerald-500 text-white'
+                          ? 'bg-success-strong text-white'
                           : badge === 'missed'
-                            ? 'bg-red-500 text-white'
+                            ? 'bg-danger-strong text-white'
                             : badge === 'progress'
                               ? 'bg-surface-3 text-text border-2 border-border'
                               : 'border-2 border-text-faint text-text-faint hover:border-accent/60')
@@ -245,7 +245,7 @@ export function HomePage({ onNavigate }: Props) {
                       </div>
                       {streak > 0 && (
                         <div className="flex items-center gap-1 text-xs text-text-faint shrink-0">
-                          <Flame size={11} className="text-red-500" fill="currentColor" />
+                          <Flame size={11} className="text-danger" fill="currentColor" />
                           <span className="tabular-nums">{streak}</span>
                         </div>
                       )}

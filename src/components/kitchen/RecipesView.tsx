@@ -64,7 +64,7 @@ export function RecipesView() {
         </div>
         <button
           onClick={() => setFilterFav(!filterFav)}
-          className={`btn-ghost flex items-center gap-1 text-sm ${filterFav ? 'text-red-500' : ''}`}
+          className={`btn-ghost flex items-center gap-1 text-sm ${filterFav ? 'text-danger' : ''}`}
         >
           <Heart size={14} fill={filterFav ? 'currentColor' : 'none'} />
           Favourites
@@ -155,7 +155,7 @@ function RecipeCard({
                 e.stopPropagation();
                 onFavorite();
               }}
-              className={`flex-shrink-0 mt-0.5 transition ${recipe.favorite ? 'text-red-500' : 'text-text-faint opacity-0 group-hover:opacity-100'}`}
+              className={`flex-shrink-0 mt-0.5 transition ${recipe.favorite ? 'text-danger' : 'text-text-faint opacity-0 group-hover:opacity-100'}`}
             >
               <Heart size={15} fill={recipe.favorite ? 'currentColor' : 'none'} />
             </button>

@@ -5,14 +5,20 @@
 // as the /api routes, so a relative path works and hits the Vite proxy in dev.
 // Inside the iOS WKWebView the app is served from capacitor://localhost, so a
 // bare /api/... path would resolve to capacitor://localhost/api/... and 404.
-// The prod (iOS) build therefore sets VITE_API_BASE to the deployed origin
-// (https://home-plus-lyart.vercel.app) and we prefix every API call with it.
 //
-// When VITE_API_BASE is unset (local dev / same-origin web) we leave the path
-// relative so nothing changes.
-const API_BASE = (import.meta.env.VITE_API_BASE ?? '').replace(/\/$/, '');
+// VITE_API_BASE can override the origin at build time, but the native build
+// must NEVER ship with a relative base — account deletion and every other
+// /api call would silently break on device (App Review rejection material).
+// So when the env var is unset and we're running natively, fall back to the
+// deployed origin instead of trusting the build pipeline to remember it.
+import { Capacitor } from '@capacitor/core';
 
-/** Prefix an absolute "/api/..." path with VITE_API_BASE when configured. */
+const PROD_ORIGIN = 'https://home-plus-lyart.vercel.app';
+
+const configured = (import.meta.env.VITE_API_BASE ?? '').replace(/\/$/, '');
+const API_BASE = configured || (Capacitor.isNativePlatform() ? PROD_ORIGIN : '');
+
+/** Prefix an absolute "/api/..." path with the API origin when required. */
 export function apiUrl(path: string): string {
   return API_BASE ? `${API_BASE}${path}` : path;
 }

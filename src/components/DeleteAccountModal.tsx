@@ -99,8 +99,8 @@ export function DeleteAccountModal({ open, onClose }: Props) {
       <div className="card w-full max-w-md p-6" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
-            <div className="w-11 h-11 rounded-full bg-red-500/10 flex items-center justify-center shrink-0">
-              <AlertTriangle size={20} className="text-red-500" />
+            <div className="w-11 h-11 rounded-full bg-danger/10 flex items-center justify-center shrink-0">
+              <AlertTriangle size={20} className="text-danger" />
             </div>
             <div>
               <div className="font-display text-lg text-text">Delete account</div>
@@ -139,11 +139,11 @@ export function DeleteAccountModal({ open, onClose }: Props) {
           }}
           placeholder={family.name}
           disabled={busy}
-          className="w-full px-3 py-2.5 bg-surface-2 border border-border rounded-md text-text text-sm focus:outline-none focus:border-red-500 mb-3"
+          className="w-full px-3 py-2.5 bg-surface-2 border border-border rounded-md text-text text-sm focus:outline-none focus:border-danger mb-3"
         />
 
         {error && (
-          <div className="text-sm text-red-500 bg-red-500/10 px-3 py-2 rounded-md mb-3">{error}</div>
+          <div className="text-sm text-danger bg-danger/10 px-3 py-2 rounded-md mb-3">{error}</div>
         )}
 
         <div className="flex gap-2">
@@ -157,7 +157,7 @@ export function DeleteAccountModal({ open, onClose }: Props) {
           <button
             onClick={handleDelete}
             disabled={!confirmed || busy}
-            className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-md bg-red-500 text-white text-sm font-medium hover:bg-red-600 disabled:opacity-40 disabled:cursor-not-allowed"
+            className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-md bg-danger-strong text-white text-sm font-medium hover:bg-danger-strong/90 disabled:opacity-40 disabled:cursor-not-allowed"
           >
             {busy ? (
               <>

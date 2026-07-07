@@ -120,7 +120,7 @@ export function InviteModal({ open, onClose, defaultName, defaultRole = 'child' 
         <div className="p-5">
           {state === 'success' && result ? (
             <div className="text-center py-4">
-              <CheckCircle2 size={40} className="text-green-500 mx-auto mb-3" />
+              <CheckCircle2 size={40} className="text-success mx-auto mb-3" />
               <div className="font-medium text-text mb-1">
                 {result.existing ? 'They can sign in to join' : 'Invitation sent!'}
               </div>
@@ -217,7 +217,7 @@ export function InviteModal({ open, onClose, defaultName, defaultRole = 'child' 
               </div>
 
               {errorMsg && (
-                <div className="mt-3 text-sm text-red-500 bg-red-500/10 px-3 py-2.5 rounded-md leading-relaxed">
+                <div className="mt-3 text-sm text-danger bg-danger/10 px-3 py-2.5 rounded-md leading-relaxed">
                   {errorMsg}
                 </div>
               )}

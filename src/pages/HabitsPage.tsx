@@ -398,9 +398,9 @@ const HabitRow = memo(function HabitRow({
                 className={
                   'tabular-nums font-medium ' +
                   (weekly.state === 'met'
-                    ? 'text-emerald-600 dark:text-emerald-400'
+                    ? 'text-success'
                     : weekly.state === 'violated'
-                      ? 'text-red-500'
+                      ? 'text-danger'
                       : 'text-text')
                 }
               >
@@ -412,7 +412,7 @@ const HabitRow = memo(function HabitRow({
           <div className="flex items-center gap-1">
             <Flame
               size={11}
-              className={streak > 0 ? 'text-red-500' : 'text-text-faint'}
+              className={streak > 0 ? 'text-danger' : 'text-text-faint'}
               fill={streak > 0 ? 'currentColor' : 'none'}
             />
             <span className={'tabular-nums ' + (streak > 0 ? 'text-text' : 'text-text-faint')}>

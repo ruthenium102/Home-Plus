@@ -309,7 +309,7 @@ export function AddMemberModal({ open, onClose }: Props) {
           )}
 
           {error && (
-            <div className="text-sm text-red-500 bg-red-500/10 px-3 py-2 rounded-md">{error}</div>
+            <div className="text-sm text-danger bg-danger/10 px-3 py-2 rounded-md">{error}</div>
           )}
         </div>
 

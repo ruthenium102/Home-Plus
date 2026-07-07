@@ -95,7 +95,7 @@ export function SetPasswordModal({ onDone, mode = 'invite' }: Props) {
             </div>
 
             {error && (
-              <div className="text-sm text-red-500 bg-red-500/10 px-3 py-2.5 rounded-md">
+              <div className="text-sm text-danger bg-danger/10 px-3 py-2.5 rounded-md">
                 {error}
               </div>
             )}

@@ -59,6 +59,25 @@ export default async function handler(req, res) {
     return res.status(429).json({ error: 'Too many requests. Try again shortly.' });
   }
 
+  // Child voice-consent gate — enforced SERVER-SIDE (the matching check in
+  // useVoiceIntake is only UX). A child profile's transcript must never reach
+  // the AI provider unless a parent has recorded voice consent, regardless of
+  // what client sent the request.
+  if (active_member_id && typeof active_member_id === 'string') {
+    const { data: activeMember } = await admin
+      .from('family_members')
+      .select('role, voice_consent_at')
+      .eq('id', active_member_id)
+      .eq('family_id', family_id)
+      .maybeSingle();
+    if (!activeMember) {
+      return res.status(400).json({ error: 'Unknown active_member_id' });
+    }
+    if (activeMember.role === 'child' && !activeMember.voice_consent_at) {
+      return res.status(403).json({ error: 'Voice is not enabled for this profile' });
+    }
+  }
+
   // Build the family context server-side from the DB. Never trust a
   // client-supplied context — that's how a member could reference another
   // family's list/habit ids.

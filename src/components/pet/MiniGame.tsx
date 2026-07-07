@@ -112,7 +112,7 @@ export function MiniGame({ xpPerCatch = 2, onEnd, onCatch, paused = false }: Pro
         <div>
           <h3 className="text-sm font-semibold text-text">Treat Catcher</h3>
           <p className="text-xs text-text-muted">
-            Hover/tap falling treats to catch them — each one earns {xpPerCatch} XP.
+            Tap the falling treats to catch them — each one earns {xpPerCatch} XP.
           </p>
         </div>
         <div className="flex items-center gap-3 text-right">
@@ -127,7 +127,14 @@ export function MiniGame({ xpPerCatch = 2, onEnd, onCatch, paused = false }: Pro
         </div>
       </div>
 
-      <div ref={stageRef} className="minigame-stage">
+      <div
+        ref={stageRef}
+        className="minigame-stage"
+        // The mini-game is a motor-skill bonus, not a required path: XP and
+        // coins are also earned via quests and the care actions. Signpost that
+        // for assistive tech rather than leaving a silent moving region.
+        aria-label="Optional mini-game: catch falling treats. Not required to level up your pet."
+      >
         {treats.map((t) => (
           <div
             key={t.id}
@@ -136,7 +143,18 @@ export function MiniGame({ xpPerCatch = 2, onEnd, onCatch, paused = false }: Pro
               position: 'absolute',
               top: 0,
               left: `${t.x}%`,
+              // ≥44pt hit target: the glyph stays 32px but the padded box is
+              // what catches the tap — kids (and wet kitchen hands) shouldn't
+              // need pixel-precision on a moving target.
               fontSize: 32,
+              padding: 8,
+              margin: -8,
+              lineHeight: 1,
+              minWidth: 48,
+              minHeight: 48,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
               ['--fall-duration' as string]: `${t.duration}s`,
               ['--fall-distance' as string]: '300px',
               ['--spin' as string]: `${t.spin}deg`,
@@ -145,12 +163,14 @@ export function MiniGame({ xpPerCatch = 2, onEnd, onCatch, paused = false }: Pro
               userSelect: 'none',
               touchAction: 'none',
             }}
-            onMouseEnter={() => handleCatch(t.id)}
+            // Click works for mouse users too — hover-catch removed (it never
+            // fired on touch and made the game trivial with a parked cursor).
+            onClick={() => handleCatch(t.id)}
             onTouchStart={(e) => {
               e.preventDefault();
               handleCatch(t.id);
             }}
-            aria-label="Falling treat"
+            aria-hidden
           >
             {t.emoji}
           </div>

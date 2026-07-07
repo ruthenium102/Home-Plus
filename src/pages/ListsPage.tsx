@@ -1,4 +1,4 @@
-import { memo, useMemo, useState } from 'react';
+import { lazy, memo, Suspense, useMemo, useState } from 'react';
 import {
   Plus,
   CheckCircle2,
@@ -16,8 +16,16 @@ import { useTheme } from '@/context/ThemeContext';
 import { useToast } from '@/context/ToastContext';
 import { useSwipeMode } from '@/hooks/useSwipeMode';
 import { useListDragReorder } from '@/hooks/useListDragReorder';
-import { ListEditor, getListIcon } from '@/components/ListEditor';
+import { ListIcon } from '@/components/ListIcon';
 import { ListItemEditor } from '@/components/ListItemEditor';
+
+// Lazy: ListEditor drags the ~300-icon picker catalog (`lib/listIcons`) with
+// it, which used to make ListsPage the heaviest tab chunk in the app (~145 kB)
+// and pay a parse hitch on every first open. Split out, the editor + catalog
+// load as an async chunk after the tab has painted.
+const ListEditor = lazy(() =>
+  import('@/components/ListEditor').then((m) => ({ default: m.ListEditor })),
+);
 import { Avatar } from '@/components/Avatar';
 import { DragHandle } from '@/components/DragHandle';
 import { DropIndicator } from '@/components/DropIndicator';
@@ -80,7 +88,6 @@ export function ListsPage() {
         </div>
         <div className="space-y-0.5">
           {myLists.map((list) => {
-            const Icon = getListIcon(list.icon);
             const tokens = list.color ? getColorTokens(list.color, resolved === 'dark') : null;
             const isActive = list.id === activeListId;
             const itemCount = listItems.filter((i) => i.list_id === list.id && !i.done).length;
@@ -108,7 +115,7 @@ export function ListsPage() {
                       color: tokens?.base || 'rgb(var(--text-muted))',
                     }}
                   >
-                    <Icon size={14} />
+                    <ListIcon name={list.icon} size={14} />
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="text-sm text-text truncate flex items-center gap-1.5">
@@ -217,14 +224,16 @@ export function ListsPage() {
         )}
       </main>
 
-      <ListEditor
-        open={listEditorOpen}
-        editing={editingList}
-        onClose={() => {
-          setListEditorOpen(false);
-          setEditingList(null);
-        }}
-      />
+      <Suspense fallback={null}>
+        <ListEditor
+          open={listEditorOpen}
+          editing={editingList}
+          onClose={() => {
+            setListEditorOpen(false);
+            setEditingList(null);
+          }}
+        />
+      </Suspense>
       {activeList && (
         <ListItemEditor
           open={itemEditorOpen}
