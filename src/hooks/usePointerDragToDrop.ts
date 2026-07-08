@@ -54,6 +54,17 @@ interface Options<P> {
   holdToStart?: number;
   /** Fired the moment a hold-to-start drag picks up (e.g. haptic + sound). */
   onPickUp?: () => void;
+  /**
+   * Optional floating drag ghost — an element that follows the pointer for
+   * the duration of the drag, so the payload physically rides the finger to
+   * its target (the same feel as the meal-planner / calendar drags). The
+   * factory should return a `position:fixed; left:0; top:0;
+   * pointer-events:none` element; the hook appends it to <body>, drives its
+   * transform, and removes it on release.
+   */
+  makeGhost?: (payload: P) => HTMLElement;
+  /** Ghost offset from the pointer, px. Defaults to {x: 10, y: 10}. */
+  ghostOffset?: { x: number; y: number };
 }
 
 export function usePointerDragToDrop<P>({
@@ -63,6 +74,8 @@ export function usePointerDragToDrop<P>({
   threshold = 6,
   holdToStart,
   onPickUp,
+  makeGhost,
+  ghostOffset = { x: 10, y: 10 },
 }: Options<P>): PointerDragToDrop<P> {
   const [isDragging, setIsDragging] = useState(false);
   const [overDropId, setOverDropId] = useState<string | null>(null);
@@ -106,16 +119,27 @@ export function usePointerDragToDrop<P>({
       const pointerId = downEv.pointerId;
       let started = false;
       let holdTimer = 0;
+      let ghostEl: HTMLElement | null = null;
 
       const movedPastThreshold = (ev: PointerEvent) =>
         Math.abs(ev.clientY - startY) >= threshold || Math.abs(ev.clientX - startX) >= threshold;
 
-      const beginDrag = () => {
+      const placeGhost = (x: number, y: number) => {
+        if (ghostEl)
+          ghostEl.style.transform = `translate(${x + ghostOffset.x}px, ${y + ghostOffset.y}px)`;
+      };
+
+      const beginDrag = (x: number, y: number) => {
         started = true;
         try {
           target.setPointerCapture(pointerId);
         } catch {
           /* ignore */
+        }
+        if (makeGhost && !ghostEl) {
+          ghostEl = makeGhost(payload);
+          document.body.appendChild(ghostEl);
+          placeGhost(x, y);
         }
         setIsDragging(true);
       };
@@ -132,6 +156,8 @@ export function usePointerDragToDrop<P>({
         } catch {
           /* ignore */
         }
+        ghostEl?.remove();
+        ghostEl = null;
         setIsDragging(false);
         setOver(null);
       };
@@ -146,8 +172,9 @@ export function usePointerDragToDrop<P>({
         }
         if (!started) {
           if (!movedPastThreshold(ev)) return;
-          beginDrag();
+          beginDrag(ev.clientX, ev.clientY);
         }
+        placeGhost(ev.clientX, ev.clientY);
         autoScrollRef.current.update(ev.clientX, ev.clientY);
         setOver(findDropAt(ev.clientX, ev.clientY));
         ev.preventDefault();
@@ -167,16 +194,17 @@ export function usePointerDragToDrop<P>({
       target.addEventListener('pointercancel', cancel);
 
       // Hold-to-start: arm the drag once the finger has been held (roughly)
-      // still for `holdToStart` ms.
+      // still for `holdToStart` ms. The ghost appears at the press point so
+      // the pickup is visible even before the finger moves.
       if (holdToStart != null) {
         holdTimer = window.setTimeout(() => {
           holdTimer = 0;
-          beginDrag();
+          beginDrag(startX, startY);
           onPickUp?.();
         }, holdToStart);
       }
     },
-    [findDropAt, onDrop, setOver, threshold, holdToStart, onPickUp],
+    [findDropAt, onDrop, setOver, threshold, holdToStart, onPickUp, makeGhost, ghostOffset.x, ghostOffset.y],
   );
 
   return { start, isDragging, overDropId };

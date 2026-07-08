@@ -449,6 +449,20 @@ function PetView({ pet, memberId, onNewPet }: PetViewProps) {
       void hapticLight();
       playPetSound('catch');
     },
+    // Floating ghost: the treat emoji physically rides the finger to the pet,
+    // the same lift-and-carry feel as the meal-planner recipe drag.
+    makeGhost: (emoji) => {
+      const el = document.createElement('div');
+      el.textContent = emoji;
+      el.style.cssText =
+        'position:fixed;left:0;top:0;z-index:200;pointer-events:none;' +
+        'font-size:40px;line-height:1;' +
+        'filter:drop-shadow(0 10px 18px rgba(0,0,0,0.35));';
+      return el;
+    },
+    // Centre the treat just above the fingertip so it stays visible under a
+    // real finger (a +10/+10 corner offset reads fine for a mouse, not touch).
+    ghostOffset: { x: -20, y: -48 },
   });
 
   // Clear the lifted-treat highlight once a drag finishes.
@@ -681,8 +695,11 @@ function PetView({ pet, memberId, onNewPet }: PetViewProps) {
                   treatDrag.start(emoji, e);
                 }}
                 className={
-                  'treat-drag select-none text-2xl px-2 py-1 rounded-lg bg-surface hover:bg-accent-soft transition-transform ' +
-                  (treatDrag.isDragging && activeTreat === i ? 'scale-125 shadow-lg' : '')
+                  'treat-drag select-none text-2xl px-2 py-1 rounded-lg bg-surface hover:bg-accent-soft transition-opacity ' +
+                  // The picked-up treat rides the finger as a floating ghost,
+                  // so its tray slot dims like an emptied slot (meal-planner
+                  // pattern) instead of scaling in place.
+                  (treatDrag.isDragging && activeTreat === i ? 'opacity-30' : '')
                 }
                 // touch-action:none always, so on touch the hold-to-pick-up
                 // gesture is never stolen by the page scroller (the bug where
