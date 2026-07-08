@@ -75,9 +75,15 @@ export function HomePage({ onNavigate }: Props) {
     .filter((m) => m.role === 'child')
     .sort((a, b) => (b.reward_balances.stars || 0) - (a.reward_balances.stars || 0));
 
-  const pendingApprovals =
-    completions.filter((c) => c.status === 'pending_approval').length +
-    redemptions.filter((r) => r.status === 'pending_approval').length;
+  // Memoized: HomePage never unmounts (keep-alive), so it re-renders on every
+  // context change — don't rescan two arrays each time when the inputs are
+  // unchanged.
+  const pendingApprovals = useMemo(
+    () =>
+      completions.filter((c) => c.status === 'pending_approval').length +
+      redemptions.filter((r) => r.status === 'pending_approval').length,
+    [completions, redemptions],
+  );
 
   // Due-soon list items, scoped to what the active member can see
   const dueItems = useMemo(() => {
@@ -355,9 +361,11 @@ export function HomePage({ onNavigate }: Props) {
                           </span>
                         </div>
                         <div className="h-1 bg-surface-2 rounded-full overflow-hidden">
+                          {/* translateX (compositor) instead of width (layout)
+                              — the track's overflow-hidden clips the fill */}
                           <div
-                            className="h-full rounded-full transition-[width]"
-                            style={{ width: `${pct}%`, background: tokens.base }}
+                            className="h-full w-full rounded-full transition-transform"
+                            style={{ transform: `translateX(${pct - 100}%)`, background: tokens.base }}
                           />
                         </div>
                         {goal && (

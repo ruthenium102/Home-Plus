@@ -92,9 +92,11 @@ function StatBar({
           </span>
         </div>
         <div className="h-2.5 rounded-full bg-surface-2 overflow-hidden">
+          {/* translateX (compositor) instead of width (layout) — several bars
+              can animate at once next to the pet's CSS loops */}
           <div
-            className="h-full rounded-full transition-[width] duration-700"
-            style={{ width: `${pct}%`, backgroundColor: color }}
+            className="h-full w-full rounded-full transition-transform duration-700"
+            style={{ transform: `translateX(${pct - 100}%)`, backgroundColor: color }}
           />
         </div>
       </div>
@@ -541,7 +543,12 @@ function PetView({ pet, memberId, onNewPet }: PetViewProps) {
   );
 
   return (
-    <div className="max-w-lg mx-auto space-y-5">
+    // Phone: single centred column. lg+ (iPad landscape): two-column grid —
+    // hero (canvas + stats) sticky on the left, the long interactive stack
+    // (quests/actions/awards/shop/XP) on the right — matching the landscape
+    // layouts every other page uses instead of a phone column with dead
+    // margins.
+    <div className="max-w-lg lg:max-w-5xl mx-auto space-y-5">
       {/* Header */}
       <div className="card p-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -606,6 +613,8 @@ function PetView({ pet, memberId, onNewPet }: PetViewProps) {
         </div>
       </div>
 
+      <div className="lg:grid lg:grid-cols-[400px_minmax(0,1fr)] lg:gap-5 lg:items-start">
+        <div className="space-y-5 lg:sticky lg:top-4">
       {/* Pet canvas — interactive */}
       <div className="card p-6 flex flex-col items-center gap-2 relative">
         <div data-pet-drop="pet" className={'relative ' + (dropHot ? 'pet-drop-hot' : '')}>
@@ -696,7 +705,9 @@ function PetView({ pet, memberId, onNewPet }: PetViewProps) {
         <StatBar emoji="💧" label="Thirst" value={thirst} isDark={isDark} />
         <StatBar emoji="😊" label="Happiness" value={happiness} isDark={isDark} />
       </div>
+        </div>
 
+        <div className="space-y-5 mt-5 lg:mt-0">
       {/* Daily quests — three per day, deterministic per pet */}
       <div className="card p-5 space-y-3">
         <div className="flex items-center justify-between">
@@ -732,8 +743,8 @@ function PetView({ pet, memberId, onNewPet }: PetViewProps) {
                 <div className="mt-1 flex items-center gap-2">
                   <div className="h-1.5 flex-1 rounded-full bg-surface-2 overflow-hidden">
                     <div
-                      className="h-full rounded-full bg-accent-strong transition-[width] duration-500"
-                      style={{ width: `${(progress / q.target) * 100}%` }}
+                      className="h-full w-full rounded-full bg-accent-strong transition-transform duration-500"
+                      style={{ transform: `translateX(${(progress / q.target) * 100 - 100}%)` }}
                     />
                   </div>
                   <span className="text-[11px] text-text-faint shrink-0">
@@ -937,9 +948,9 @@ function PetView({ pet, memberId, onNewPet }: PetViewProps) {
           </div>
           <div className="h-3 rounded-full bg-surface-2 overflow-hidden">
             <div
-              className="h-full rounded-full transition-[width] duration-700"
+              className="h-full w-full rounded-full transition-transform duration-700"
               style={{
-                width: `${(xpInLevel / nextLevelXp) * 100}%`,
+                transform: `translateX(${(xpInLevel / nextLevelXp) * 100 - 100}%)`,
                 background: `linear-gradient(90deg, ${MEMBER_COLORS.sand.base}, ${tokens.base})`,
               }}
             />
@@ -961,17 +972,19 @@ function PetView({ pet, memberId, onNewPet }: PetViewProps) {
           </p>
         </div>
       </div>
+        </div>
+      </div>
 
       {/* Evolution celebration — shown once per stage-up, per device */}
       {evolvedStage && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-6"
+          className="modal-backdrop fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-6"
           onClick={() => setEvolvedStage(null)}
           role="dialog"
           aria-label={`${pet.name} grew up`}
         >
           <div
-            className="card p-6 w-full max-w-sm text-center space-y-3"
+            className="modal-card card p-6 w-full max-w-sm text-center space-y-3"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="text-3xl" aria-hidden>

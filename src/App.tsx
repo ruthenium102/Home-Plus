@@ -218,11 +218,13 @@ function AppShell() {
           // On a side rail (iPad landscape), let content use the full width
           // beside the rail instead of clamping to a centred phone column.
           // When the rail is collapsed the floating hamburger sits at top-left,
-          // so keep a little left margin so the TopBar can't overlap it. The
-          // margin transitions so content glides as the rail slides in/out.
+          // so keep a little left margin so the TopBar can't overlap it.
+          // NOTE: the margin change is deliberately NOT transitioned — animating
+          // margin re-lays-out and repaints every mounted (keep-alive) page tree
+          // on each of ~18 frames. The rail itself still glides via transform;
+          // the content column snaps in a single layout pass.
           (dockIsSide
-            ? 'pb-8 transition-[margin] duration-300 ease-out ' +
-              (railOpen ? 'ml-56' : 'ml-14 sm:ml-16')
+            ? 'pb-8 ' + (railOpen ? 'ml-56' : 'ml-14 sm:ml-16')
             : 'max-w-6xl pb-28 sm:pb-36')
         }
         style={

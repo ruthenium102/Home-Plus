@@ -150,9 +150,10 @@ function KidView({ member }: { member: FamilyMember }) {
               </span>
             </div>
             <div className="h-1.5 bg-surface-2 rounded-full overflow-hidden">
+              {/* translateX (compositor) instead of width (layout) */}
               <div
-                className="h-full rounded-full transition-[width]"
-                style={{ width: `${goalProgress}%`, background: tokens.base }}
+                className="h-full w-full rounded-full transition-transform"
+                style={{ transform: `translateX(${goalProgress - 100}%)`, background: tokens.base }}
               />
             </div>
           </div>
