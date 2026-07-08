@@ -1,5 +1,6 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react';
 import { RefreshCw } from 'lucide-react';
+import { reportClientError } from '@/lib/errorReporting';
 
 interface Props {
   children: ReactNode;
@@ -28,9 +29,13 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, info: ErrorInfo) {
-    // No crash-reporting wired up yet (Sentry is a separate effort); log so the
-    // stack is at least visible in the device console / Safari web inspector.
     console.error('[ErrorBoundary] Unhandled render error:', error, info.componentStack);
+    // Also ship it to the client_errors table so production render crashes are
+    // visible without a device in hand (see lib/errorReporting.ts).
+    reportClientError(
+      `render: ${error.message}`,
+      `${error.stack ?? ''}\n--- component stack ---${info.componentStack ?? ''}`,
+    );
   }
 
   handleReload = () => {

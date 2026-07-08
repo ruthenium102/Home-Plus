@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { storage } from '@/lib/storage';
 import { useFamily } from '@/context/FamilyContext';
 import { useTheme } from '@/context/ThemeContext';
 import { getColorTokens, MEMBER_COLORS } from '@/lib/colors';
@@ -362,13 +363,23 @@ function PetView({ pet, memberId, onNewPet }: PetViewProps) {
   // Remember the last stage this device has seen per pet; when the live stage
   // outranks it, throw a little party. First visit just records the baseline.
   useEffect(() => {
+    // Through the shared `storage` wrapper (hp:-prefixed) like every other
+    // persisted UI flag — with a one-time migration of the raw legacy key
+    // written by v1.0.118–127 so nobody re-celebrates an old evolution.
     const key = `pet_stage_seen:${pet.id}`;
-    const seen = localStorage.getItem(key) as PetStage | null;
+    let seen = storage.get<PetStage | null>(key, null);
+    if (!seen) {
+      const legacy = localStorage.getItem(key) as PetStage | null;
+      if (legacy) {
+        seen = legacy;
+        localStorage.removeItem(key);
+      }
+    }
     if (seen && seen !== stage && STAGE_RANK[stage] > (STAGE_RANK[seen] ?? 0)) {
       setEvolvedStage(stage);
       playPetSound('evolve');
     }
-    localStorage.setItem(key, stage);
+    storage.set(key, stage);
   }, [pet.id, stage]);
 
   // ---- Daily quests + achievements (phase 4) ----

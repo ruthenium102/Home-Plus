@@ -353,20 +353,12 @@ create trigger trg_guard_family_member_privileges
 
 drop policy if exists "Owner manages events"   on events;
 drop policy if exists "Members manage events"  on events;
+-- v27: the STABLE SECURITY DEFINER helper instead of an inline subquery —
+-- identical semantics, initplan-cacheable on the hot bulk-load path.
 create policy "Members manage events"
   on events for all
-  using (
-    exists (
-      select 1 from family_members fm
-      where fm.family_id = events.family_id and fm.auth_user_id = auth.uid()
-    )
-  )
-  with check (
-    exists (
-      select 1 from family_members fm
-      where fm.family_id = events.family_id and fm.auth_user_id = auth.uid()
-    )
-  );
+  using (public.is_family_member(family_id))
+  with check (public.is_family_member(family_id));
 
 -- ============================================================================
 -- Phase 2 — Chores, Rewards, Redemptions, Goals
@@ -535,18 +527,8 @@ begin
     execute format($p$
       create policy "Members manage %1$s"
         on %1$s for all
-        using (
-          exists (
-            select 1 from family_members fm
-            where fm.family_id = %1$s.family_id and fm.auth_user_id = auth.uid()
-          )
-        )
-        with check (
-          exists (
-            select 1 from family_members fm
-            where fm.family_id = %1$s.family_id and fm.auth_user_id = auth.uid()
-          )
-        );
+        using (public.is_family_member(family_id))
+        with check (public.is_family_member(family_id));
     $p$, t);
   end loop;
 end$$;
@@ -868,18 +850,8 @@ begin
     execute format($p$
       create policy "Members manage %1$s"
         on %1$s for all
-        using (
-          exists (
-            select 1 from family_members fm
-            where fm.family_id = %1$s.family_id and fm.auth_user_id = auth.uid()
-          )
-        )
-        with check (
-          exists (
-            select 1 from family_members fm
-            where fm.family_id = %1$s.family_id and fm.auth_user_id = auth.uid()
-          )
-        );
+        using (public.is_family_member(family_id))
+        with check (public.is_family_member(family_id));
     $p$, t);
   end loop;
 end$$;
@@ -1023,10 +995,34 @@ create policy "Members manage virtual_pets" on virtual_pets
   with check (public.is_family_member(family_id));
 
 -- ============================================================================
+-- Client error telemetry (v26) — write-only from clients
+-- ============================================================================
+-- Uncaught client errors land here via src/lib/errorReporting.ts so production
+-- crashes are visible without an external service. INSERT-only for
+-- authenticated users on their own auth id; no SELECT/UPDATE/DELETE policies —
+-- read via the dashboard / service role.
+create table if not exists client_errors (
+  id            uuid primary key default uuid_generate_v4(),
+  auth_user_id  uuid not null,
+  message       text not null,
+  stack         text,
+  source        text,
+  app_version   text,
+  user_agent    text,
+  created_at    timestamptz not null default now()
+);
+create index if not exists idx_client_errors_created on client_errors(created_at desc);
+
+alter table client_errors enable row level security;
+drop policy if exists "Authenticated report own errors" on client_errors;
+create policy "Authenticated report own errors" on client_errors
+  for insert to authenticated with check (auth_user_id = auth.uid());
+
+-- ============================================================================
 -- updated_at + auto-touch trigger on hot tables (v14; delta-poll groundwork — A1)
 -- ============================================================================
 create or replace function public.touch_updated_at()
-returns trigger language plpgsql as $$
+returns trigger language plpgsql set search_path = public as $$
 begin
   new.updated_at := now();
   return new;
@@ -1125,26 +1121,12 @@ create policy "members read invitations" on invitations
 
 drop policy if exists "parents can insert invitations" on invitations;
 create policy "parents can insert invitations" on invitations
-  for insert with check (
-    exists (
-      select 1 from family_members fm
-      where fm.family_id = invitations.family_id
-        and fm.auth_user_id = auth.uid()
-        and fm.role = 'parent'
-    )
-  );
+  for insert with check (public.is_family_parent(family_id));
 
 -- Parents can revoke / delete invitations
 drop policy if exists "parents manage invitations" on invitations;
 create policy "parents manage invitations" on invitations
-  for delete using (
-    exists (
-      select 1 from family_members fm
-      where fm.family_id = invitations.family_id
-        and fm.auth_user_id = auth.uid()
-        and fm.role = 'parent'
-    )
-  );
+  for delete using (public.is_family_parent(family_id));
 
 -- Public preview RPC: given a token, return only the family name, the
 -- invitee's name/email and expiry. Used by the accept screen so the
@@ -1175,23 +1157,13 @@ alter table activity_pool_items enable row level security;
 
 drop policy if exists "family members can manage day plan blocks" on day_plan_blocks;
 create policy "family members can manage day plan blocks" on day_plan_blocks
-  for all using (
-    exists (
-      select 1 from family_members fm
-      where fm.family_id = day_plan_blocks.family_id
-        and fm.auth_user_id = auth.uid()
-    )
-  );
+  for all using (public.is_family_member(family_id))
+  with check (public.is_family_member(family_id));
 
 drop policy if exists "family members can manage activity pool" on activity_pool_items;
 create policy "family members can manage activity pool" on activity_pool_items
-  for all using (
-    exists (
-      select 1 from family_members fm
-      where fm.family_id = activity_pool_items.family_id
-        and fm.auth_user_id = auth.uid()
-    )
-  );
+  for all using (public.is_family_member(family_id))
+  with check (public.is_family_member(family_id));
 
 -- ---- Helper: accept an invitation after signup -----------------------------
 -- Returns the family_id so the client can hydrate without a second round-trip.
@@ -1316,7 +1288,7 @@ create index if not exists idx_gci_channel
   on google_calendar_integrations(channel_id) where channel_id is not null;
 
 create or replace function public.gci_require_parent()
-returns trigger language plpgsql as $$
+returns trigger language plpgsql set search_path = public as $$
 declare r member_role;
 begin
   select role into r from family_members where id = NEW.connected_by_member_id;
@@ -1346,31 +1318,12 @@ drop policy if exists "parents delete gci" on google_calendar_integrations;
 create policy "parents read gci" on google_calendar_integrations
   for select using (public.is_family_parent(family_id));
 create policy "parents insert gci" on google_calendar_integrations
-  for insert with check (
-    exists (select 1 from family_members fm
-            where fm.family_id = google_calendar_integrations.family_id
-              and fm.auth_user_id = auth.uid()
-              and fm.role = 'parent')
-  );
+  for insert with check (public.is_family_parent(family_id));
 create policy "parents update gci" on google_calendar_integrations
-  for update using (
-    exists (select 1 from family_members fm
-            where fm.family_id = google_calendar_integrations.family_id
-              and fm.auth_user_id = auth.uid()
-              and fm.role = 'parent')
-  ) with check (
-    exists (select 1 from family_members fm
-            where fm.family_id = google_calendar_integrations.family_id
-              and fm.auth_user_id = auth.uid()
-              and fm.role = 'parent')
-  );
+  for update using (public.is_family_parent(family_id))
+  with check (public.is_family_parent(family_id));
 create policy "parents delete gci" on google_calendar_integrations
-  for delete using (
-    exists (select 1 from family_members fm
-            where fm.family_id = google_calendar_integrations.family_id
-              and fm.auth_user_id = auth.uid()
-              and fm.role = 'parent')
-  );
+  for delete using (public.is_family_parent(family_id));
 
 create table if not exists google_oauth_states (
   state text primary key,

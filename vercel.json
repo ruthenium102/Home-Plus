@@ -3,5 +3,8 @@
     { "source": "/privacy", "destination": "/privacy.html" },
     { "source": "/terms", "destination": "/terms.html" },
     { "source": "/((?!assets/|.*\\.).*)", "destination": "/index.html" }
+  ],
+  "crons": [
+    { "path": "/api/google/reconcile", "schedule": "0 18 * * *" }
   ]
 }

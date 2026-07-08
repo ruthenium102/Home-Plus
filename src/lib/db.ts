@@ -67,6 +67,10 @@ function tailPending(table: string, id: string) {
 }
 
 export function isPendingWrite(table: string, id: string): boolean {
+  // Rows waiting in the offline outbox stay pending indefinitely — the local
+  // optimistic state IS the source of truth until the write lands, so polls
+  // and realtime echoes must not overwrite it with the stale server row.
+  if (outboxIds.has(`${table}:${id}`)) return true;
   const m = pending.get(table);
   if (!m) return false;
   const t = m.get(id);
@@ -76,6 +80,124 @@ export function isPendingWrite(table: string, id: string): boolean {
     return false;
   }
   return true;
+}
+
+// ---------------------------------------------------------------------------
+// Offline write outbox (A2)
+// ---------------------------------------------------------------------------
+// Fire-and-forget writes used to lose data on a network flap: the upsert died
+// quietly, the 10s pending marker expired, and the next poll overwrote the
+// optimistic local state with the stale server row — "I ticked it and it
+// disappeared". Retryable failures (network down / fetch aborted — anything
+// without a PostgREST error code) now queue to localStorage, survive app
+// restarts, and flush when connectivity returns. Logical failures (RLS,
+// constraint, enum) still surface immediately via the error toast — retrying
+// those would never succeed.
+
+interface OutboxEntry {
+  table: TableName;
+  op: 'upsert' | 'delete';
+  id: string | null;
+  payload?: unknown;
+  onConflict?: string;
+  ts: number;
+}
+
+const OUTBOX_KEY = 'hp:writeOutbox';
+const OUTBOX_MAX = 200;
+const OUTBOX_RETRY_MS = 60_000;
+
+function loadOutboxFromDisk(): OutboxEntry[] {
+  try {
+    return JSON.parse(localStorage.getItem(OUTBOX_KEY) || '[]') as OutboxEntry[];
+  } catch {
+    return [];
+  }
+}
+
+let outbox: OutboxEntry[] = typeof window === 'undefined' ? [] : loadOutboxFromDisk();
+const outboxIds = new Set(outbox.filter((e) => e.id).map((e) => `${e.table}:${e.id}`));
+
+function saveOutbox() {
+  try {
+    localStorage.setItem(OUTBOX_KEY, JSON.stringify(outbox));
+  } catch {
+    /* quota — the in-memory queue still flushes this session */
+  }
+}
+
+function enqueueWrite(entry: OutboxEntry) {
+  // Upsert semantics: a newer write to the same (table, id) supersedes the
+  // queued one (keeping the ORIGINAL queue position so cross-table FK order —
+  // e.g. events before the meal_plans row that references it — is preserved).
+  if (entry.id) {
+    const existing = outbox.findIndex((e) => e.table === entry.table && e.id === entry.id);
+    if (existing !== -1) {
+      outbox[existing] = { ...entry, ts: outbox[existing].ts };
+      saveOutbox();
+      return;
+    }
+    outboxIds.add(`${entry.table}:${entry.id}`);
+  }
+  outbox.push(entry);
+  while (outbox.length > OUTBOX_MAX) {
+    const dropped = outbox.shift();
+    if (dropped?.id) outboxIds.delete(`${dropped.table}:${dropped.id}`);
+  }
+  saveOutbox();
+  console.warn(`[db] queued offline ${entry.op} → ${entry.table} (outbox: ${outbox.length})`);
+}
+
+// A write is worth retrying when it never reached PostgREST (no error code:
+// fetch failure, timeout, abort — Safari reports "Load failed"). Anything the
+// server actively rejected is permanent.
+function isRetryable(error: { code?: string | null; message: string }): boolean {
+  if (!error.code) return true;
+  return /fetch|network|load failed|timeout|abort/i.test(error.message);
+}
+
+let flushing = false;
+export async function flushWriteOutbox(): Promise<void> {
+  if (flushing || outbox.length === 0 || !supabase) return;
+  flushing = true;
+  try {
+    while (outbox.length > 0) {
+      const entry = outbox[0];
+      const result =
+        entry.op === 'upsert'
+          ? await supabase
+              .from(entry.table)
+              .upsert(
+                entry.payload as never,
+                entry.onConflict ? { onConflict: entry.onConflict } : undefined,
+              )
+          : await supabase.from(entry.table).delete().eq('id', entry.id!);
+      const error = result.error as { code?: string | null; message: string } | null;
+      if (error && isRetryable(error)) return; // still offline — try again later
+      // Success, or a permanent rejection (surface it, then drop — it can
+      // never succeed and would wedge the queue).
+      if (error) onWriteError?.({ table: entry.table, op: entry.op, message: error.message });
+      outbox.shift();
+      if (entry.id) {
+        outboxIds.delete(`${entry.table}:${entry.id}`);
+        tailPending(entry.table, entry.id);
+      }
+      saveOutbox();
+    }
+  } catch {
+    /* network threw mid-flush — retry on the next trigger */
+  } finally {
+    flushing = false;
+  }
+}
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('online', () => void flushWriteOutbox());
+  // Belt-and-braces: WKWebView's online event can be unreliable, so retry on a
+  // slow interval while anything is queued (no-ops instantly when empty).
+  window.setInterval(() => void flushWriteOutbox(), OUTBOX_RETRY_MS);
+  // Flush anything persisted from a previous session shortly after launch.
+  window.setTimeout(() => void flushWriteOutbox(), 3_000);
 }
 
 // ---------------------------------------------------------------------------
@@ -124,13 +246,23 @@ export function dbUpsert<T extends TableName>(
   return supabase
     .from(table)
     .upsert(payload as Tables[T]['Insert'], opts?.onConflict ? { onConflict: opts.onConflict } : undefined)
-    .then(({ error }) => {
-      if (error) {
-        console.warn(`[db] upsert ${table}:`, error.message);
-        onWriteError?.({ table, op: 'upsert', message: error.message });
-      }
-      if (id) tailPending(table, id);
-    });
+    .then(
+      ({ error }) => {
+        if (error) {
+          console.warn(`[db] upsert ${table}:`, error.message);
+          if (isRetryable(error)) {
+            enqueueWrite({ table, op: 'upsert', id, payload, onConflict: opts?.onConflict, ts: Date.now() });
+            return; // keep the pending marker alive via the outbox
+          }
+          onWriteError?.({ table, op: 'upsert', message: error.message });
+        }
+        if (id) tailPending(table, id);
+      },
+      () => {
+        // The fetch itself rejected (offline/abort) — always retryable.
+        enqueueWrite({ table, op: 'upsert', id, payload, onConflict: opts?.onConflict, ts: Date.now() });
+      },
+    );
 }
 
 export function dbDelete(table: TableName, id: string): void {
@@ -140,13 +272,22 @@ export function dbDelete(table: TableName, id: string): void {
     .from(table)
     .delete()
     .eq('id', id)
-    .then(({ error }) => {
-      if (error) {
-        console.warn(`[db] delete ${table}:`, error.message);
-        onWriteError?.({ table, op: 'delete', message: error.message });
-      }
-      tailPending(table, id);
-    });
+    .then(
+      ({ error }) => {
+        if (error) {
+          console.warn(`[db] delete ${table}:`, error.message);
+          if (isRetryable(error)) {
+            enqueueWrite({ table, op: 'delete', id, ts: Date.now() });
+            return;
+          }
+          onWriteError?.({ table, op: 'delete', message: error.message });
+        }
+        tailPending(table, id);
+      },
+      () => {
+        enqueueWrite({ table, op: 'delete', id, ts: Date.now() });
+      },
+    );
 }
 
 // ---------------------------------------------------------------------------

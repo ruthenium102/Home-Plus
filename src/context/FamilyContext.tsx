@@ -1244,7 +1244,27 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
       return out;
     };
 
+  // Single-flight (A5): the 90s poll, the visibility-resume refetch and the
+  // realtime reconnect catch-up can all fire together (e.g. wifi returns) —
+  // share one in-flight bulk load instead of issuing overlapping 15-table
+  // reads at exactly the moment every device reconnects. The inner function is
+  // reached through a ref (refreshed each render) so the stable wrapper never
+  // captures a stale family.id.
+  const inflightReloadRef = useRef<Promise<{ ok: boolean; error?: string }> | null>(null);
+  const reloadInnerRef = useRef<() => Promise<{ ok: boolean; error?: string }>>(() =>
+    Promise.resolve({ ok: false, error: 'not ready' }),
+  );
+
   const reloadFromCloud = useCallback(async (): Promise<{ ok: boolean; error?: string }> => {
+    if (inflightReloadRef.current) return inflightReloadRef.current;
+    const run = reloadInnerRef.current();
+    inflightReloadRef.current = run.finally(() => {
+      inflightReloadRef.current = null;
+    });
+    return inflightReloadRef.current;
+  }, []);
+
+  const reloadFromCloudInner = async (): Promise<{ ok: boolean; error?: string }> => {
     if (!LIVE || !supabase) return { ok: false, error: 'Supabase not configured (demo mode)' };
     if (!family.id || family.id === DEMO_FAMILY.id)
       return { ok: false, error: 'No real family loaded' };
@@ -1367,7 +1387,10 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
     } finally {
       setReloading(false);
     }
-  }, [family.id]);
+  };
+  // Keep the single-flight wrapper pointed at this render's closure (fresh
+  // family.id) — same inline-ref pattern as reloadingRef below.
+  reloadInnerRef.current = reloadFromCloudInner;
 
   // Keep the ref the realtime channel uses for reconnect catch-up current.
   useEffect(() => {

@@ -39,6 +39,18 @@ type TableShape<TRow> = {
 // TS type (it's only set on insert during signup).
 type FamilyRow = Family & { owner_user_id?: string };
 
+// client_errors is write-only telemetry (migrate_v26): the client INSERTs and
+// can never read it back, so it gets a bespoke insert shape (id/created_at
+// are DB defaults) instead of the shared TableShape.
+type ClientErrorInsert = {
+  auth_user_id: string;
+  message: string;
+  stack?: string | null;
+  source?: string | null;
+  app_version?: string | null;
+  user_agent?: string | null;
+};
+
 export interface Database {
   public: {
     Tables: {
@@ -59,6 +71,11 @@ export interface Database {
       meal_plans: TableShape<MealPlan>;
       virtual_pets: TableShape<VirtualPet>;
       kitchen_settings: TableShape<KitchenSettings>;
+      client_errors: {
+        Row: ClientErrorInsert & { id: string; created_at: string };
+        Insert: ClientErrorInsert;
+        Update: Partial<ClientErrorInsert>;
+      };
     };
     Views: Record<string, never>;
     Functions: {
