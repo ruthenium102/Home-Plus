@@ -247,7 +247,11 @@ drop policy if exists "Member can read family"   on families;
 drop policy if exists "Owner inserts own family" on families;
 drop policy if exists "Owner updates own family" on families;
 drop policy if exists "Owner deletes own family" on families;
-create policy "Member can read family"   on families for select using (public.is_family_member(id));
+-- Owner is included even before their first member row exists: the
+-- family_members INSERT owner-exception runs an EXISTS over families AS THE
+-- CALLER, so without owner visibility a fresh signup could never insert their
+-- first parent row (v25 — the second chicken-and-egg fix).
+create policy "Member can read family"   on families for select using (public.is_family_member(id) or owner_user_id = auth.uid());
 create policy "Owner inserts own family" on families for insert with check (owner_user_id = auth.uid());
 create policy "Owner updates own family" on families for update using (owner_user_id = auth.uid()) with check (owner_user_id = auth.uid());
 create policy "Owner deletes own family" on families for delete using (owner_user_id = auth.uid());
