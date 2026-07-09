@@ -11,7 +11,7 @@ import {
   ChevronDown,
   ChevronRight,
 } from 'lucide-react';
-import { useFamily } from '@/context/FamilyContext';
+import { useFamily, useFamilyActions } from '@/context/FamilyContext';
 import { useTheme } from '@/context/ThemeContext';
 import { useToast } from '@/context/ToastContext';
 import { useSwipeMode } from '@/hooks/useSwipeMode';
@@ -270,7 +270,7 @@ function ItemsList({
   // swipeMode is a primitive, so passing them down as props lets ListItemRow
   // skip re-render when an unrelated item (or an unrelated context slice, e.g.
   // the 90s cloud poll) changes — only the toggled row re-renders.
-  const { toggleListItem, deleteListItem, restoreListItem } = useFamily();
+  const { toggleListItem, deleteListItem, restoreListItem } = useFamilyActions();
   const { show } = useToast();
   const swipeMode = useSwipeMode();
   const [showCompleted, setShowCompleted] = useState(true);

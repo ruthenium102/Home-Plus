@@ -264,6 +264,20 @@ interface SyncStatusValue {
 }
 
 const FamilyContext = createContext<FamilyContextValue | null>(null);
+
+// ---- A1 stage 1: the actions-only context -----------------------------------
+// Every FUNCTION member of the main context value, derived automatically from
+// FamilyContextValue so the two can never drift. Exposed behind a facade whose
+// identity NEVER changes (each method reads the latest value through a ref at
+// call time), so components that only dispatch actions — editors, modals, row
+// buttons — can subscribe here and stop re-rendering on family data churn
+// entirely. Data reads stay on useFamily(); migrate consumers incrementally.
+export type FamilyActions = {
+  [K in keyof FamilyContextValue as FamilyContextValue[K] extends (...args: never[]) => unknown
+    ? K
+    : never]: FamilyContextValue[K];
+};
+const FamilyActionsContext = createContext<FamilyActions | null>(null);
 const SyncStatusContext = createContext<SyncStatusValue | null>(null);
 
 // Description marker stamped on calendar events auto-created from a member's
@@ -3187,9 +3201,30 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
     [reloadFromCloud, reloading, lastReloadAt, online],
   );
 
+  // A1 stage 1: the stable actions facade. `value` gets a new identity on
+  // every data change, but each facade method reads the CURRENT value through
+  // valueRef at call time — so this object is built once and its consumers
+  // never re-render on data churn. (Same live-ref pattern as reloadInnerRef.)
+  const valueRef = useRef(value);
+  valueRef.current = value;
+  const actions = useMemo<FamilyActions>(() => {
+    const facade: Record<string, unknown> = {};
+    for (const [key, member] of Object.entries(valueRef.current)) {
+      if (typeof member === 'function') {
+        facade[key] = (...args: unknown[]) =>
+          (
+            valueRef.current[key as keyof FamilyContextValue] as (...a: unknown[]) => unknown
+          )(...args);
+      }
+    }
+    return facade as FamilyActions;
+  }, []);
+
   return (
     <FamilyContext.Provider value={value}>
-      <SyncStatusContext.Provider value={syncValue}>{children}</SyncStatusContext.Provider>
+      <FamilyActionsContext.Provider value={actions}>
+        <SyncStatusContext.Provider value={syncValue}>{children}</SyncStatusContext.Provider>
+      </FamilyActionsContext.Provider>
     </FamilyContext.Provider>
   );
 }
@@ -3197,6 +3232,16 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
 export function useFamily() {
   const ctx = useContext(FamilyContext);
   if (!ctx) throw new Error('useFamily must be used within FamilyProvider');
+  return ctx;
+}
+
+/** Actions-only access (A1). The returned object's identity NEVER changes, so
+ *  a component that only dispatches mutations re-renders zero times on family
+ *  data churn. Use useFamily() as well only when the component also READS
+ *  data — and prefer this hook for the function half when you do. */
+export function useFamilyActions() {
+  const ctx = useContext(FamilyActionsContext);
+  if (!ctx) throw new Error('useFamilyActions must be used within FamilyProvider');
   return ctx;
 }
 

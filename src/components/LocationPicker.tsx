@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { localISO } from '@/lib/dates';
 import { X, Home as HomeIcon, GraduationCap, Briefcase, Coffee, Plane } from 'lucide-react';
-import { useFamily } from '@/context/FamilyContext';
+import { useFamilyActions } from '@/context/FamilyContext';
 import { Avatar } from './Avatar';
 import type { FamilyMember } from '@/types';
 
@@ -19,7 +19,7 @@ const PRESETS = [
 ];
 
 export function LocationPicker({ open, member, onClose }: Props) {
-  const { setMemberLocation } = useFamily();
+  const { setMemberLocation } = useFamilyActions();
   const [travelDest, setTravelDest] = useState('');
   const [travelUntil, setTravelUntil] = useState('');
   const [showTravelForm, setShowTravelForm] = useState(false);

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { storage } from '@/lib/storage';
-import { useFamily } from '@/context/FamilyContext';
+import { useFamily, useFamilyActions } from '@/context/FamilyContext';
 import { useTheme } from '@/context/ThemeContext';
 import { getColorTokens, MEMBER_COLORS } from '@/lib/colors';
 import { usePointerDragToDrop } from '@/hooks/usePointerDragToDrop';
@@ -138,7 +138,7 @@ function SetupScreen({
   onCancel?: () => void;
   onCreated?: () => void;
 }) {
-  const { createPet } = useFamily();
+  const { createPet } = useFamilyActions();
   const [selectedAnimal, setSelectedAnimal] = useState<PetAnimal | null>(null);
   const [petName, setPetName] = useState('');
 
