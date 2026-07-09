@@ -261,18 +261,19 @@ function PetView({ pet, memberId, onNewPet }: PetViewProps) {
   const member = members.find((m) => m.id === memberId);
   const tokens = getColorTokens(member?.color ?? 'terracotta', isDark);
 
-  // Action buttons drawn from the warm brand palette (theme-aware) instead of
-  // bright web-app primaries, so the Pet page matches the rest of the app.
+  // Action buttons drawn from the warm brand palette instead of bright web-app
+  // primaries. `strong` (not `base`): these are filled controls with white
+  // labels, and the lifted dark `base` values fail WCAG AA under white text.
   const actionColors = useMemo(
     () => ({
-      feed: getColorTokens('terracotta', isDark).base,
-      water: getColorTokens('dusty-blue', isDark).base,
-      pat: getColorTokens('rose', isDark).base,
-      play: getColorTokens('plum', isDark).base,
-      superPat: getColorTokens('sand', isDark).base,
-      miniGame: getColorTokens('sage', isDark).base,
-      wardrobe: getColorTokens('olive', isDark).base,
-      awards: getColorTokens('sand', isDark).base,
+      feed: getColorTokens('terracotta', isDark).strong,
+      water: getColorTokens('dusty-blue', isDark).strong,
+      pat: getColorTokens('rose', isDark).strong,
+      play: getColorTokens('plum', isDark).strong,
+      superPat: getColorTokens('sand', isDark).strong,
+      miniGame: getColorTokens('sage', isDark).strong,
+      wardrobe: getColorTokens('olive', isDark).strong,
+      awards: getColorTokens('sand', isDark).strong,
     }),
     [isDark],
   );
@@ -627,10 +628,10 @@ function PetView({ pet, memberId, onNewPet }: PetViewProps) {
             🔄 New pet
           </button>
           <div
-            className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-bold shadow-sm"
+            className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-bold shadow-sm text-white"
             style={{
-              background: `linear-gradient(135deg, ${MEMBER_COLORS.sand.base}, ${tokens.base})`,
-              color: tokens.text,
+              // `strong` fills: white label passes AA in both themes.
+              background: `linear-gradient(135deg, ${MEMBER_COLORS.sand.strong}, ${tokens.strong})`,
             }}
           >
             ⭐ Level {level}

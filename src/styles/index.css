@@ -178,9 +178,13 @@ html.native-app [contenteditable] {
   }
 }
 @keyframes sheet-up {
+  /* Rise from well below the resting position so the sheet reads as
+     PRESENTING from the bottom edge (UIKit sheet physics) — a 32px nudge
+     read as a small settle, not a sheet. Kept opaque: the travel sells the
+     motion, fading in from half-transparent just muddied it. */
   from {
-    transform: translateY(32px);
-    opacity: 0.5;
+    transform: translateY(min(40vh, 320px));
+    opacity: 1;
   }
   to {
     transform: translateY(0);

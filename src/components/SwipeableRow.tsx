@@ -146,17 +146,20 @@ export function SwipeableRow({
     }
   };
 
-  // Tap outside the row should close it (only relevant in partial mode)
+  // Tap outside the row should close it (only relevant in partial mode).
+  // pointerdown, not mousedown: on touch the compatibility mouse event fires
+  // late (after the tap settles), which made dismissing a revealed Delete
+  // panel feel sticky.
   useEffect(() => {
     if (translate === 0) return;
-    const handler = (e: MouseEvent) => {
+    const handler = (e: PointerEvent) => {
       if (!containerRef.current) return;
       if (!containerRef.current.contains(e.target as Node)) {
         closeRow();
       }
     };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
+    document.addEventListener('pointerdown', handler);
+    return () => document.removeEventListener('pointerdown', handler);
   }, [translate]);
 
   const isFullSwipeActive =

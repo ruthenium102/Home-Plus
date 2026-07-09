@@ -278,6 +278,18 @@ function ItemsList({
   const activeItems = items.filter((i) => !i.done);
   const completedItems = items.filter((i) => i.done);
 
+  // Row budget (X6): every row carries SwipeableRow pointer handlers + a drag
+  // handle, so a power-user list with hundreds of items pays real mount and
+  // drag-hit-testing cost. Render the first chunk and reveal the rest on tap —
+  // cheaper and less invasive than virtualisation, which would fight the
+  // drag/swipe hit-testing.
+  const ROW_BUDGET = 60;
+  const [showAllActive, setShowAllActive] = useState(false);
+  const visibleActive =
+    showAllActive || activeItems.length <= ROW_BUDGET
+      ? activeItems
+      : activeItems.slice(0, ROW_BUDGET);
+
   const renderRow = (item: TodoItem) => (
     <ListItemRow
       key={item.id}
@@ -296,7 +308,15 @@ function ItemsList({
 
   return (
     <div>
-      <div className="divide-y divide-border">{activeItems.map(renderRow)}</div>
+      <div className="divide-y divide-border">{visibleActive.map(renderRow)}</div>
+      {visibleActive.length < activeItems.length && (
+        <button
+          onClick={() => setShowAllActive(true)}
+          className="w-full px-3 py-2.5 min-h-[44px] text-xs font-medium text-text-muted hover:text-text border-t border-border transition-colors"
+        >
+          Show {activeItems.length - visibleActive.length} more…
+        </button>
+      )}
       {completedItems.length > 0 && (
         <div className={activeItems.length > 0 ? 'mt-2 border-t border-border' : undefined}>
           <button
