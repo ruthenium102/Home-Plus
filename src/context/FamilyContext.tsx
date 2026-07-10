@@ -561,6 +561,14 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
   // member_id that isn't in family_members, which would violate the FK and
   // surface as a "Couldn't save virtual_pets" error. Demo mode is a no-op in
   // dbUpsert regardless.
+  //
+  // S2 (security review 2026-07-07): pet coins/xp are DELIBERATELY
+  // client-authoritative, unlike reward_balances (server-side RPCs only). A
+  // family member could inflate their own pet's coins from devtools, but coins
+  // are cosmetic (pet shop items), family-scoped, and never convert to
+  // real-world rewards. Guarding them would mean moving applyPetEvents behind
+  // a server RPC — not worth it for play money. Revisit only if pet currency
+  // ever gains real-world value.
   const persistPet = useCallback((pet: VirtualPet) => {
     if (!membersRef.current.some((m) => m.id === pet.member_id)) return;
     // The stat columns are Postgres integers, but time-decay math produces

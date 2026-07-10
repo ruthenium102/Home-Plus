@@ -1,0 +1,62 @@
+name: iOS build
+
+# Q4: dry-compile the Capacitor iOS app so native breakage (SPM pins, the
+# speech-recognition postinstall patch, pbxproj drift) is caught in CI instead
+# of at archive time. Kept in its own workflow because the paths filter must
+# not suppress the web CI jobs in ci.yml — and macOS runners bill at 10x
+# Linux minutes, so this runs ONLY when native-relevant files change (or on
+# manual dispatch).
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'ios/**'
+      - 'capacitor.config.ts'
+      - 'scripts/fix-speech-recognition.mjs'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/ios-build.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'ios/**'
+      - 'capacitor.config.ts'
+      - 'scripts/fix-speech-recognition.mjs'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/ios-build.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: ios-build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  xcodebuild:
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      # postinstall runs scripts/fix-speech-recognition.mjs, which the SPM
+      # package graph depends on — the Capacitor packages resolve into
+      # node_modules, so this must precede xcodebuild.
+      - name: Install dependencies
+        run: npm ci
+
+      # Unsigned device compile — same invocation verified locally 2026-07-05.
+      # There is NO App.xcworkspace; build against App.xcodeproj directly.
+      - name: Compile iOS app (unsigned)
+        working-directory: ios/App
+        run: |
+          set -o pipefail
+          xcodebuild -project App.xcodeproj \
+            -scheme App \
+            -destination 'generic/platform=iOS' \
+            CODE_SIGNING_ALLOWED=NO \
+            build | tail -n 200
