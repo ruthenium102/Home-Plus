@@ -47,7 +47,7 @@ export const SideRail = memo(function SideRail({
         {onClose && (
           <button
             onClick={onClose}
-            className="w-7 h-7 rounded-md hover:bg-surface-2 flex items-center justify-center text-text-faint hover:text-text"
+            className="icon-btn rounded-md hover:bg-surface-2 text-text-faint hover:text-text"
             title="Collapse navigation"
             aria-label="Collapse navigation"
           >

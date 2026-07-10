@@ -4,6 +4,7 @@ import { useMembersData, useFamilyActions } from '@/context/FamilyContext';
 import { COLOR_OPTIONS, MEMBER_COLORS } from '@/lib/colors';
 import { ICON_OPTIONS, ICON_CATEGORIES } from '@/lib/listIcons';
 import { Modal } from './Modal';
+import { ConfirmDialog } from './ConfirmDialog';
 import type { TodoList, MemberColor } from '@/types';
 
 interface Props {
@@ -75,12 +76,10 @@ export function ListEditor({ open, onClose, editing }: Props) {
     onClose();
   };
 
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const handleDelete = () => {
     if (!editing) return;
-    if (confirm(`Delete "${editing.name}" and all its items?`)) {
-      deleteList(editing.id);
-      onClose();
-    }
+    setConfirmDelete(true);
   };
 
   return (
@@ -246,6 +245,17 @@ export function ListEditor({ open, onClose, editing }: Props) {
               ))}
             </div>
           </div>
+      <ConfirmDialog
+        open={confirmDelete}
+        onClose={() => setConfirmDelete(false)}
+        title="Delete list?"
+        body={editing ? `"${editing.name}" and all its items will be removed.` : undefined}
+        onConfirm={() => {
+          if (!editing) return;
+          deleteList(editing.id);
+          onClose();
+        }}
+      />
     </Modal>
   );
 }

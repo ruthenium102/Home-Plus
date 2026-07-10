@@ -261,6 +261,11 @@ html.native-app [contenteditable] {
 .input {
   @apply px-3 py-2 bg-surface-2 border border-border rounded-lg text-text text-sm placeholder:text-text-faint focus:outline-none focus:border-accent transition;
 }
+/* 44pt icon-only button (U9) — mute toggles, close X's, small chrome controls.
+   Radius left to the caller (rounded-full / rounded-md). */
+.icon-btn {
+  @apply w-11 h-11 shrink-0 inline-flex items-center justify-center;
+}
 
 /* ---- Virtual Pet animations ---- */
 /* Layered idle motion. Two nested SVG groups animate on *independent* phases so

@@ -12,6 +12,7 @@ import {
   ShieldCheck,
 } from 'lucide-react';
 import { useMembersData, useFamilyActions } from '@/context/FamilyContext';
+import { ConfirmDialog } from './ConfirmDialog';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/context/ToastContext';
 import { Avatar } from '@/components/Avatar';
@@ -64,6 +65,8 @@ export function EditMemberModal({ open, member, onClose }: Props) {
     setNewEmail('');
     setEmailError('');
   }, [open, member]);
+
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   if (!open || !member) return null;
 
@@ -131,14 +134,7 @@ export function EditMemberModal({ open, member, onClose }: Props) {
 
   const handleDelete = () => {
     if (!canDelete) return;
-    if (
-      !confirm(
-        `Delete "${member.name}"? This removes them from the family but does not delete their login account.`,
-      )
-    )
-      return;
-    deleteMember(member.id);
-    onClose();
+    setConfirmDelete(true);
   };
 
   const handleSave = () => {
@@ -530,6 +526,17 @@ export function EditMemberModal({ open, member, onClose }: Props) {
         open={inviteOpen}
         onClose={() => setInviteOpen(false)}
         defaultName={member.name}
+      />
+      <ConfirmDialog
+        open={confirmDelete}
+        onClose={() => setConfirmDelete(false)}
+        title="Remove member?"
+        body={`"${member.name}" will be removed from the family. Their login account is not deleted.`}
+        confirmLabel="Remove"
+        onConfirm={() => {
+          deleteMember(member.id);
+          onClose();
+        }}
       />
     </div>
   );

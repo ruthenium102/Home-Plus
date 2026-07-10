@@ -5,6 +5,7 @@ import { useHabitsData, useMembersData, useFamilyActions } from '@/context/Famil
 import { useTheme } from '@/context/ThemeContext';
 import { Avatar } from './Avatar';
 import { Modal } from './Modal';
+import { ConfirmDialog } from './ConfirmDialog';
 import { localISO } from '@/lib/dates';
 import { getColorTokens } from '@/lib/colors';
 import { habitCellState, startOfHabitWeek, targetMet } from '@/lib/habits';
@@ -142,12 +143,10 @@ export function HabitEditor({ open, editing, onClose }: Props) {
     onClose();
   };
 
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const handleDelete = () => {
     if (!editing) return;
-    if (confirm(`Delete "${editing.title}"? Check-ins will be removed too.`)) {
-      deleteHabit(editing.id);
-      onClose();
-    }
+    setConfirmDelete(true);
   };
 
   return (
@@ -588,6 +587,17 @@ export function HabitEditor({ open, editing, onClose }: Props) {
                 </div>
               );
             })()}
+      <ConfirmDialog
+        open={confirmDelete}
+        onClose={() => setConfirmDelete(false)}
+        title="Delete habit?"
+        body={editing ? `"${editing.title}" and its check-ins will be removed.` : undefined}
+        onConfirm={() => {
+          if (!editing) return;
+          deleteHabit(editing.id);
+          onClose();
+        }}
+      />
     </Modal>
   );
 }

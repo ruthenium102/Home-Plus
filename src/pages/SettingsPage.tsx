@@ -41,6 +41,7 @@ import { AddMemberModal } from '@/components/AddMemberModal';
 import { EditMemberModal } from '@/components/EditMemberModal';
 import { DropIndicator } from '@/components/DropIndicator';
 import { GoogleIntegrationsSection } from '@/components/GoogleIntegrationsSection';
+import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { MEMBER_COLORS } from '@/lib/colors';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 import { useDockPlacement, type DockPlacement } from '@/lib/dockPreference';
@@ -913,9 +914,9 @@ function InvitesSection({
     };
   }, [familyId, load]);
 
+  const [revokeTarget, setRevokeTarget] = useState<string | null>(null);
   const revoke = async (id: string) => {
     if (!supabase) return;
-    if (!confirm('Revoke this invitation? The link will stop working.')) return;
     setBusyId(id);
     const { error } = await supabase.from('invitations').delete().eq('id', id);
     setBusyId(null);
@@ -1017,7 +1018,7 @@ function InvitesSection({
                   Resend
                 </button>
                 <button
-                  onClick={() => revoke(inv.id)}
+                  onClick={() => setRevokeTarget(inv.id)}
                   disabled={busyId === inv.id}
                   className="px-2 py-1.5 rounded-md text-xs text-danger border border-danger/30 hover:bg-danger/10"
                   title="Revoke invitation"
@@ -1029,6 +1030,16 @@ function InvitesSection({
           })}
         </div>
       )}
+      <ConfirmDialog
+        open={revokeTarget !== null}
+        onClose={() => setRevokeTarget(null)}
+        title="Revoke invitation?"
+        body="The invite link will stop working immediately."
+        confirmLabel="Revoke"
+        onConfirm={() => {
+          if (revokeTarget) void revoke(revokeTarget);
+        }}
+      />
     </div>
   );
 }

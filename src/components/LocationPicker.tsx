@@ -79,7 +79,7 @@ export function LocationPicker({ open, member, onClose }: Props) {
           </div>
           <button
             onClick={onClose}
-            className="w-9 h-9 rounded-md hover:bg-surface-2 flex items-center justify-center text-text-muted"
+            className="icon-btn rounded-md hover:bg-surface-2 text-text-muted"
           >
             <X size={18} />
           </button>

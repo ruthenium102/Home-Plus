@@ -32,7 +32,7 @@ export default async function handler(req, res) {
   if (!member) return res.status(403).json({ error: 'Not a member of this family' });
 
   // Per-user rate limit (best-effort, per-instance — see rateLimit.js).
-  const rl = checkRateLimit(`extract:${user.id}`, { limit: 10, windowMs: 60_000 });
+  const rl = await checkRateLimit(`extract:${user.id}`, { limit: 10, windowMs: 60_000 });
   if (!rl.allowed) {
     res.setHeader('Retry-After', String(rl.retryAfterSec));
     return res.status(429).json({ error: 'Too many requests. Try again shortly.' });

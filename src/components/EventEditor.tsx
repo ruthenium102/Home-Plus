@@ -7,6 +7,7 @@ import { COLOR_OPTIONS, MEMBER_COLORS } from '@/lib/colors';
 import { supabase } from '@/lib/supabase';
 import { Avatar } from './Avatar';
 import { Modal } from './Modal';
+import { ConfirmDialog } from './ConfirmDialog';
 import type { CalendarEvent, EventCategory, MemberColor, Recurrence } from '@/types';
 
 interface Props {
@@ -327,11 +328,9 @@ export function EventEditor({ open, onClose, editing, occurrenceStart, initialSt
       setDeleteScope(true);
       return;
     }
-    if (confirm(`Delete "${editing.title}"?`)) {
-      deleteEvent(editing.id);
-      onClose();
-    }
+    setConfirmDelete(true);
   };
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   // Drop just the tapped occurrence by adding its start to the series' exdates;
   // expandEvents() then skips it. Leaves the rest of the series intact.
@@ -796,6 +795,17 @@ export function EventEditor({ open, onClose, editing, occurrenceStart, initialSt
               <span>Sync to connected Google Calendars</span>
             </label>
           )}
+      <ConfirmDialog
+        open={confirmDelete}
+        onClose={() => setConfirmDelete(false)}
+        title="Delete event?"
+        body={editing ? `"${editing.title}" will be removed.` : undefined}
+        onConfirm={() => {
+          if (!editing) return;
+          deleteEvent(editing.id);
+          onClose();
+        }}
+      />
     </Modal>
   );
 }

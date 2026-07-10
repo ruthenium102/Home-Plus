@@ -12,6 +12,7 @@ import {
   type PetStage,
   type PetCanvasHandle,
 } from '@/components/pet/PetCanvas';
+import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { SpeechBubble } from '@/components/pet/SpeechBubble';
 import { HeartBurst } from '@/components/pet/HeartBurst';
 import { MiniGame } from '@/components/pet/MiniGame';
@@ -285,6 +286,7 @@ function PetView({ pet, memberId, onNewPet }: PetViewProps) {
   const [evolvedStage, setEvolvedStage] = useState<PetStage | null>(null);
   const [soundMuted, setSoundMuted] = useState(isPetSoundMuted);
   const [activeTreat, setActiveTreat] = useState<number | null>(null);
+  const [confirmNewPet, setConfirmNewPet] = useState(false);
   const [bubbleMessage, setBubbleMessage] = useState<string | null>(null);
   const [bubbleKey, setBubbleKey] = useState(0);
   const [heartBurstTrigger, setHeartBurstTrigger] = useState(0);
@@ -606,22 +608,14 @@ function PetView({ pet, memberId, onNewPet }: PetViewProps) {
               setSoundMuted(next);
               if (!next) playPetSound('pat');
             }}
-            className="w-8 h-8 flex items-center justify-center rounded-full text-text-muted border border-border hover:bg-surface-2 transition-colors"
+            className="icon-btn rounded-full text-text-muted border border-border hover:bg-surface-2 transition-colors"
             title={soundMuted ? 'Unmute pet sounds' : 'Mute pet sounds'}
             aria-label={soundMuted ? 'Unmute pet sounds' : 'Mute pet sounds'}
           >
             {soundMuted ? <VolumeX size={15} /> : <Volume2 size={15} />}
           </button>
           <button
-            onClick={() => {
-              if (
-                window.confirm(
-                  `Start a new pet? ${pet.name} will be replaced (your earned level stays).`,
-                )
-              ) {
-                onNewPet();
-              }
-            }}
+            onClick={() => setConfirmNewPet(true)}
             className="px-3 py-1.5 rounded-full text-xs font-semibold border border-border hover:bg-surface-2 transition-colors"
             title="Start a new animal"
           >
@@ -1003,6 +997,15 @@ function PetView({ pet, memberId, onNewPet }: PetViewProps) {
       </div>
         </div>
       </div>
+
+      <ConfirmDialog
+        open={confirmNewPet}
+        onClose={() => setConfirmNewPet(false)}
+        title="Start a new pet?"
+        body={`${pet.name} will be replaced. Your earned level, coins and awards stay.`}
+        confirmLabel="Replace pet"
+        onConfirm={onNewPet}
+      />
 
       {/* Evolution celebration — shown once per stage-up, per device */}
       {evolvedStage && (

@@ -202,6 +202,34 @@ Deno.serve(async (req) => {
       return json(403, { error: 'Only parents can send invitations' }, cors);
     }
 
+    // Throttle (S6): a legitimate parent can still loop this endpoint into an
+    // email-spam cannon via Resend. Two cheap gates on the invitations table:
+    //  - per-recipient: no re-send to the same email+family within 10 minutes;
+    //  - per-family: at most 20 invitations created in the last hour.
+    const tenMinAgo = new Date(Date.now() - 10 * 60_000).toISOString();
+    const hourAgo = new Date(Date.now() - 60 * 60_000).toISOString();
+    const [{ count: recentToEmail }, { count: recentForFamily }] = await Promise.all([
+      supabaseAdmin
+        .from('invitations')
+        .select('id', { count: 'exact', head: true })
+        .eq('family_id', family_id)
+        .eq('email', email)
+        .gte('created_at', tenMinAgo),
+      supabaseAdmin
+        .from('invitations')
+        .select('id', { count: 'exact', head: true })
+        .eq('family_id', family_id)
+        .gte('created_at', hourAgo),
+    ]);
+    if ((recentToEmail ?? 0) > 0) {
+      return json(429, {
+        error: 'An invitation was just sent to that address — give it a few minutes.',
+      }, cors);
+    }
+    if ((recentForFamily ?? 0) >= 20) {
+      return json(429, { error: 'Too many invitations this hour. Try again later.' }, cors);
+    }
+
     // Create invitation row (with role)
     const token = crypto.randomUUID();
     const memberRole = role === 'parent' ? 'parent' : 'child';

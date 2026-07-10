@@ -7,6 +7,7 @@ import { useMembersData, useChoresData, useFamilyActions } from '@/context/Famil
 import { isoWeekStr } from '@/lib/rotation';
 import { Avatar } from './Avatar';
 import { Modal } from './Modal';
+import { ConfirmDialog } from './ConfirmDialog';
 import type { Chore, ChoreFrequency, ChoreMode, FamilyMember, RewardCategoryKey } from '@/types';
 
 interface Props {
@@ -150,12 +151,10 @@ export function ChoreEditor({ open, onClose, editing }: Props) {
     onClose();
   };
 
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const handleDelete = () => {
     if (!editing) return;
-    if (confirm(`Delete "${editing.title}"?`)) {
-      deleteChore(editing.id);
-      onClose();
-    }
+    setConfirmDelete(true);
   };
 
   const updatePayout = (cat: RewardCategoryKey, val: string) => {
@@ -386,6 +385,17 @@ export function ChoreEditor({ open, onClose, editing }: Props) {
               </div>
             </div>
           </div>
+      <ConfirmDialog
+        open={confirmDelete}
+        onClose={() => setConfirmDelete(false)}
+        title="Delete chore?"
+        body={editing ? `"${editing.title}" will be removed.` : undefined}
+        onConfirm={() => {
+          if (!editing) return;
+          deleteChore(editing.id);
+          onClose();
+        }}
+      />
     </Modal>
   );
 }
