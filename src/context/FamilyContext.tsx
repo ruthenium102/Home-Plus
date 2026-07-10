@@ -30,6 +30,7 @@ import { useToast } from '@/context/ToastContext';
 import { syncEventToGoogle, unsyncEventFromGoogle } from '@/lib/googleSync';
 import { hapticLight, hapticMedium } from '@/lib/native';
 import { computeHabitStreak } from '@/lib/habits';
+import { mealRepeatRule, nextMatchingDate, eventExdateFor } from '@/lib/mealRecurrence';
 import { useToday } from '@/hooks/useToday';
 import {
   storage,
@@ -199,9 +200,11 @@ interface FamilyContextValue {
   deleteRecipe: (id: string) => void;
   toggleRecipeFavorite: (id: string) => void;
   addMealPlan: (mp: Omit<MealPlan, 'id' | 'created_at' | 'family_id'>) => void;
-  removeMealPlan: (id: string) => void;
+  /** Recurring meals: pass the occurrence date to remove just that day. */
+  removeMealPlan: (id: string, occurrenceDate?: string) => void;
   /** Move a placed meal to another day (in place: keeps ids, shifts its linked event). */
-  moveMealPlan: (id: string, newDate: string) => void;
+  /** Recurring meals: pass the occurrence date to move just that day (exdate + one-off). */
+  moveMealPlan: (id: string, newDate: string, occurrenceDate?: string) => void;
   /** Edit a placed meal's type/servings/notes; re-times the linked event if the type changed. */
   updateMealPlan: (
     id: string,
@@ -2530,6 +2533,8 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
       };
 
       const newMealPlan: MealPlan = {
+        recurrence: null,
+        exdates: [],
         ...mp,
         id: uid('mp'),
         family_id: family.id,
@@ -2547,12 +2552,38 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
     [family.id, recipes, activeMember],
   );
 
+  // For a recurring meal, pass the occurrence date to remove JUST that day
+  // (an exdate on the meal + its linked recurring event). Without it — or for
+  // non-recurring meals — the whole row/series and its event are deleted.
   const removeMealPlan = useCallback(
-    (id: string) => {
+    (id: string, occurrenceDate?: string) => {
+      const mp = mealPlans.find((m) => m.id === id);
+      if (!mp) return;
+
+      if (mp.recurrence && occurrenceDate) {
+        const updated: MealPlan = {
+          ...mp,
+          exdates: [...(mp.exdates ?? []), occurrenceDate],
+        };
+        setMealPlans((prev) => prev.map((m) => (m.id === id ? updated : m)));
+        dbUpsert('meal_plans', updated);
+        // Mirror onto the linked recurring event so the calendar drops the
+        // same occurrence (event exdates hold full occurrence-start ISOs).
+        if (mp.calendar_event_id) {
+          const evt = events.find((e) => e.id === mp.calendar_event_id);
+          if (evt) {
+            updateEvent(evt.id, {
+              exdates: [...(evt.exdates ?? []), eventExdateFor(evt, occurrenceDate)],
+            });
+          }
+        }
+        return;
+      }
+
       // Resolve the linked event id BEFORE updating state, then do clean,
       // separate setState calls. (Nesting setEvents inside the setMealPlans
       // updater could skip the event removal, leaving it on the calendar.)
-      const eid = mealPlans.find((m) => m.id === id)?.calendar_event_id ?? null;
+      const eid = mp.calendar_event_id ?? null;
       setMealPlans((prev) => prev.filter((m) => m.id !== id));
       dbDelete('meal_plans', id);
       if (eid) {
@@ -2564,16 +2595,34 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
         dbDelete('events', eid);
       }
     },
-    [mealPlans, family.id],
+    [mealPlans, events, updateEvent, family.id],
   );
 
   // Move a placed meal to a new day IN PLACE — update the meal_plans row's date
   // and shift its already-linked calendar event. We don't delete+recreate (that
   // races the events insert against the meal_plans FK on calendar_event_id).
+  // For a recurring meal, pass the occurrence date being dragged: that single
+  // occurrence is exdated out of the series and re-created as a concrete
+  // one-off meal on the target day (the calendar's move-one-occurrence model).
   const moveMealPlan = useCallback(
-    (id: string, newDate: string) => {
+    (id: string, newDate: string, occurrenceDate?: string) => {
       const mp = mealPlans.find((m) => m.id === id);
-      if (!mp || mp.date === newDate) return;
+      if (!mp || (occurrenceDate ?? mp.date) === newDate) return;
+
+      if (mp.recurrence && occurrenceDate) {
+        removeMealPlan(id, occurrenceDate); // exdate meal + linked event
+        addMealPlan({
+          recipe_id: mp.recipe_id,
+          date: newDate,
+          meal_type: mp.meal_type,
+          servings: mp.servings,
+          calendar_event_id: null, // addMealPlan mints its own event
+          notes: mp.notes,
+          created_by: mp.created_by,
+        });
+        return;
+      }
+
       const updated: MealPlan = { ...mp, date: newDate };
       setMealPlans((prev) => prev.map((m) => (m.id === id ? updated : m)));
       dbUpsert('meal_plans', updated);
@@ -2589,7 +2638,7 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
         }
       }
     },
-    [mealPlans, events, updateEvent],
+    [mealPlans, events, updateEvent, removeMealPlan, addMealPlan],
   );
 
   const updateMealPlan = useCallback(
@@ -2615,75 +2664,94 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
     [mealPlans, events, updateEvent],
   );
 
+  // A3 — rule-based repeats. One meal row + a weekly Recurrence (mirrored onto
+  // ONE recurring calendar event) replaces the old per-occurrence
+  // materialisation, which wrote up to ~728 rows + realtime broadcasts for a
+  // single "repeat forever" tap. Occurrences expand client-side via
+  // lib/mealRecurrence.ts; weeks >= INDEFINITE_WEEKS means no `until`.
   const repeatMealPlan = useCallback(
     (sourceMealPlanId: string, weekdays: number[], weeks: number) => {
       const source = mealPlans.find((m) => m.id === sourceMealPlanId);
       if (!source || weekdays.length === 0 || weeks <= 0) return;
-      const recipe = recipes.find((r) => r.id === source.recipe_id);
-      const [startTime, endTime] =
-        MEAL_TIMES[source.meal_type as MealType] ?? MEAL_TIMES.dinner;
-      const sourceDate = new Date(`${source.date}T00:00:00`);
-      // Walk forward day by day for the requested span and pick any matching
-      // weekday that doesn't already have a plan for this meal type.
-      const newEvents: CalendarEvent[] = [];
-      const newPlans: MealPlan[] = [];
-      const totalDays = weeks * 7;
-      for (let i = 1; i <= totalDays; i++) {
-        const d = new Date(sourceDate.getTime());
-        d.setDate(d.getDate() + i);
-        const wd = d.getDay();
-        if (!weekdays.includes(wd)) continue;
-        const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-        const clash =
-          mealPlans.some(
-            (m) =>
-              m.date === dateStr &&
-              m.meal_type === source.meal_type &&
-              m.recipe_id === source.recipe_id,
-          ) || newPlans.some((m) => m.date === dateStr && m.meal_type === source.meal_type);
-        if (clash) continue;
-        const eventId = uid('e');
-        newEvents.push({
-          id: eventId,
-          family_id: family.id,
-          title: recipe ? `${recipe.icon || '🍽️'} ${recipe.title}` : '🍽️ Meal',
-          description: null,
-          start_at: `${dateStr}T${startTime}:00`,
-          end_at: `${dateStr}T${endTime}:00`,
-          all_day: false,
-          location: null,
-          category: 'meal',
-          member_ids: [],
-          recurrence: null,
-          reminder_offsets: [],
-          created_by:
-          activeMember && activeMember.id !== FAMILY_PROFILE_ID ? activeMember.id : null,
-          created_at: new Date().toISOString(),
-        });
-        newPlans.push({
-          id: uid('mp'),
-          family_id: family.id,
-          recipe_id: source.recipe_id,
-          date: dateStr,
-          meal_type: source.meal_type,
-          servings: source.servings,
-          calendar_event_id: eventId,
-          notes: null,
-          created_by:
-          activeMember && activeMember.id !== FAMILY_PROFILE_ID ? activeMember.id : null,
-          created_at: new Date().toISOString(),
-        });
+
+      const applyRule = (
+        mealId: string,
+        anchorDate: string,
+      ): void => {
+        const rule = mealRepeatRule(anchorDate, weekdays, weeks);
+        setMealPlans((prev) =>
+          prev.map((m) => {
+            if (m.id !== mealId) return m;
+            const updated: MealPlan = { ...m, date: anchorDate, recurrence: rule };
+            dbUpsert('meal_plans', updated);
+            return updated;
+          }),
+        );
+        const evtId = mealPlans.find((m) => m.id === mealId)?.calendar_event_id;
+        if (evtId) {
+          const evt = events.find((e) => e.id === evtId);
+          if (evt) {
+            updateEvent(evt.id, {
+              start_at: anchorDate + evt.start_at.slice(10),
+              end_at: anchorDate + evt.end_at.slice(10),
+              recurrence: rule,
+            });
+          }
+        }
+      };
+
+      if (weekdays.includes(new Date(`${source.date}T00:00:00`).getDay())) {
+        // The source date matches the rule — the source row IS the series.
+        applyRule(source.id, source.date);
+        return;
       }
-      if (newPlans.length === 0) return;
-      setEvents((prev) => [...prev, ...newEvents]);
-      setMealPlans((prev) => [...prev, ...newPlans]);
-      // Events first — the meal_plans rows reference them via FK.
-      void Promise.all(newEvents.map((e) => dbUpsert('events', e))).then(() =>
-        newPlans.forEach((p) => dbUpsert('meal_plans', p)),
-      );
-      newEvents.forEach((e) => syncEventToGoogle(e.id));
+      // The source date isn't one of the chosen weekdays (e.g. a Monday meal
+      // repeated Tue/Thu): keep the source as its one-off and anchor a NEW
+      // recurring meal (+ its recurring event) at the first matching date —
+      // same visible result as the old materialiser, which kept the source.
+      const anchor = nextMatchingDate(source.date, weekdays);
+      const rule = mealRepeatRule(anchor, weekdays, weeks);
+      const recipe = recipes.find((r) => r.id === source.recipe_id);
+      const [startTime, endTime] = MEAL_TIMES[source.meal_type as MealType] ?? MEAL_TIMES.dinner;
+      const createdBy =
+        activeMember && activeMember.id !== FAMILY_PROFILE_ID ? activeMember.id : null;
+      const eventId = uid('e');
+      const newEvent: CalendarEvent = {
+        id: eventId,
+        family_id: family.id,
+        title: recipe ? `${recipe.icon || '🍽️'} ${recipe.title}` : '🍽️ Meal',
+        description: null,
+        start_at: `${anchor}T${startTime}:00`,
+        end_at: `${anchor}T${endTime}:00`,
+        all_day: false,
+        location: null,
+        category: 'meal',
+        member_ids: [],
+        recurrence: rule,
+        reminder_offsets: [],
+        created_by: createdBy,
+        created_at: new Date().toISOString(),
+      };
+      const newPlan: MealPlan = {
+        id: uid('mp'),
+        family_id: family.id,
+        recipe_id: source.recipe_id,
+        date: anchor,
+        meal_type: source.meal_type,
+        servings: source.servings,
+        calendar_event_id: eventId,
+        notes: source.notes,
+        created_by: createdBy,
+        created_at: new Date().toISOString(),
+        recurrence: rule,
+        exdates: [],
+      };
+      setEvents((prev) => [...prev, newEvent]);
+      setMealPlans((prev) => [...prev, newPlan]);
+      void dbUpsert('events', newEvent).then(() => dbUpsert('meal_plans', newPlan));
+      syncEventToGoogle(newEvent.id);
     },
-    [mealPlans, recipes, family.id, activeMember],
+    [mealPlans, events, recipes, family.id, updateEvent, activeMember],
   );
 
   const updateKitchenSettings = useCallback(

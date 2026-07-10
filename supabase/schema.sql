@@ -932,6 +932,10 @@ create table if not exists meal_plans (
   calendar_event_id uuid references events(id) on delete set null,
   notes             text,
   created_by        uuid references family_members(id) on delete set null,
+  -- v28: recurring meals — one row + a rule expands client-side; exdates are
+  -- YYYY-MM-DD occurrence dates removed from the series.
+  recurrence        jsonb,
+  exdates           text[] not null default '{}',
   created_at        timestamptz not null default now()
 );
 create index if not exists idx_meal_plans_family on meal_plans(family_id);

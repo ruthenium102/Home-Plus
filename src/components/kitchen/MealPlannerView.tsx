@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { addDays, format } from 'date-fns';
 import { useKitchenData, useMembersData, useFamilyActions } from '@/context/FamilyContext';
+import { expandMealPlans, INDEFINITE_WEEKS } from '@/lib/mealRecurrence';
 import { getMonday, mealTypeLabel } from '@/lib/kitchen';
 import { hapticLight, hapticMedium } from '@/lib/native';
 import { createEdgeAutoScroller } from '@/lib/dragAutoScroll';
@@ -91,8 +92,10 @@ export function MealPlannerView() {
     setWeekStart(getMonday(new Date()));
   }
 
+  // A3: recurring meals expand into virtual occurrences for the visible window
+  // (each carries the base row's id + its own `date`).
   const plansThisWeek = useMemo(
-    () => mealPlans.filter((m) => m.date >= weekStart && m.date <= weekEnd),
+    () => expandMealPlans(mealPlans, weekStart, weekEnd),
     [mealPlans, weekStart, weekEnd],
   );
 
@@ -164,7 +167,7 @@ export function MealPlannerView() {
   // recipe being dragged in a ref because the drop detection runs in a
   // global pointermove and pointerup loop (HTML5 DnD does not work on iOS).
   const draggingRecipeRef = useRef<string | null>(null);
-  const draggingMealRef = useRef<string | null>(null);
+  const draggingMealRef = useRef<{ id: string; date: string } | null>(null);
 
   // Shared hit-test: which day cell (data-meal-day) is under the pointer.
   const findDayAt = (clientX: number, clientY: number): string | null => {
@@ -253,7 +256,7 @@ export function MealPlannerView() {
 
   // Drag an already-placed meal chip to another day. Mirrors startRecipeDrag
   // but commits a move (handleMoveMeal) instead of an add.
-  function startMealMove(mealPlanId: string, downEv: React.PointerEvent) {
+  function startMealMove(mealPlanId: string, occurrenceDate: string, downEv: React.PointerEvent) {
     if (downEv.button !== undefined && downEv.button !== 0) return;
     // Let the chip's repeat/remove buttons handle their own taps.
     if ((downEv.target as HTMLElement).closest('button')) return;
@@ -277,7 +280,7 @@ export function MealPlannerView() {
         } catch {
           /* ignore */
         }
-        draggingMealRef.current = mealPlanId;
+        draggingMealRef.current = { id: mealPlanId, date: occurrenceDate };
         const mp = mealPlans.find((m) => m.id === mealPlanId);
         const r = recipes.find((x) => x.id === mp?.recipe_id);
         ghostEl = makeDragGhost(`${r?.icon || '🍽️'} ${r?.title ?? 'Meal'}`.trim());
@@ -308,12 +311,12 @@ export function MealPlannerView() {
     const up = (ev: PointerEvent) => {
       cleanup();
       const dropTarget = started ? findDayAt(ev.clientX, ev.clientY) : null;
-      const id = draggingMealRef.current;
+      const dragged = draggingMealRef.current;
       draggingMealRef.current = null;
       setDragOverDay(null);
-      if (started && dropTarget && id) {
+      if (started && dropTarget && dragged) {
         void hapticMedium();
-        moveMealPlan(id, dropTarget);
+        moveMealPlan(dragged.id, dropTarget, dragged.date);
       }
     };
     const cancel = () => {
@@ -461,13 +464,13 @@ export function MealPlannerView() {
                       const recipe = recipes.find((r) => r.id === mp.recipe_id);
                       return (
                         <MealChip
-                          key={mp.id}
+                          key={mp.occurrence_key}
                           mealPlan={mp}
                           recipe={recipe}
-                          onRemove={() => removeMealPlan(mp.id)}
+                          onRemove={() => removeMealPlan(mp.id, mp.date)}
                           onRepeat={() => setRepeatTargetId(mp.id)}
                           onEdit={() => setEditTargetId(mp.id)}
-                          onMoveStart={(e) => startMealMove(mp.id, e)}
+                          onMoveStart={(e) => startMealMove(mp.id, mp.date, e)}
                         />
                       );
                     })}
@@ -556,7 +559,6 @@ function RepeatMealModal({
   // Labelled "Forever" in the UI, but meals are materialised rows so it can't be
   // truly unbounded — "forever" = 104 weeks (2 years) of plans, a practical upper
   // bound. (Next-version: give meals a real recurrence rule for genuine forever.)
-  const INDEFINITE_WEEKS = 104;
   const [indefinite, setIndefinite] = useState(false);
   const dialogRef = useRef<HTMLDivElement>(null);
 
@@ -799,6 +801,11 @@ function MealChip({
       <span className="truncate text-text flex-1 leading-tight">
         {recipe?.title ?? 'Unknown'}
         <span className="text-text-faint ml-0.5">· {mealTypeLabel(mealPlan.meal_type)}</span>
+        {mealPlan.recurrence && (
+          <span className="text-text-faint ml-0.5" title="Repeats — removing deletes just this day">
+            ↻
+          </span>
+        )}
       </span>
       <button
         data-no-swipe

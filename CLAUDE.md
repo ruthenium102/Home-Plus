@@ -26,12 +26,13 @@ Used by parents + kids on a shared device; child profiles are PIN-gated.
 - `supabase/schema.sql` is the **source of truth** for a fresh DB.
 - Incremental changes go in `supabase/migrations/migrate_vN.sql` (idempotent) AND into `schema.sql`.
 - Migrations are applied to the remote project by hand (SQL editor) or via the Supabase MCP.
-  **Migrations through v27 are all applied.** (v23 = synced `position` columns for
+  **Migrations through v28 are all applied.** (v23 = synced `position` columns for
   cross-device drag-reorder; v24 = pet achievements/lifetime stats/quest state; v25 = owner
   can always SELECT own family — fixed the RLS chicken-and-egg that silently broke
   first-family creation; v26 = `client_errors` write-only telemetry table; v27 = all
   membership/parent policies rewritten onto the `is_family_member()`/`is_family_parent()`
-  helpers + `search_path` on the two linter-flagged trigger fns.)
+  helpers + `search_path` on the two linter-flagged trigger fns; v28 = meal_plans
+  `recurrence` + `exdates` for rule-based repeating meals.)
 - TS DB types are hand-written in `src/types/supabase.ts`, derived from `src/types/index.ts` —
   extend the interfaces in `index.ts` and the DB types follow.
 - Hot DB facts: PIN hashes live in SECURITY-DEFINER-only `member_pins`; `reward_balances` is

@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { BarChart3, Heart, TrendingUp, Calendar } from 'lucide-react';
 import { useKitchenData } from '@/context/FamilyContext';
+import { expandMealPlans } from '@/lib/mealRecurrence';
 import { format, subDays } from 'date-fns';
 
 const RANGES = [
@@ -19,8 +20,13 @@ export function StatsView() {
     const cutoffStr = r.days ? format(subDays(new Date(), r.days), 'yyyy-MM-dd') : null;
     const today = format(new Date(), 'yyyy-MM-dd');
 
-    const inRange = mealPlans.filter((m) => !cutoffStr || m.date >= cutoffStr);
-    const cooked = inRange.filter((m) => m.date <= today);
+    // A3: expand recurring meals over the stats window so repeat dinners count
+    // per occurrence. "All time" starts at the earliest plan date.
+    const earliest = mealPlans.reduce(
+      (min, m) => (m.date < min ? m.date : min),
+      today,
+    );
+    const cooked = expandMealPlans(mealPlans, cutoffStr ?? earliest, today);
 
     const counts = new Map<string, number>();
     cooked.forEach((m) => counts.set(m.recipe_id, (counts.get(m.recipe_id) || 0) + 1));
@@ -33,10 +39,9 @@ export function StatsView() {
     const cookedIds = new Set(counts.keys());
     const neverCooked = recipes.filter((r) => !cookedIds.has(r.id));
 
-    const upcoming = mealPlans
-      .filter((m) => m.date > today)
-      .sort((a, b) => a.date.localeCompare(b.date))
-      .slice(0, 5);
+    const tomorrow = format(subDays(new Date(), -1), 'yyyy-MM-dd');
+    const horizon = format(subDays(new Date(), -60), 'yyyy-MM-dd');
+    const upcoming = expandMealPlans(mealPlans, tomorrow, horizon).slice(0, 5);
 
     return {
       totalCooked: cooked.length,
@@ -126,7 +131,7 @@ export function StatsView() {
               {stats.upcoming.map((mp) => {
                 const recipe = recipes.find((r) => r.id === mp.recipe_id);
                 return (
-                  <div key={mp.id} className="flex items-center gap-2 text-sm">
+                  <div key={mp.occurrence_key} className="flex items-center gap-2 text-sm">
                     <span className="text-lg">{recipe?.icon || '🍽️'}</span>
                     <span className="flex-1 text-text truncate">{recipe?.title ?? 'Unknown'}</span>
                     <span className="text-text-faint flex-shrink-0">

@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { ShoppingCart, ChevronLeft, ChevronRight, Check } from 'lucide-react';
 import { addDays, format } from 'date-fns';
 import { useKitchenData } from '@/context/FamilyContext';
+import { expandMealPlans } from '@/lib/mealRecurrence';
 import {
   cleanIngredientName,
   displayIngredient,
@@ -30,8 +31,10 @@ export function ShoppingView() {
 
   const cupboardSet = new Set((kitchenSettings.cupboard || []).map((s) => s.toLowerCase().trim()));
 
+  // A3: expand recurring meals into this week's occurrences so the shopping
+  // list aggregates them like concrete plans.
   const weekPlans = useMemo(
-    () => mealPlans.filter((m) => m.date >= weekStart && m.date <= weekEnd),
+    () => expandMealPlans(mealPlans, weekStart, weekEnd),
     [mealPlans, weekStart, weekEnd],
   );
 

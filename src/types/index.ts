@@ -435,13 +435,18 @@ export interface MealPlan {
   id: string;
   family_id: string;
   recipe_id: string;
-  date: string; // YYYY-MM-DD
+  date: string; // YYYY-MM-DD — for recurring meals, the series anchor date
   meal_type: MealType;
   servings: number;
   calendar_event_id: string | null;
   notes: string | null;
   created_by: string | null;
   created_at: string;
+  // A3 — recurring meals (migrate_v28). One row + a rule expands client-side
+  // (lib/mealRecurrence.ts) instead of materialising a row per occurrence.
+  // exdates holds YYYY-MM-DD occurrence dates removed from the series.
+  recurrence?: Recurrence | null;
+  exdates?: string[];
 }
 
 export interface KitchenSettings {
