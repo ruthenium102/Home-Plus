@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { endOfDay, format, isAfter, startOfDay } from 'date-fns';
 import { Bell, ListChecks, Flame } from 'lucide-react';
-import { useFamily } from '@/context/FamilyContext';
+import { useEventsData, useMembersData, useChoresData, useListsData, useHabitsData, useFamilyActions } from '@/context/FamilyContext';
 import { expandEvents } from '@/lib/recurrence';
 import { MemberStrip } from '@/components/MemberStrip';
 import { EventChip } from '@/components/EventChip';
@@ -28,21 +28,15 @@ interface Props {
 }
 
 export function HomePage({ onNavigate }: Props) {
-  const {
-    events,
-    members,
-    goals,
-    completions,
-    redemptions,
-    lists,
-    listItems,
-    habits,
-    checkIns,
-    activeMember,
-    deleteEvent,
-    restoreEvent,
-    incrementCheckIn,
-  } = useFamily();
+  // HomePage is the always-mounted dashboard, so it legitimately reads most
+  // domains — but subscribing per-domain still beats the monolith: a pet or
+  // kitchen write no longer re-renders it at all.
+  const { events } = useEventsData();
+  const { members, activeMember } = useMembersData();
+  const { goals, completions, redemptions } = useChoresData();
+  const { lists, listItems } = useListsData();
+  const { habits, checkIns } = useHabitsData();
+  const { deleteEvent, restoreEvent, incrementCheckIn } = useFamilyActions();
   const { resolved } = useTheme();
   const { show } = useToast();
   const swipeMode = useSwipeMode();

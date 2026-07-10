@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { X, Lock, Unlock } from 'lucide-react';
-import { useFamily } from '@/context/FamilyContext';
+import { useMembersData, useFamilyActions } from '@/context/FamilyContext';
 import { Avatar } from './Avatar';
 import { PinPad } from './PinPad';
 import { verifyPinSync } from '@/lib/storage';
@@ -16,7 +16,8 @@ interface Props {
 type Step = 'verify_current' | 'enter_new' | 'confirm_new' | 'remove_confirm';
 
 export function SetPinModal({ open, member, onClose }: Props) {
-  const { setMemberPin, activeMember } = useFamily();
+  const { activeMember } = useMembersData();
+  const { setMemberPin } = useFamilyActions();
   const [step, setStep] = useState<Step>('enter_new');
   const [firstPin, setFirstPin] = useState('');
   const [error, setError] = useState<string | null>(null);

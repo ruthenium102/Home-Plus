@@ -10,7 +10,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import { addDays, format } from 'date-fns';
-import { useFamily } from '@/context/FamilyContext';
+import { useKitchenData, useMembersData, useFamilyActions } from '@/context/FamilyContext';
 import { getMonday, mealTypeLabel } from '@/lib/kitchen';
 import { hapticLight, hapticMedium } from '@/lib/native';
 import { createEdgeAutoScroller } from '@/lib/dragAutoScroll';
@@ -53,16 +53,10 @@ function makeDragGhost(label: string): HTMLDivElement {
 }
 
 export function MealPlannerView() {
-  const {
-    recipes,
-    mealPlans,
-    addMealPlan,
-    removeMealPlan,
-    moveMealPlan,
-    updateMealPlan,
-    repeatMealPlan,
-    activeMember,
-  } = useFamily();
+  const { recipes, mealPlans } = useKitchenData();
+  const { activeMember } = useMembersData();
+  const { addMealPlan, removeMealPlan, moveMealPlan, updateMealPlan, repeatMealPlan } =
+    useFamilyActions();
   const [repeatTargetId, setRepeatTargetId] = useState<string | null>(null);
   const [editTargetId, setEditTargetId] = useState<string | null>(null);
   const dayCount = useMealDayCount();

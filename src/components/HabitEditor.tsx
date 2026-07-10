@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Trash2, Lock, Users, Sparkles, Minus, Plus, ChevronLeft, ChevronRight } from 'lucide-react';
 import { format, subDays, addDays, subWeeks } from 'date-fns';
-import { useFamily } from '@/context/FamilyContext';
+import { useHabitsData, useMembersData, useFamilyActions } from '@/context/FamilyContext';
 import { useTheme } from '@/context/ThemeContext';
 import { Avatar } from './Avatar';
 import { Modal } from './Modal';
@@ -27,16 +27,10 @@ const CADENCE_OPTIONS: { v: HabitCadence; label: string }[] = [
 const WEEKDAY_LABELS = ['S', 'M', 'T', 'W', 'T', 'F', 'S']; // Sun-first
 
 export function HabitEditor({ open, editing, onClose }: Props) {
-  const {
-    activeMember,
-    members,
-    checkIns,
-    addHabit,
-    updateHabit,
-    deleteHabit,
-    incrementCheckIn,
-    decrementCheckIn,
-  } = useFamily();
+  const { activeMember, members } = useMembersData();
+  const { checkIns } = useHabitsData();
+  const { addHabit, updateHabit, deleteHabit, incrementCheckIn, decrementCheckIn } =
+    useFamilyActions();
   const { resolved } = useTheme();
   const isDark = resolved === 'dark';
 

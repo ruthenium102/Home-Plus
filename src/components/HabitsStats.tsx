@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { ChevronLeft, ChevronRight, Flame, Sparkles, Trophy } from 'lucide-react';
-import { useFamily } from '@/context/FamilyContext';
+import { useHabitsData, useMembersData } from '@/context/FamilyContext';
 import { useTheme } from '@/context/ThemeContext';
 import { Avatar } from '@/components/Avatar';
 import { getColorTokens } from '@/lib/colors';
@@ -19,7 +19,7 @@ import {
   visibleHabits,
   type HabitDayCell,
 } from '@/lib/habits';
-import type { Habit } from '@/types';
+import type { Habit, HabitCheckIn } from '@/types';
 
 /**
  * Resolve the inclusive [fromISO, toISO] window for a 3-month view, optionally
@@ -36,7 +36,8 @@ function rangeWindow(monthsBack: number): { fromISO: string; toISO: string } {
 }
 
 export function HabitsStats() {
-  const { habits, checkIns, members, activeMember } = useFamily();
+  const { habits, checkIns } = useHabitsData();
+  const { members, activeMember } = useMembersData();
   const { resolved } = useTheme();
   const isDark = resolved === 'dark';
   // How many whole months back from today the window ends. 0 = window ends
@@ -149,7 +150,7 @@ interface CardProps {
   fromISO: string;
   toISO: string;
   todayISO: string;
-  checkIns: ReturnType<typeof useFamily>['checkIns'];
+  checkIns: HabitCheckIn[];
   color: { base: string; soft: string; text: string };
 }
 

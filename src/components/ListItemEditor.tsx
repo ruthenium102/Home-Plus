@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Trash2, Repeat } from 'lucide-react';
-import { useFamily } from '@/context/FamilyContext';
+import { useListsData, useMembersData, useFamilyActions } from '@/context/FamilyContext';
 import { Avatar } from './Avatar';
 import { Modal } from './Modal';
 import { REPEAT_OPTIONS } from '@/lib/lists';
@@ -14,7 +14,9 @@ interface Props {
 }
 
 export function ListItemEditor({ open, list, editing, onClose }: Props) {
-  const { members, addListItem, updateListItem, deleteListItem, listItems } = useFamily();
+  const { listItems } = useListsData();
+  const { members } = useMembersData();
+  const { addListItem, updateListItem, deleteListItem } = useFamilyActions();
 
   const [title, setTitle] = useState('');
   const [notes, setNotes] = useState('');

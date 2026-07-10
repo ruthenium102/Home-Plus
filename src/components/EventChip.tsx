@@ -2,7 +2,7 @@ import { memo } from 'react';
 import { format } from 'date-fns';
 import { Repeat } from 'lucide-react';
 import { useTheme } from '@/context/ThemeContext';
-import { useFamily } from '@/context/FamilyContext';
+import { useMembersData, useKitchenData } from '@/context/FamilyContext';
 import { getColorTokens } from '@/lib/colors';
 import type { ExpandedEvent } from '@/lib/recurrence';
 
@@ -21,7 +21,8 @@ interface Props {
 // split stops CalendarPage re-rendering on unrelated data edits.
 export const EventChip = memo(function EventChip({ event, onClick, variant = 'list' }: Props) {
   const { resolved } = useTheme();
-  const { members, kitchenSettings } = useFamily();
+  const { members } = useMembersData();
+  const { kitchenSettings } = useKitchenData();
   const isDark = resolved === 'dark';
 
   const owner = event.member_ids[0] ? members.find((m) => m.id === event.member_ids[0]) : null;

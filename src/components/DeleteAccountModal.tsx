@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { X, AlertTriangle, Loader2 } from 'lucide-react';
-import { useFamily } from '@/context/FamilyContext';
+import { useMembersData, useFamilyActions } from '@/context/FamilyContext';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/context/ToastContext';
 import { supabase } from '@/lib/supabase';
@@ -20,7 +20,8 @@ interface Props {
  * server derives the user id from the token and cascades the data + auth user.
  */
 export function DeleteAccountModal({ open, onClose }: Props) {
-  const { family, signOut } = useFamily();
+  const { family } = useMembersData();
+  const { signOut } = useFamilyActions();
   const { authSignOut } = useAuth();
   const { show } = useToast();
   const [typed, setTyped] = useState('');

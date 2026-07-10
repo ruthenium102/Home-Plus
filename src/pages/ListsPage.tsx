@@ -11,7 +11,7 @@ import {
   ChevronDown,
   ChevronRight,
 } from 'lucide-react';
-import { useFamily, useFamilyActions } from '@/context/FamilyContext';
+import { useListsData, useMembersData, useFamilyActions, type FamilyActions } from '@/context/FamilyContext';
 import { useTheme } from '@/context/ThemeContext';
 import { useToast } from '@/context/ToastContext';
 import { useSwipeMode } from '@/hooks/useSwipeMode';
@@ -40,10 +40,12 @@ import {
   isOverdue,
   findAssignee,
 } from '@/lib/lists';
-import type { TodoItem, TodoList } from '@/types';
+import type { TodoItem, TodoList, FamilyMember } from '@/types';
 
 export function ListsPage() {
-  const { lists, listItems, activeMember, members, reorderLists, reorderListItems } = useFamily();
+  const { lists, listItems } = useListsData();
+  const { activeMember, members } = useMembersData();
+  const { reorderLists, reorderListItems } = useFamilyActions();
   const { resolved } = useTheme();
 
   const myLists = useMemo(
@@ -258,7 +260,7 @@ function ItemsList({
 }: {
   list: TodoList;
   items: TodoItem[];
-  members: ReturnType<typeof useFamily>['members'];
+  members: FamilyMember[];
   onEditItem: (item: TodoItem) => void;
   onReorderItems: (orderedIds: string[]) => void;
 }) {
@@ -340,12 +342,12 @@ function ItemsList({
 type ListItemRowProps = {
   item: TodoItem;
   list: TodoList;
-  members: ReturnType<typeof useFamily>['members'];
+  members: FamilyMember[];
   swipeMode: 'partial' | 'full';
   dragProps: ReturnType<ReturnType<typeof useListDragReorder<TodoItem>>['getRowProps']>;
-  toggleListItem: ReturnType<typeof useFamily>['toggleListItem'];
-  deleteListItem: ReturnType<typeof useFamily>['deleteListItem'];
-  restoreListItem: ReturnType<typeof useFamily>['restoreListItem'];
+  toggleListItem: FamilyActions['toggleListItem'];
+  deleteListItem: FamilyActions['deleteListItem'];
+  restoreListItem: FamilyActions['restoreListItem'];
   showToast: ReturnType<typeof useToast>['show'];
   onEdit: (item: TodoItem) => void;
 };

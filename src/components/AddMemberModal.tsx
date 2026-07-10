@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { X, Loader2, ShieldCheck, Mic } from 'lucide-react';
-import { useFamily } from '@/context/FamilyContext';
+import { useMembersData, useFamilyActions } from '@/context/FamilyContext';
 import { Avatar } from '@/components/Avatar';
 import { BirthdayPicker } from '@/components/BirthdayPicker';
 import { COLOR_OPTIONS, MEMBER_COLORS } from '@/lib/colors';
@@ -32,7 +32,8 @@ const BLANK: Omit<FamilyMember, 'id' | 'created_at' | 'family_id'> = {
 };
 
 export function AddMemberModal({ open, onClose }: Props) {
-  const { addMember, family, activeMember } = useFamily();
+  const { family, activeMember } = useMembersData();
+  const { addMember } = useFamilyActions();
 
   const [name, setName] = useState('');
   const [role, setRole] = useState<Role>('child');

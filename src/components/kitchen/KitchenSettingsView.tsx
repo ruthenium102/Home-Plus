@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import { X, Plus } from 'lucide-react';
-import { useFamily } from '@/context/FamilyContext';
+import { useKitchenData, useFamilyActions } from '@/context/FamilyContext';
 
 const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
 export function KitchenSettingsView() {
-  const { kitchenSettings, updateKitchenSettings } = useFamily();
+  const { kitchenSettings } = useKitchenData();
+  const { updateKitchenSettings } = useFamilyActions();
   const [newItem, setNewItem] = useState('');
 
   function addCupboardItem() {

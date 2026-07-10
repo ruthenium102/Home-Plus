@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Trash2, Repeat, Bell, MapPin, Users, Palette, Calendar as CalendarIcon } from 'lucide-react';
 import { format } from 'date-fns';
-import { useFamily } from '@/context/FamilyContext';
+import { useEventsData, useMembersData, useFamilyActions } from '@/context/FamilyContext';
 import { suggestDuration } from '@/lib/events';
 import { COLOR_OPTIONS, MEMBER_COLORS } from '@/lib/colors';
 import { supabase } from '@/lib/supabase';
@@ -100,7 +100,9 @@ function applyMins(
 }
 
 export function EventEditor({ open, onClose, editing, occurrenceStart, initialStart }: Props) {
-  const { members, events, addEvent, updateEvent, deleteEvent, activeMember, family } = useFamily();
+  const { events } = useEventsData();
+  const { members, activeMember, family } = useMembersData();
+  const { addEvent, updateEvent, deleteEvent } = useFamilyActions();
   const [hasGoogleIntegration, setHasGoogleIntegration] = useState(false);
   const [syncToGoogle, setSyncToGoogle] = useState(true);
 

@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Plane, Home as HomeIcon, GraduationCap, Briefcase, Coffee, MapPin } from 'lucide-react';
-import { useFamily } from '@/context/FamilyContext';
+import { useMembersData, useChoresData } from '@/context/FamilyContext';
 import { rosterRoleAssignments } from '@/lib/rotation';
 import { Avatar } from './Avatar';
 import { LocationPicker } from './LocationPicker';
@@ -18,7 +18,8 @@ function locationIcon(loc: string | null) {
 }
 
 export function MemberStrip() {
-  const { members, chores } = useFamily();
+  const { members } = useMembersData();
+  const { chores } = useChoresData();
   const [picking, setPicking] = useState<FamilyMember | null>(null);
   const roleMap = useMemo(() => rosterRoleAssignments(chores), [chores]);
   // Parents render first, children below — stable within each group so any

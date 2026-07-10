@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { X, Sparkles, Clock, PiggyBank } from 'lucide-react';
-import { useFamily } from '@/context/FamilyContext';
+import { useChoresData, useFamilyActions } from '@/context/FamilyContext';
 import { formatBalance } from '@/lib/chores';
 import type { FamilyMember, RewardCategoryKey } from '@/types';
 
@@ -35,7 +35,8 @@ const ICON: Record<RewardCategoryKey, typeof Sparkles> = {
 };
 
 export function RedemptionModal({ open, member, onClose }: Props) {
-  const { rewardCategories, requestRedemption } = useFamily();
+  const { rewardCategories } = useChoresData();
+  const { requestRedemption } = useFamilyActions();
   const [category, setCategory] = useState<RewardCategoryKey>('stars');
   const [amount, setAmount] = useState<number>(15);
   const [reason, setReason] = useState('');

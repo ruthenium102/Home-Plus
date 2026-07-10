@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { BarChart3, Heart, TrendingUp, Calendar } from 'lucide-react';
-import { useFamily } from '@/context/FamilyContext';
+import { useKitchenData } from '@/context/FamilyContext';
 import { format, subDays } from 'date-fns';
 
 const RANGES = [
@@ -11,7 +11,7 @@ const RANGES = [
 ];
 
 export function StatsView() {
-  const { recipes, mealPlans } = useFamily();
+  const { recipes, mealPlans } = useKitchenData();
   const [range, setRange] = useState('month');
 
   const stats = useMemo(() => {

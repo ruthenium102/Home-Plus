@@ -1,14 +1,15 @@
 import { useMemo, useState } from 'react';
 import { Plus, Heart, Clock, Search, Link, ExternalLink } from 'lucide-react';
-import { useFamily } from '@/context/FamilyContext';
+import { useKitchenData, useMembersData, useFamilyActions } from '@/context/FamilyContext';
 import { RecipeEditor } from './RecipeEditor';
 import { ImportModal } from './ImportModal';
 import { guessRecipeIcon, tryHostname } from '@/lib/kitchen';
 import type { Recipe } from '@/types';
 
 export function RecipesView() {
-  const { recipes, addRecipe, updateRecipe, deleteRecipe, toggleRecipeFavorite, activeMember } =
-    useFamily();
+  const { recipes } = useKitchenData();
+  const { activeMember } = useMembersData();
+  const { addRecipe, updateRecipe, deleteRecipe, toggleRecipeFavorite } = useFamilyActions();
   const [query, setQuery] = useState('');
   const [editing, setEditing] = useState<Partial<Recipe> | null>(null);
   const [showImport, setShowImport] = useState(false);

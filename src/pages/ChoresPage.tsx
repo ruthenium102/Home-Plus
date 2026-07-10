@@ -13,7 +13,7 @@ import {
   X,
 } from 'lucide-react';
 import { startOfWeek } from 'date-fns';
-import { useFamily } from '@/context/FamilyContext';
+import { useMembersData, useChoresData, useFamilyActions } from '@/context/FamilyContext';
 import { useTheme } from '@/context/ThemeContext';
 import { useToast } from '@/context/ToastContext';
 import { useSwipeMode } from '@/hooks/useSwipeMode';
@@ -40,7 +40,7 @@ import type { Chore, ChoreCompletion, FamilyMember, Redemption, RewardCategoryKe
 import { formatDistanceToNow } from 'date-fns';
 
 export function ChoresPage() {
-  const { activeMember } = useFamily();
+  const { activeMember } = useMembersData();
   if (!activeMember) return null;
   return isParent(activeMember) ? <ParentView /> : <KidView member={activeMember} />;
 }
@@ -50,8 +50,8 @@ export function ChoresPage() {
 // ============================================================================
 
 function KidView({ member }: { member: FamilyMember }) {
-  const { chores, completions, completeChore, deleteCompletion, goals, rewardCategories } =
-    useFamily();
+  const { chores, completions, goals, rewardCategories } = useChoresData();
+  const { completeChore, deleteCompletion } = useFamilyActions();
   const { resolved } = useTheme();
   const { show } = useToast();
   const [redeemOpen, setRedeemOpen] = useState(false);
@@ -281,7 +281,7 @@ type ParentTab = 'overview' | 'manage' | 'approvals';
 
 function ParentView() {
   const [tab, setTab] = useState<ParentTab>('overview');
-  const { completions, redemptions } = useFamily();
+  const { completions, redemptions } = useChoresData();
 
   const pendingCount =
     completions.filter((c) => c.status === 'pending_approval').length +
@@ -320,7 +320,8 @@ function ParentView() {
 }
 
 function ParentOverview() {
-  const { members, completions, chores, goals, rewardCategories } = useFamily();
+  const { completions, chores, goals, rewardCategories } = useChoresData();
+  const { members } = useMembersData();
   const { resolved } = useTheme();
   const isDark = resolved === 'dark';
   const kids = members.filter((m) => m.role === 'child');
@@ -418,7 +419,9 @@ function ParentOverview() {
 }
 
 function ParentManage() {
-  const { chores, members, deleteChore, restoreChore, reorderChores } = useFamily();
+  const { chores } = useChoresData();
+  const { members } = useMembersData();
+  const { deleteChore, restoreChore, reorderChores } = useFamilyActions();
   const { show } = useToast();
   const swipeMode = useSwipeMode();
   const [editorOpen, setEditorOpen] = useState(false);
@@ -555,18 +558,10 @@ const ManageChoreRow = memo(function ManageChoreRow({
 }, areManageRowsEqual);
 
 function ParentApprovals() {
-  const {
-    completions,
-    redemptions,
-    chores,
-    members,
-    activeMember,
-    isFamilyMode,
-    approveCompletion,
-    rejectCompletion,
-    approveRedemption,
-    rejectRedemption,
-  } = useFamily();
+  const { completions, redemptions, chores } = useChoresData();
+  const { members, activeMember, isFamilyMode } = useMembersData();
+  const { approveCompletion, rejectCompletion, approveRedemption, rejectRedemption } =
+    useFamilyActions();
 
   const [view, setView] = useState<'pending' | 'history'>('pending');
 

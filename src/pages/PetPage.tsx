@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { storage } from '@/lib/storage';
-import { useFamily, useFamilyActions } from '@/context/FamilyContext';
+import { useMembersData, usePetData, useFamilyActions } from '@/context/FamilyContext';
 import { useTheme } from '@/context/ThemeContext';
 import { getColorTokens, MEMBER_COLORS } from '@/lib/colors';
 import { usePointerDragToDrop } from '@/hooks/usePointerDragToDrop';
@@ -245,7 +245,6 @@ function pick<T>(arr: T[]): T {
 
 function PetView({ pet, memberId, onNewPet }: PetViewProps) {
   const {
-    members,
     feedPet,
     waterPet,
     patPet,
@@ -255,7 +254,8 @@ function PetView({ pet, memberId, onNewPet }: PetViewProps) {
     buyAccessory,
     claimQuest,
     finishMiniGame,
-  } = useFamily();
+  } = useFamilyActions();
+  const { members } = useMembersData();
   const { resolved } = useTheme();
   const isDark = resolved === 'dark';
   const member = members.find((m) => m.id === memberId);
@@ -1057,7 +1057,8 @@ function StageChip({ label, active, hint }: { label: string; active: boolean; hi
 }
 
 export function PetPage() {
-  const { activeMember, getPet } = useFamily();
+  const { activeMember } = useMembersData();
+  const { getPet } = usePetData();
   const [newPetMode, setNewPetMode] = useState(false);
 
   // Reset the "choose a new pet" flow whenever the active member changes, so we

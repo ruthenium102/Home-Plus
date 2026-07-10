@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Mail, Loader2, CheckCircle2, Copy } from 'lucide-react';
 import { supabase, isSupabaseConfigured } from '@/lib/supabase';
-import { useFamily } from '@/context/FamilyContext';
+import { useMembersData } from '@/context/FamilyContext';
 import { Modal } from './Modal';
 import type { Role } from '@/types';
 
@@ -25,7 +25,7 @@ interface InviteResult {
 // (bottom sheet on phones, safe-area-aware footer, shared entrance animation)
 // instead of a hand-rolled centered dialog.
 export function InviteModal({ open, onClose, defaultName, defaultRole = 'child' }: Props) {
-  const { family, activeMember } = useFamily();
+  const { family, activeMember } = useMembersData();
   const [email, setEmail] = useState('');
   const [name, setName] = useState(defaultName ?? '');
   const [role, setRole] = useState<Role>(defaultRole);

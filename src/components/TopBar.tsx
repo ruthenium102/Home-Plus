@@ -1,7 +1,7 @@
 import { format } from 'date-fns';
 import { Sun, CloudSun, Cloud, CloudRain, CloudSnow, CloudLightning, MapPin } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
-import { useFamily } from '@/context/FamilyContext';
+import { useMembersData } from '@/context/FamilyContext';
 import { useToday } from '@/hooks/useToday';
 import { useWeather, weatherLabel, weatherIconName } from '@/hooks/useWeather';
 import { Avatar } from './Avatar';
@@ -22,7 +22,7 @@ interface Props {
 }
 
 export function TopBar({ onSwitchUser }: Props) {
-  const { family, activeMember } = useFamily();
+  const { family, activeMember } = useMembersData();
   const { temp, code, locationName, loading, error, locationStatus, requestLocation, unit } =
     useWeather();
   // Live date — a bare new Date() only refreshes when something re-renders,

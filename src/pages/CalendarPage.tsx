@@ -25,7 +25,7 @@ import {
   UtensilsCrossed,
   Briefcase,
 } from 'lucide-react';
-import { useFamily } from '@/context/FamilyContext';
+import { useEventsData, useMembersData, useFamilyActions } from '@/context/FamilyContext';
 import { hapticLight, hapticMedium } from '@/lib/native';
 import { createEdgeAutoScroller } from '@/lib/dragAutoScroll';
 import { expandEvents, type ExpandedEvent } from '@/lib/recurrence';
@@ -41,7 +41,9 @@ import type { CalendarEvent, FamilyMember } from '@/types';
 type ViewMode = 'day' | 'week' | 'month';
 
 export function CalendarPage() {
-  const { events, members, updateEvent, addEvent } = useFamily();
+  const { events } = useEventsData();
+  const { members } = useMembersData();
+  const { updateEvent, addEvent } = useFamilyActions();
   const isPhone = useIsPhone();
   const [view, setView] = useState<ViewMode>('week');
   const [cursor, setCursor] = useState<Date>(new Date());
@@ -780,7 +782,7 @@ function MonthView({
   dragOverDayKey: string | null;
 }) {
   const { resolved } = useTheme();
-  const { members } = useFamily();
+  const { members } = useMembersData();
   const isDark = resolved === 'dark';
   const today = new Date();
 

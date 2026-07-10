@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Users } from 'lucide-react';
-import { useFamily, FAMILY_PROFILE_ID } from '@/context/FamilyContext';
+import { useMembersData, useFamilyActions, FAMILY_PROFILE_ID } from '@/context/FamilyContext';
 import { Avatar } from './Avatar';
 import { PinPad } from './PinPad';
 import type { FamilyMember } from '@/types';
@@ -13,7 +13,8 @@ interface Props {
 }
 
 export function UserSwitcher({ onClose, fullscreen = false }: Props) {
-  const { members, signInAs, family } = useFamily();
+  const { members, family } = useMembersData();
+  const { signInAs } = useFamilyActions();
   const [selected, setSelected] = useState<FamilyMember | null>(null);
   const [error, setError] = useState<string | null>(null);
 

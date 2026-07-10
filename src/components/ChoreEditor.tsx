@@ -3,7 +3,7 @@ import { localISO } from '@/lib/dates';
 import { hapticLight, hapticMedium } from '@/lib/native';
 import { createEdgeAutoScroller } from '@/lib/dragAutoScroll';
 import { Trash2, ShieldCheck, RotateCw } from 'lucide-react';
-import { useFamily } from '@/context/FamilyContext';
+import { useMembersData, useChoresData, useFamilyActions } from '@/context/FamilyContext';
 import { isoWeekStr } from '@/lib/rotation';
 import { Avatar } from './Avatar';
 import { Modal } from './Modal';
@@ -27,7 +27,9 @@ const FREQ_OPTIONS: { v: ChoreFrequency; label: string }[] = [
 const WEEKDAY_LABELS = ['S', 'M', 'T', 'W', 'T', 'F', 'S']; // Sun-first
 
 export function ChoreEditor({ open, onClose, editing }: Props) {
-  const { members, rewardCategories, addChore, updateChore, deleteChore } = useFamily();
+  const { members } = useMembersData();
+  const { rewardCategories } = useChoresData();
+  const { addChore, updateChore, deleteChore } = useFamilyActions();
   const kids = members.filter((m) => m.role === 'child');
 
   const [title, setTitle] = useState('');

@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { ShoppingCart, ChevronLeft, ChevronRight, Check } from 'lucide-react';
 import { addDays, format } from 'date-fns';
-import { useFamily } from '@/context/FamilyContext';
+import { useKitchenData } from '@/context/FamilyContext';
 import {
   cleanIngredientName,
   displayIngredient,
@@ -22,7 +22,7 @@ interface AggregatedItem {
 }
 
 export function ShoppingView() {
-  const { recipes, mealPlans, kitchenSettings } = useFamily();
+  const { recipes, mealPlans, kitchenSettings } = useKitchenData();
   const [weekStart, setWeekStart] = useState(() => getMonday(new Date()));
   const [checked, setChecked] = useState<Record<string, boolean>>({});
 

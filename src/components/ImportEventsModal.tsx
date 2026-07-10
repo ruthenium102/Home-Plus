@@ -9,7 +9,7 @@ import {
   Loader2,
   AlertCircle,
 } from 'lucide-react';
-import { useFamily } from '@/context/FamilyContext';
+import { useEventsData, useMembersData, useFamilyActions } from '@/context/FamilyContext';
 import { useToast } from '@/context/ToastContext';
 import { supabase } from '@/lib/supabase';
 import { apiUrl } from '@/lib/apiBase';
@@ -25,7 +25,9 @@ interface Props {
 type Source = 'holidays' | 'paste' | 'ical';
 
 export function ImportEventsModal({ open, onClose }: Props) {
-  const { family, events, members, addEvent } = useFamily();
+  const { events } = useEventsData();
+  const { family, members } = useMembersData();
+  const { addEvent } = useFamilyActions();
   const { show } = useToast();
 
   const [source, setSource] = useState<Source>('holidays');

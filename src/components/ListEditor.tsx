@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Trash2, Search, X } from 'lucide-react';
-import { useFamily } from '@/context/FamilyContext';
+import { useMembersData, useFamilyActions } from '@/context/FamilyContext';
 import { COLOR_OPTIONS, MEMBER_COLORS } from '@/lib/colors';
 import { ICON_OPTIONS, ICON_CATEGORIES } from '@/lib/listIcons';
 import { Modal } from './Modal';
@@ -13,7 +13,8 @@ interface Props {
 }
 
 export function ListEditor({ open, onClose, editing }: Props) {
-  const { activeMember, members, addList, updateList, deleteList } = useFamily();
+  const { activeMember, members } = useMembersData();
+  const { addList, updateList, deleteList } = useFamilyActions();
 
   const [name, setName] = useState('');
   const [icon, setIcon] = useState<string>('ListChecks');

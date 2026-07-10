@@ -29,7 +29,7 @@ import {
 } from 'lucide-react';
 import { DragHandle } from '@/components/DragHandle';
 import { useListDragReorder } from '@/hooks/useListDragReorder';
-import { useFamily } from '@/context/FamilyContext';
+import { useMembersData, useKitchenData, useFamilyActions } from '@/context/FamilyContext';
 import { useTheme } from '@/context/ThemeContext';
 import { useWeather } from '@/hooks/useWeather';
 import { useAuth } from '@/context/AuthContext';
@@ -56,18 +56,9 @@ interface GeoResult {
 }
 
 export function SettingsPage() {
-  const {
-    members,
-    family,
-    isDemoMode,
-    updateMember,
-    signOut,
-    activeMember,
-    isFamilyMode,
-    kitchenSettings,
-    updateKitchenSettings,
-    reorderMembers,
-  } = useFamily();
+  const { members, family, isDemoMode, activeMember, isFamilyMode } = useMembersData();
+  const { kitchenSettings } = useKitchenData();
+  const { updateMember, signOut, updateKitchenSettings, reorderMembers } = useFamilyActions();
   const { authSignOut } = useAuth();
   const memberDnd = useListDragReorder(members, reorderMembers);
   const { mode, setMode } = useTheme();
@@ -738,7 +729,8 @@ function MemberRow({
 }
 
 function CupboardEditor() {
-  const { kitchenSettings, updateKitchenSettings } = useFamily();
+  const { kitchenSettings } = useKitchenData();
+  const { updateKitchenSettings } = useFamilyActions();
   const [newItem, setNewItem] = useState('');
 
   const add = () => {
@@ -797,7 +789,8 @@ function CupboardEditor() {
 }
 
 function ShopDaysEditor() {
-  const { kitchenSettings, updateKitchenSettings } = useFamily();
+  const { kitchenSettings } = useKitchenData();
+  const { updateKitchenSettings } = useFamilyActions();
   const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
   return (

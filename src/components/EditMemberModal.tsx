@@ -11,7 +11,7 @@ import {
   Mic,
   ShieldCheck,
 } from 'lucide-react';
-import { useFamily } from '@/context/FamilyContext';
+import { useMembersData, useFamilyActions } from '@/context/FamilyContext';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/context/ToastContext';
 import { Avatar } from '@/components/Avatar';
@@ -28,7 +28,8 @@ interface Props {
 }
 
 export function EditMemberModal({ open, member, onClose }: Props) {
-  const { updateMember, deleteMember, activeMember, members } = useFamily();
+  const { activeMember, members } = useMembersData();
+  const { updateMember, deleteMember } = useFamilyActions();
   const { forgotPassword, user: authUser } = useAuth();
   const { show } = useToast();
 

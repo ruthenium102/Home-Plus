@@ -280,6 +280,37 @@ export type FamilyActions = {
 const FamilyActionsContext = createContext<FamilyActions | null>(null);
 const SyncStatusContext = createContext<SyncStatusValue | null>(null);
 
+// ---- A1 stage 2: domain DATA contexts ----------------------------------------
+// The read side of the monolith, split by domain. Each context is memoized on
+// its own slice identities, so a chore tick invalidates ChoresDataContext and
+// nothing else — a page subscribed to useKitchenData()/useEventsData() etc.
+// re-renders zero times. All types are Pick<>s of FamilyContextValue so the
+// split can never drift from the master interface. useFamily() keeps working
+// unchanged for not-yet-migrated consumers (it still subscribes to everything).
+type MembersData = Pick<
+  FamilyContextValue,
+  'family' | 'members' | 'activeMember' | 'isDemoMode' | 'isFamilyMode'
+>;
+type EventsData = Pick<FamilyContextValue, 'events'>;
+type ChoresData = Pick<
+  FamilyContextValue,
+  'chores' | 'completions' | 'redemptions' | 'goals' | 'rewardCategories'
+>;
+type ListsData = Pick<FamilyContextValue, 'lists' | 'listItems'>;
+type HabitsData = Pick<FamilyContextValue, 'habits' | 'checkIns'>;
+type DayPlanData = Pick<FamilyContextValue, 'dayPlanBlocks' | 'activityPool'>;
+type KitchenData = Pick<FamilyContextValue, 'recipes' | 'mealPlans' | 'kitchenSettings'>;
+type PetData = Pick<FamilyContextValue, 'pets' | 'getPet'>;
+
+const MembersDataContext = createContext<MembersData | null>(null);
+const EventsDataContext = createContext<EventsData | null>(null);
+const ChoresDataContext = createContext<ChoresData | null>(null);
+const ListsDataContext = createContext<ListsData | null>(null);
+const HabitsDataContext = createContext<HabitsData | null>(null);
+const DayPlanDataContext = createContext<DayPlanData | null>(null);
+const KitchenDataContext = createContext<KitchenData | null>(null);
+const PetDataContext = createContext<PetData | null>(null);
+
 // Description marker stamped on calendar events auto-created from a member's
 // "Away til..." travel status. Lets setMemberLocation find + replace/remove the
 // event when the status changes, without clobbering travel events a user added
@@ -3220,14 +3251,98 @@ export function FamilyProvider({ children }: { children: ReactNode }) {
     return facade as FamilyActions;
   }, []);
 
+  // A1 stage 2: domain data slices, derived FROM `value` so a migrated and an
+  // un-migrated consumer can never see different data. Each memo keys on its
+  // own slice identities only — unrelated churn keeps the identity.
+  const membersData = useMemo<MembersData>(
+    () => ({
+      family: value.family,
+      members: value.members,
+      activeMember: value.activeMember,
+      isDemoMode: value.isDemoMode,
+      isFamilyMode: value.isFamilyMode,
+    }),
+    [value.family, value.members, value.activeMember, value.isDemoMode, value.isFamilyMode],
+  );
+  const eventsData = useMemo<EventsData>(() => ({ events: value.events }), [value.events]);
+  const choresData = useMemo<ChoresData>(
+    () => ({
+      chores: value.chores,
+      completions: value.completions,
+      redemptions: value.redemptions,
+      goals: value.goals,
+      rewardCategories: value.rewardCategories,
+    }),
+    [value.chores, value.completions, value.redemptions, value.goals, value.rewardCategories],
+  );
+  const listsData = useMemo<ListsData>(
+    () => ({ lists: value.lists, listItems: value.listItems }),
+    [value.lists, value.listItems],
+  );
+  const habitsData = useMemo<HabitsData>(
+    () => ({ habits: value.habits, checkIns: value.checkIns }),
+    [value.habits, value.checkIns],
+  );
+  const dayPlanData = useMemo<DayPlanData>(
+    () => ({ dayPlanBlocks: value.dayPlanBlocks, activityPool: value.activityPool }),
+    [value.dayPlanBlocks, value.activityPool],
+  );
+  const kitchenData = useMemo<KitchenData>(
+    () => ({
+      recipes: value.recipes,
+      mealPlans: value.mealPlans,
+      kitchenSettings: value.kitchenSettings,
+    }),
+    [value.recipes, value.mealPlans, value.kitchenSettings],
+  );
+  const petData = useMemo<PetData>(
+    () => ({ pets: value.pets, getPet: value.getPet }),
+    [value.pets, value.getPet],
+  );
+
   return (
     <FamilyContext.Provider value={value}>
       <FamilyActionsContext.Provider value={actions}>
-        <SyncStatusContext.Provider value={syncValue}>{children}</SyncStatusContext.Provider>
+        <MembersDataContext.Provider value={membersData}>
+          <EventsDataContext.Provider value={eventsData}>
+            <ChoresDataContext.Provider value={choresData}>
+              <ListsDataContext.Provider value={listsData}>
+                <HabitsDataContext.Provider value={habitsData}>
+                  <DayPlanDataContext.Provider value={dayPlanData}>
+                    <KitchenDataContext.Provider value={kitchenData}>
+                      <PetDataContext.Provider value={petData}>
+                        <SyncStatusContext.Provider value={syncValue}>
+                          {children}
+                        </SyncStatusContext.Provider>
+                      </PetDataContext.Provider>
+                    </KitchenDataContext.Provider>
+                  </DayPlanDataContext.Provider>
+                </HabitsDataContext.Provider>
+              </ListsDataContext.Provider>
+            </ChoresDataContext.Provider>
+          </EventsDataContext.Provider>
+        </MembersDataContext.Provider>
       </FamilyActionsContext.Provider>
     </FamilyContext.Provider>
   );
 }
+
+// Domain data hooks (A1 stage 2). Subscribe to the narrowest slice a component
+// actually reads; pair with useFamilyActions() for mutations. useFamily()
+// remains for legacy/mixed consumers and subscribes to EVERYTHING.
+function useDomain<T>(ctx: React.Context<T | null>, name: string): T {
+  const v = useContext(ctx);
+  if (!v) throw new Error(`${name} must be used within FamilyProvider`);
+  return v;
+}
+export const useMembersData = () => useDomain(MembersDataContext, 'useMembersData');
+export const useEventsData = () => useDomain(EventsDataContext, 'useEventsData');
+export const useChoresData = () => useDomain(ChoresDataContext, 'useChoresData');
+export const useListsData = () => useDomain(ListsDataContext, 'useListsData');
+export const useHabitsData = () => useDomain(HabitsDataContext, 'useHabitsData');
+export const useDayPlanData = () => useDomain(DayPlanDataContext, 'useDayPlanData');
+export const useKitchenData = () => useDomain(KitchenDataContext, 'useKitchenData');
+export const usePetData = () => useDomain(PetDataContext, 'usePetData');
 
 export function useFamily() {
   const ctx = useContext(FamilyContext);

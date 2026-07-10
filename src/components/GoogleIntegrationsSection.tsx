@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Calendar, Loader2, RefreshCw, Unplug, Upload } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
-import { useFamily } from '@/context/FamilyContext';
+import { useMembersData } from '@/context/FamilyContext';
 
 interface IntegrationRow {
   google_account_email: string;
@@ -41,7 +41,7 @@ async function authedFetch(path: string, body?: unknown): Promise<Response | nul
 }
 
 export function GoogleIntegrationsSection() {
-  const { family, activeMember } = useFamily();
+  const { family, activeMember } = useMembersData();
   const [row, setRow] = useState<IntegrationRow | null>(null);
   const [busy, setBusy] = useState<'connect' | 'disconnect' | 'sync' | 'backfill' | null>(null);
   const [banner, setBanner] = useState<Banner>(null);

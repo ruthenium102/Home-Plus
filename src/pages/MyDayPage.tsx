@@ -36,7 +36,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { format } from 'date-fns';
-import { useFamily } from '@/context/FamilyContext';
+import { useMembersData, useDayPlanData, useFamilyActions } from '@/context/FamilyContext';
 import { OfflineNotice } from '@/components/OfflineNotice';
 import { usePointerDragToDrop } from '@/hooks/usePointerDragToDrop';
 import { localISO } from '@/lib/dates';
@@ -643,11 +643,9 @@ function ActivityModal({ initial, onSave, onClose }: ActivityModalProps) {
 // ---- Main page ------------------------------------------------------------
 
 export function MyDayPage() {
+  const { activeMember, isFamilyMode } = useMembersData();
+  const { dayPlanBlocks, activityPool } = useDayPlanData();
   const {
-    activeMember,
-    isFamilyMode,
-    dayPlanBlocks,
-    activityPool,
     addDayPlanBlock,
     updateDayPlanBlock,
     removeDayPlanBlock,
@@ -655,7 +653,7 @@ export function MyDayPage() {
     addPoolItem,
     updatePoolItem,
     archivePoolItem,
-  } = useFamily();
+  } = useFamilyActions();
 
   const [focusMode, setFocusMode] = useState(false);
   const [modalState, setModalState] = useState<

@@ -1,7 +1,7 @@
 import { memo, useMemo, useState } from 'react';
 import { localISO } from '@/lib/dates';
 import { Plus, Pencil, Lock, Users, Flame, Sparkles } from 'lucide-react';
-import { useFamily } from '@/context/FamilyContext';
+import { useHabitsData, useMembersData, useFamilyActions } from '@/context/FamilyContext';
 import { useTheme } from '@/context/ThemeContext';
 import { useToast } from '@/context/ToastContext';
 import { useSwipeMode } from '@/hooks/useSwipeMode';
@@ -31,18 +31,16 @@ import {
 import type { Habit } from '@/types';
 
 export function HabitsPage() {
+  const { habits, checkIns } = useHabitsData();
+  const { members, activeMember } = useMembersData();
   const {
-    habits,
-    checkIns,
-    members,
-    activeMember,
     toggleCheckIn,
     incrementCheckIn,
     decrementCheckIn,
     deleteHabit,
     restoreHabit,
     reorderHabits,
-  } = useFamily();
+  } = useFamilyActions();
   // Drag-to-reorder applies only to the active member's own habits — other
   // sections are read-only. The hook walks the full habit array so the new
   // global order preserves cross-member positions naturally.
