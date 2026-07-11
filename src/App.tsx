@@ -145,6 +145,17 @@ function AppShell() {
     window.scrollTo({ top: 0 });
   }, []);
 
+  // Below lg the side rail is an overlay drawer (content stays full-width),
+  // so picking a tab should dismiss it — like any nav drawer. On lg+ the rail
+  // is a persistent column and stays put.
+  const changeTabFromRail = useCallback(
+    (k: TabKey) => {
+      changeTab(k);
+      if (!window.matchMedia('(min-width: 1024px)').matches) setRailOpen(false);
+    },
+    [changeTab, setRailOpen],
+  );
+
   // Warm the lazy tab chunks shortly after the first screen settles, so the
   // first tap on each tab doesn't pay a fetch+parse hitch. Deferred 2s (past
   // cold-start) then idle-scheduled where WebKit supports it.
@@ -201,7 +212,7 @@ function AppShell() {
       {dockIsSide && (
         <SideRail
           active={tab}
-          onChange={changeTab}
+          onChange={changeTabFromRail}
           onClose={() => setRailOpen(false)}
           open={railOpen}
           showMyDay={showMyDay}
@@ -212,19 +223,34 @@ function AppShell() {
         />
       )}
 
+      {/* Phone/portrait scrim — below lg the rail overlays the (full-width)
+          content as a drawer, so give it a tap-to-dismiss backdrop. Kept
+          mounted so the fade runs both ways; z-20 sits under the rail's z-30. */}
+      {dockIsSide && (
+        <div
+          onClick={() => setRailOpen(false)}
+          aria-hidden="true"
+          className={
+            'fixed inset-0 z-20 bg-black/40 lg:hidden transition-opacity duration-300 ' +
+            (railOpen ? 'opacity-100' : 'opacity-0 pointer-events-none')
+          }
+        />
+      )}
+
       <div
         className={
           'mx-auto p-3 sm:p-6 ' +
-          // On a side rail (iPad landscape), let content use the full width
-          // beside the rail instead of clamping to a centred phone column.
-          // When the rail is collapsed the floating hamburger sits at top-left,
-          // so keep a little left margin so the TopBar can't overlap it.
+          // On a side rail, lg+ (iPad landscape) pushes content aside so it
+          // uses the full width beside the rail; when collapsed keep a little
+          // left margin so the TopBar can't overlap the floating hamburger.
+          // Below lg the rail OVERLAYS as a drawer instead — content keeps the
+          // phone's full width (only the TopBar pads around the hamburger).
           // NOTE: the margin change is deliberately NOT transitioned — animating
           // margin re-lays-out and repaints every mounted (keep-alive) page tree
           // on each of ~18 frames. The rail itself still glides via transform;
           // the content column snaps in a single layout pass.
           (dockIsSide
-            ? 'pb-8 ' + (railOpen ? 'ml-56' : 'ml-14 sm:ml-16')
+            ? 'pb-8 ' + (railOpen ? 'lg:ml-56' : 'lg:ml-16')
             : 'max-w-6xl pb-28 sm:pb-36')
         }
         style={
@@ -256,7 +282,12 @@ function AppShell() {
             </span>
           </button>
         )}
-        <TopBar onSwitchUser={() => setSwitcherOpen(true)} />
+        {/* Below lg in side mode the content column is full-width, so pad just
+            the TopBar clear of the fixed hamburger instead of insetting the
+            whole page. */}
+        <div className={dockIsSide ? 'pl-12 lg:pl-0' : undefined}>
+          <TopBar onSwitchUser={() => setSwitcherOpen(true)} />
+        </div>
 
         <main>
           {/* Home is always mounted; other visited tabs stay mounted but

@@ -1,4 +1,4 @@
-import { lazy, memo, Suspense, useMemo, useState } from 'react';
+import { lazy, memo, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Plus,
   CheckCircle2,
@@ -277,8 +277,58 @@ function ItemsList({
   const swipeMode = useSwipeMode();
   const [showCompleted, setShowCompleted] = useState(true);
 
-  const activeItems = items.filter((i) => !i.done);
-  const completedItems = items.filter((i) => i.done);
+  // Reminders-style completion grace. Checking an item commits the write
+  // immediately, but the row HOLDS its place in the active section — checked
+  // and struck through — for a beat, then collapses away into Completed.
+  // Without this the row teleports between sections on the very tap, which
+  // reads as jank and gives no window to un-tick a mis-tap in place.
+  // 'grace' = checked, still holding position; 'leaving' = collapse running.
+  const GRACE_MS = 1400;
+  const COLLAPSE_MS = 300;
+  const [pendingDone, setPendingDone] = useState<ReadonlyMap<string, 'grace' | 'leaving'>>(
+    new Map(),
+  );
+  const pendingTimers = useRef(new Map<string, number[]>());
+  useEffect(() => {
+    const timers = pendingTimers.current;
+    return () => timers.forEach((ids) => ids.forEach((t) => window.clearTimeout(t)));
+  }, []);
+
+  const clearPending = useCallback((id: string) => {
+    pendingTimers.current.get(id)?.forEach((t) => window.clearTimeout(t));
+    pendingTimers.current.delete(id);
+    setPendingDone((prev) => {
+      if (!prev.has(id)) return prev;
+      const next = new Map(prev);
+      next.delete(id);
+      return next;
+    });
+  }, []);
+
+  const handleToggle = useCallback(
+    (item: TodoItem) => {
+      toggleListItem(item.id);
+      if (item.done) {
+        // Un-checking — cancel any in-flight grace; the row moves back to the
+        // active section on this very render, no delay wanted.
+        clearPending(item.id);
+        return;
+      }
+      pendingTimers.current.get(item.id)?.forEach((t) => window.clearTimeout(t));
+      setPendingDone((prev) => new Map(prev).set(item.id, 'grace'));
+      const toLeaving = window.setTimeout(() => {
+        setPendingDone((prev) =>
+          prev.get(item.id) === 'grace' ? new Map(prev).set(item.id, 'leaving') : prev,
+        );
+      }, GRACE_MS);
+      const toGone = window.setTimeout(() => clearPending(item.id), GRACE_MS + COLLAPSE_MS);
+      pendingTimers.current.set(item.id, [toLeaving, toGone]);
+    },
+    [toggleListItem, clearPending],
+  );
+
+  const activeItems = items.filter((i) => !i.done || pendingDone.has(i.id));
+  const completedItems = items.filter((i) => i.done && !pendingDone.has(i.id));
 
   // Row budget (X6): every row carries SwipeableRow pointer handlers + a drag
   // handle, so a power-user list with hundreds of items pays real mount and
@@ -292,21 +342,37 @@ function ItemsList({
       ? activeItems
       : activeItems.slice(0, ROW_BUDGET);
 
-  const renderRow = (item: TodoItem) => (
-    <ListItemRow
-      key={item.id}
-      item={item}
-      list={list}
-      members={members}
-      swipeMode={swipeMode}
-      dragProps={itemDnd.getRowProps(item.id)}
-      toggleListItem={toggleListItem}
-      deleteListItem={deleteListItem}
-      restoreListItem={restoreListItem}
-      showToast={show}
-      onEdit={onEditItem}
-    />
-  );
+  // Each row sits in a 1fr grid track; 'leaving' animates the track to 0fr
+  // (works for any row height, no measuring) + fades, then the grace clears
+  // and the row re-renders down in the Completed section.
+  const renderRow = (item: TodoItem) => {
+    const phase = pendingDone.get(item.id);
+    return (
+      <div
+        key={item.id}
+        className="grid transition-[grid-template-rows,opacity] duration-300 ease-out"
+        style={{
+          gridTemplateRows: phase === 'leaving' ? '0fr' : '1fr',
+          opacity: phase === 'leaving' ? 0 : 1,
+        }}
+      >
+        <div className={phase === 'leaving' ? 'min-h-0 overflow-hidden' : 'min-h-0'}>
+          <ListItemRow
+            item={item}
+            list={list}
+            members={members}
+            swipeMode={swipeMode}
+            dragProps={itemDnd.getRowProps(item.id)}
+            onToggle={handleToggle}
+            deleteListItem={deleteListItem}
+            restoreListItem={restoreListItem}
+            showToast={show}
+            onEdit={onEditItem}
+          />
+        </div>
+      </div>
+    );
+  };
 
   return (
     <div>
@@ -345,7 +411,7 @@ type ListItemRowProps = {
   members: FamilyMember[];
   swipeMode: 'partial' | 'full';
   dragProps: ReturnType<ReturnType<typeof useListDragReorder<TodoItem>>['getRowProps']>;
-  toggleListItem: FamilyActions['toggleListItem'];
+  onToggle: (item: TodoItem) => void;
   deleteListItem: FamilyActions['deleteListItem'];
   restoreListItem: FamilyActions['restoreListItem'];
   showToast: ReturnType<typeof useToast>['show'];
@@ -382,7 +448,7 @@ const ListItemRow = memo(function ListItemRow({
   members,
   swipeMode,
   dragProps,
-  toggleListItem,
+  onToggle,
   deleteListItem,
   restoreListItem,
   showToast,
@@ -392,6 +458,15 @@ const ListItemRow = memo(function ListItemRow({
   const dueLabel = item.next_due || item.due_date;
   const overdue = isOverdue(item);
   const dueSoon = isDueSoon(item, 7);
+
+  // Pop the check only when it flips WHILE this row is mounted (a real tap),
+  // not on every mount of an already-done row (expanding Completed would make
+  // the whole section pop at once).
+  const prevDone = useRef(item.done);
+  const justChecked = item.done && !prevDone.current;
+  useEffect(() => {
+    prevDone.current = item.done;
+  });
 
   const handleDelete = () => {
     // Snapshot for undo — restored with the same id and full content.
@@ -413,9 +488,12 @@ const ListItemRow = memo(function ListItemRow({
           className="relative flex items-center gap-2 p-3 bg-surface-2/40 hover:bg-surface-2/70 transition-colors select-none"
         >
           <DragHandle handleProps={handleProps} />
-          <button data-no-swipe onClick={() => toggleListItem(item.id)} className="shrink-0">
+          <button data-no-swipe onClick={() => onToggle(item)} className="shrink-0">
             {item.done ? (
-              <CheckCircle2 size={20} className="text-accent" />
+              <CheckCircle2
+                size={20}
+                className={'text-accent' + (justChecked ? ' animate-check-pop' : '')}
+              />
             ) : (
               <Circle size={20} className="text-text-faint hover:text-text" />
             )}
