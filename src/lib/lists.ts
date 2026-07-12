@@ -10,11 +10,14 @@ export function visibleLists(lists: TodoList[], activeMemberId: string): TodoLis
 }
 
 /**
- * Sort items: not-done above done; within each, by position then alpha.
+ * Sort items by position then alpha. Deliberately does NOT group done items
+ * last: ListsPage partitions active/completed into separate sections itself,
+ * and a done-first key here would yank a just-ticked row out of its place
+ * during the completion grace period (it should hold position, then collapse —
+ * Reminders-style) instead of letting the section partition handle grouping.
  */
 export function sortedItems(items: TodoItem[]): TodoItem[] {
   return [...items].sort((a, b) => {
-    if (a.done !== b.done) return a.done ? 1 : -1;
     if (a.position !== b.position) return a.position - b.position;
     return a.title.localeCompare(b.title);
   });
